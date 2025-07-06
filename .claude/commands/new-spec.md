@@ -1,10 +1,10 @@
 ---
-description: Create a new specification file for a feature or bugfix
+description: Create a new specification for a feature or bugfix
 ---
 
 # New Spec: $ARGUMENTS
 
-Create a new specification file in the `specs/` directory and update CLAUDE.md to reference it as the current spec.
+Create a new SPEC.md file (replacing any existing one) for the current feature. When the current feature is complete, the existing SPEC.md will be moved to specs/ for archival.
 
 ## Template
 
@@ -42,10 +42,14 @@ Description of what exists now in the codebase.
 ### Tests passing
 - None yet
 
+## URL References
+Links to external resources, documentation, or codebases that help understand the requirements:
+- [Example](https://example.com) - Description of what this helps with
+
 ## Notes
 Additional context, decisions, or considerations.
 ```
 
 Please:
-1. Create a new spec file at `specs/$ARGUMENTS.md` with the above template
-2. Update CLAUDE.md to set the current spec to: `$ARGUMENTS`
+1. If SPEC.md exists, move it to `specs/` directory with a descriptive name
+2. Create a new SPEC.md with the above template for `$ARGUMENTS`
