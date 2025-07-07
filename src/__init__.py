@@ -4,6 +4,7 @@ AI Batch Processing Library
 A wrapper around Anthropic's batch API for structured output.
 """
 
-from .ai_batch import batch
+from .core import batch
+from .file_processing import batch_files, pdf_to_document_block
 
-__all__ = ["batch"]
+__all__ = ["batch", "batch_files", "pdf_to_document_block"]

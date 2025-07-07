@@ -133,6 +133,25 @@ class AnthropicBatchProvider(BaseBatchProvider):
                 errors.append({"error": str(e), "result": result.model_dump()})
             
         if errors:
+            print(f"\n❌ Batch processing errors ({len(errors)} failed):")
+            for i, error in enumerate(errors, 1):
+                print(f"\nError {i}:")
+                if "error" in error:
+                    print(f"  Exception: {error['error']}")
+                if "result" in error:
+                    result_data = error["result"]
+                    if isinstance(result_data, dict):
+                        if "result" in result_data and isinstance(result_data["result"], dict):
+                            res = result_data["result"]
+                            if "type" in res:
+                                print(f"  Result type: {res['type']}")
+                            if "error" in res:
+                                print(f"  API error: {res['error']}")
+                        if "custom_id" in result_data:
+                            print(f"  Custom ID: {result_data['custom_id']}")
+                    else:
+                        print(f"  Result data: {result_data}")
+                print(f"  Full error: {error}")
             raise RuntimeError(f"Some batch requests failed: {len(errors)} errors")
         
         return parsed_results

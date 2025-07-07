@@ -69,7 +69,7 @@ def test_missing_api_key():
         )
 
 
-@patch('src.ai_batch.AnthropicBatchProvider')
+@patch('src.core.AnthropicBatchProvider')
 def test_batch_creates_batch_job(mock_provider_class):
     """Test that batch function creates a batch job."""
     # Mock provider instance
@@ -101,7 +101,7 @@ def test_batch_creates_batch_job(mock_provider_class):
     assert result[0].is_spam == True
 
 
-@patch('src.ai_batch.AnthropicBatchProvider')
+@patch('src.core.AnthropicBatchProvider')
 def test_batch_multiple_messages(mock_provider_class):
     """Test that batch processes multiple messages correctly."""
     # Mock provider instance
@@ -136,7 +136,7 @@ def test_batch_multiple_messages(mock_provider_class):
     assert results[1].is_spam == False
 
 
-@patch('src.ai_batch.AnthropicBatchProvider')
+@patch('src.core.AnthropicBatchProvider')
 def test_batch_without_response_model(mock_provider_class):
     """Test that batch returns raw text when no response_model is provided."""
     # Mock provider instance

@@ -1,18 +1,63 @@
 """
-AI Batch Processing Module
+Core Batch Processing Module
 
 A wrapper around AI providers' batch APIs for structured output.
 """
 
-from typing import List, Type, TypeVar, Optional, Union
+import os
+from pathlib import Path
+from typing import List, Type, TypeVar, Optional, Union, overload
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from .providers.anthropic import AnthropicBatchProvider
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from project root
+project_root = Path(__file__).parent.parent
+load_dotenv(project_root / ".env")
 
 T = TypeVar('T', bound=BaseModel)
+
+
+@overload
+def batch(
+    messages: List[List[dict]], 
+    model: str, 
+    response_model: Type[T],
+    provider: str = "anthropic",
+    max_tokens: int = 1024,
+    temperature: float = 0.0,
+    wait_for_completion: bool = True,
+    poll_interval: int = 10,
+    verbose: bool = False
+) -> List[T]: ...
+
+
+@overload
+def batch(
+    messages: List[List[dict]], 
+    model: str, 
+    response_model: None = None,
+    provider: str = "anthropic",
+    max_tokens: int = 1024,
+    temperature: float = 0.0,
+    wait_for_completion: bool = True,
+    poll_interval: int = 10,
+    verbose: bool = False
+) -> List[str]: ...
+
+
+@overload
+def batch(
+    messages: List[List[dict]], 
+    model: str, 
+    response_model: Optional[Type[T]] = None,
+    provider: str = "anthropic",
+    max_tokens: int = 1024,
+    temperature: float = 0.0,
+    wait_for_completion: bool = False,
+    poll_interval: int = 10,
+    verbose: bool = False
+) -> str: ...
 
 
 def batch(
@@ -25,7 +70,7 @@ def batch(
     wait_for_completion: bool = True,
     poll_interval: int = 10,
     verbose: bool = False
-) -> Union[List[T], List[str]]:
+) -> Union[List[T], List[str], str]:
     """
     Process multiple message conversations using AI providers' batch processing APIs.
     
@@ -41,7 +86,8 @@ def batch(
         verbose: Whether to print status updates (default: False)
         
     Returns:
-        List of response_model instances if response_model provided, otherwise list of raw text strings
+        If wait_for_completion=True: List of response_model instances if response_model provided, otherwise list of raw text strings
+        If wait_for_completion=False: Batch ID string for manual polling
         
     Raises:
         ValueError: If API key is missing, unsupported provider, or batch validation fails
