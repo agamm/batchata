@@ -7,7 +7,10 @@ They test the happy path scenarios with real data.
 
 import pytest
 from pydantic import BaseModel
-from ai_batch import batch
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
+from src.ai_batch import batch
 
 
 class SpamResult(BaseModel):

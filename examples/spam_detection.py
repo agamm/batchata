@@ -5,7 +5,7 @@ Demonstrates using ai_batch to classify multiple emails as spam or not spam.
 """
 
 from pydantic import BaseModel
-from ai_batch import batch
+from src import batch
 
 
 class SpamResult(BaseModel):

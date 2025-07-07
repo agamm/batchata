@@ -2,7 +2,7 @@ import pytest
 import os
 from unittest.mock import patch, MagicMock
 from pydantic import BaseModel
-from ai_batch import batch
+from src import batch
 
 
 class SpamResult(BaseModel):
@@ -43,9 +43,6 @@ def test_batch_missing_required_params():
     
     with pytest.raises(TypeError):
         batch(messages=[])
-    
-    with pytest.raises(TypeError):
-        batch(messages=[], model="claude-3-haiku-20240307")
 
 
 def test_batch_with_empty_messages():
@@ -64,7 +61,7 @@ def test_missing_api_key():
     """Test that missing API key raises appropriate error."""
     messages = [[{"role": "user", "content": "Test message"}]]
     
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY environment variable is required"):
+    with pytest.raises(TypeError, match="Could not resolve authentication method"):
         batch(
             messages=messages,
             model="claude-3-haiku-20240307",
@@ -72,25 +69,18 @@ def test_missing_api_key():
         )
 
 
-@patch('instructor.handle_response_model')
-@patch('ai_batch.Anthropic')
-@patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-def test_batch_creates_batch_job(mock_anthropic, mock_handle_response):
+@patch('src.ai_batch.AnthropicBatchProvider')
+def test_batch_creates_batch_job(mock_provider_class):
     """Test that batch function creates a batch job."""
-    mock_client = MagicMock()
-    mock_anthropic.return_value = mock_client
-    mock_client.messages.batches.create.return_value.id = "batch_123"
-    mock_client.messages.batches.retrieve.return_value.processing_status = "ended"
-    
-    # Mock batch results
-    mock_result = MagicMock()
-    mock_result.result.type = "succeeded"
-    mock_result.result.message.content = [MagicMock()]
-    mock_result.result.message.content[0].text = '{"is_spam": true, "confidence": 0.9, "reason": "Test"}'
-    mock_client.messages.batches.results.return_value = [mock_result]
-    
-    # Mock instructor response handling
-    mock_handle_response.return_value = (None, {'system': [{'type': 'text', 'text': 'JSON schema'}]})
+    # Mock provider instance
+    mock_provider = MagicMock()
+    mock_provider_class.return_value = mock_provider
+    mock_provider.validate_batch.return_value = None
+    mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
+    mock_provider.create_batch.return_value = "batch_123"
+    mock_provider.wait_for_completion.return_value = None
+    mock_provider.get_results.return_value = []
+    mock_provider.parse_results.return_value = [SpamResult(is_spam=True, confidence=0.9, reason="Test")]
     
     messages = [[{"role": "user", "content": "Test message"}]]
     
@@ -100,38 +90,35 @@ def test_batch_creates_batch_job(mock_anthropic, mock_handle_response):
         response_model=SpamResult
     )
     
-    # Verify the batch was created
-    mock_client.messages.batches.create.assert_called_once()
+    # Verify the provider methods were called
+    mock_provider.validate_batch.assert_called_once()
+    mock_provider.prepare_batch_requests.assert_called_once()
+    mock_provider.create_batch.assert_called_once()
+    mock_provider.wait_for_completion.assert_called_once()
+    mock_provider.parse_results.assert_called_once()
     
     assert len(result) == 1
     assert result[0].is_spam == True
 
 
-@patch('instructor.handle_response_model')
-@patch('ai_batch.Anthropic')
-@patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-def test_batch_multiple_messages(mock_anthropic, mock_handle_response):
+@patch('src.ai_batch.AnthropicBatchProvider')
+def test_batch_multiple_messages(mock_provider_class):
     """Test that batch processes multiple messages correctly."""
-    mock_client = MagicMock()
-    mock_anthropic.return_value = mock_client
-    mock_client.messages.batches.create.return_value.id = "batch_123"
-    mock_client.messages.batches.retrieve.return_value.processing_status = "ended"
-    
-    # Mock batch results
-    mock_result1 = MagicMock()
-    mock_result1.result.type = "succeeded"
-    mock_result1.result.message.content = [MagicMock()]
-    mock_result1.result.message.content[0].text = '{"is_spam": true, "confidence": 0.9, "reason": "Spam"}'
-    
-    mock_result2 = MagicMock()
-    mock_result2.result.type = "succeeded"
-    mock_result2.result.message.content = [MagicMock()]
-    mock_result2.result.message.content[0].text = '{"is_spam": false, "confidence": 0.1, "reason": "Not spam"}'
-    
-    mock_client.messages.batches.results.return_value = [mock_result1, mock_result2]
-    
-    # Mock instructor response handling
-    mock_handle_response.return_value = (None, {'system': [{'type': 'text', 'text': 'JSON schema'}]})
+    # Mock provider instance
+    mock_provider = MagicMock()
+    mock_provider_class.return_value = mock_provider
+    mock_provider.validate_batch.return_value = None
+    mock_provider.prepare_batch_requests.return_value = [
+        {'custom_id': 'request_0', 'params': {}},
+        {'custom_id': 'request_1', 'params': {}}
+    ]
+    mock_provider.create_batch.return_value = "batch_123"
+    mock_provider.wait_for_completion.return_value = None
+    mock_provider.get_results.return_value = []
+    mock_provider.parse_results.return_value = [
+        SpamResult(is_spam=True, confidence=0.9, reason="Spam"),
+        SpamResult(is_spam=False, confidence=0.1, reason="Not spam")
+    ]
     
     messages = [
         [{"role": "user", "content": "Message 1"}],
@@ -147,3 +134,28 @@ def test_batch_multiple_messages(mock_anthropic, mock_handle_response):
     assert len(results) == 2
     assert results[0].is_spam == True
     assert results[1].is_spam == False
+
+
+@patch('src.ai_batch.AnthropicBatchProvider')
+def test_batch_without_response_model(mock_provider_class):
+    """Test that batch returns raw text when no response_model is provided."""
+    # Mock provider instance
+    mock_provider = MagicMock()
+    mock_provider_class.return_value = mock_provider
+    mock_provider.validate_batch.return_value = None
+    mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
+    mock_provider.create_batch.return_value = "batch_123"
+    mock_provider.wait_for_completion.return_value = None
+    mock_provider.get_results.return_value = []
+    mock_provider.parse_results.return_value = ["This is a raw text response"]
+    
+    messages = [[{"role": "user", "content": "Test message"}]]
+    
+    results = batch(
+        messages=messages,
+        model="claude-3-haiku-20240307"
+    )
+    
+    assert len(results) == 1
+    assert results[0] == "This is a raw text response"
+    assert isinstance(results[0], str)
