@@ -334,6 +334,8 @@ class AnthropicBatchProvider(BaseBatchProvider):
                         if hasattr(content, 'citations') and content.citations:
                             field_citations = self._map_citations_to_fields([content], response_model)
                             all_citations.append(field_citations)
+                        else:
+                            all_citations.append({})
                     else:
                         # Mode 3: Text + Citations (single block)
                         parsed_results.append(message_content)
