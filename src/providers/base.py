@@ -151,3 +151,24 @@ class BaseBatchProvider(ABC):
             RuntimeError: If parsing fails
         """
         pass
+    
+    @abstractmethod
+    def get_batch_usage_costs(self, batch_id: str, model: str) -> Dict[str, Any]:
+        """
+        Get usage costs for a completed batch.
+        
+        Args:
+            batch_id: ID of the batch
+            model: Model name used for the batch
+            
+        Returns:
+            Dictionary with cost information including:
+            - total_input_tokens: Total input tokens used
+            - total_output_tokens: Total output tokens generated
+            - input_cost: Cost for input tokens
+            - output_cost: Cost for output tokens
+            - total_cost: Total cost (input + output)
+            - service_tier: Service tier used ('batch' or 'standard')
+            - request_count: Number of requests in the batch
+        """
+        pass

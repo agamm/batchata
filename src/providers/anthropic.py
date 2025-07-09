@@ -6,9 +6,10 @@ Provider class for Anthropic Claude models with batch processing.
 
 import json
 from textwrap import dedent
-from typing import List, Type, Dict, Any, Optional, Union
+from typing import List, Type, Dict, Any, Optional, Union, Literal
 from pydantic import BaseModel
 from anthropic import Anthropic
+from tokencost import calculate_cost_by_tokens
 from .base import BaseBatchProvider
 from ..citations import Citation
 
@@ -19,6 +20,9 @@ class AnthropicBatchProvider(BaseBatchProvider):
     # Batch limitations from https://docs.anthropic.com/en/docs/build-with-claude/batch-processing#batch-limitations
     MAX_REQUESTS = 100_000      # Max requests per batch
     MAX_TOTAL_SIZE_MB = 256     # Max total batch size in MB
+    
+    # Batch API offers 50% discount on all usage
+    BATCH_DISCOUNT = 0.5
     
     def __init__(self, rate_limits: Dict[str, int] = None):
         super().__init__(rate_limits)
@@ -385,3 +389,169 @@ class AnthropicBatchProvider(BaseBatchProvider):
         else:
             # Mode 3: Flat list of citations
             return parsed_results, all_citations
+    
+    def _extract_usage_from_result(self, result: Any) -> Dict[str, Any]:
+        """
+        Extract usage data from API response result.
+        
+        Args:
+            result: API response result object
+            
+        Returns:
+            Dictionary with usage data (input_tokens, output_tokens, service_tier)
+        """
+        usage_data = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "service_tier": "batch"
+        }
+        
+        try:
+            if (hasattr(result, 'result') and 
+                hasattr(result.result, 'message') and 
+                hasattr(result.result.message, 'usage')):
+                
+                usage = result.result.message.usage
+                usage_data["input_tokens"] = getattr(usage, 'input_tokens', 0)
+                usage_data["output_tokens"] = getattr(usage, 'output_tokens', 0)
+                usage_data["service_tier"] = getattr(usage, 'service_tier', 'standard')
+        except Exception:
+            # If we can't extract usage, return default values
+            pass
+            
+        return usage_data
+    
+    def _calculate_token_cost(self, num_tokens: int, model: str, token_type: Literal['input', 'output', 'cached']) -> float:
+        """
+        Calculate cost for tokens using tokencost library.
+        
+        Args:
+            num_tokens: Number of tokens
+            model: Model name
+            token_type: Type of token ('input', 'output', or 'cached')
+            
+        Returns:
+            Cost in USD
+        """
+        if num_tokens == 0:
+            return 0.0
+            
+        try:
+            # tokencost expects model names in specific format
+            normalized_model = model.lower()
+            cost = calculate_cost_by_tokens(num_tokens, normalized_model, token_type)
+            return float(cost)
+        except Exception:
+            # If tokencost fails, return 0 rather than breaking
+            return 0.0
+    
+    def _apply_batch_discount(self, cost: float, service_tier: str) -> float:
+        """
+        Apply batch discount if service_tier is 'batch'.
+        
+        Args:
+            cost: Original cost
+            service_tier: Service tier ('batch' or 'standard')
+            
+        Returns:
+            Discounted cost
+        """
+        if service_tier == "batch":
+            return cost * self.BATCH_DISCOUNT
+        return cost
+    
+    def _aggregate_batch_usage(self, results: List[Any]) -> Dict[str, Any]:
+        """
+        Aggregate usage data across all results in a batch.
+        
+        Args:
+            results: List of API result objects
+            
+        Returns:
+            Dictionary with aggregated usage data
+        """
+        total_input_tokens = 0
+        total_output_tokens = 0
+        service_tier = "batch"
+        request_count = 0
+        
+        for result in results:
+            usage_data = self._extract_usage_from_result(result)
+            total_input_tokens += usage_data["input_tokens"]
+            total_output_tokens += usage_data["output_tokens"]
+            service_tier = usage_data["service_tier"]  # Should be same for all in batch
+            request_count += 1
+            
+        return {
+            "total_input_tokens": total_input_tokens,
+            "total_output_tokens": total_output_tokens,
+            "service_tier": service_tier,
+            "request_count": request_count
+        }
+    
+    def get_batch_usage_costs(self, batch_id: str, model: str) -> Dict[str, Any]:
+        """
+        Get usage costs for a completed batch.
+        
+        Args:
+            batch_id: ID of the batch
+            model: Model name used for the batch
+            
+        Returns:
+            Dictionary with cost information
+        """
+        if batch_id == "empty_batch":
+            return {
+                "total_input_tokens": 0,
+                "total_output_tokens": 0,
+                "input_cost": 0.0,
+                "output_cost": 0.0,
+                "total_cost": 0.0,
+                "service_tier": "batch",
+                "request_count": 0
+            }
+        
+        try:
+            # Get raw results to extract usage
+            raw_results = self.get_results(batch_id)
+            usage_data = self._aggregate_batch_usage(raw_results)
+            
+            # Calculate costs
+            input_cost = self._calculate_token_cost(
+                usage_data["total_input_tokens"], 
+                model, 
+                "input"
+            )
+            output_cost = self._calculate_token_cost(
+                usage_data["total_output_tokens"], 
+                model, 
+                "output"
+            )
+            
+            # Apply batch discount
+            input_cost = self._apply_batch_discount(input_cost, usage_data["service_tier"])
+            output_cost = self._apply_batch_discount(output_cost, usage_data["service_tier"])
+            
+            total_cost = input_cost + output_cost
+            
+            return {
+                "total_input_tokens": usage_data["total_input_tokens"],
+                "total_output_tokens": usage_data["total_output_tokens"],
+                "input_cost": input_cost,
+                "output_cost": output_cost,
+                "total_cost": total_cost,
+                "service_tier": usage_data["service_tier"],
+                "request_count": usage_data["request_count"]
+            }
+            
+        except Exception:
+            # If we can't get costs, return zeros
+            return {
+                "total_input_tokens": 0,
+                "total_output_tokens": 0,
+                "input_cost": 0.0,
+                "output_cost": 0.0,
+                "total_cost": 0.0,
+                "service_tier": "batch",
+                "request_count": 0
+            }

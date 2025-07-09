@@ -7,7 +7,7 @@ Provides a simple interface for async-like batch processing.
 import json
 import time
 from pathlib import Path
-from typing import List, Optional, Type, Union, Dict
+from typing import List, Optional, Type, Union, Dict, Any
 from pydantic import BaseModel
 from .providers.base import BaseBatchProvider
 from .citations import Citation
@@ -19,7 +19,7 @@ FieldCitations = Dict[str, List[Citation]]
 class BatchJob:
     """Simple batch job that returns immediately and provides methods to check status."""
     
-    def __init__(self, provider: BaseBatchProvider, batch_id: str, response_model: Optional[Type[BaseModel]] = None, verbose: bool = False, enable_citations: bool = False, raw_results_dir: Optional[str] = None):
+    def __init__(self, provider: BaseBatchProvider, batch_id: str, response_model: Optional[Type[BaseModel]] = None, verbose: bool = False, enable_citations: bool = False, raw_results_dir: Optional[str] = None, model: Optional[str] = None):
         """
         Initialize BatchJob.
         
@@ -30,6 +30,7 @@ class BatchJob:
             verbose: Whether to show warnings when not complete
             enable_citations: Whether citations were requested for this batch
             raw_results_dir: Optional directory to save raw API responses as JSON files
+            model: Model name for cost calculations
         """
         self._provider = provider
         self._batch_id = batch_id
@@ -37,6 +38,7 @@ class BatchJob:
         self._verbose = verbose
         self._enable_citations = enable_citations
         self._raw_results_dir = raw_results_dir
+        self._model = model
         self._cached_results = None
         self._cached_citations = None
         self._start_time = time.time()
@@ -136,6 +138,11 @@ class BatchJob:
             if self._enable_citations:
                 citations = self.citations()
                 stats_data["total_citations"] = len(citations) if citations else 0
+            
+            # Add cost information if model is provided
+            if self._model:
+                cost_data = self._provider.get_batch_usage_costs(self._batch_id, self._model)
+                stats_data.update(cost_data)
         
         if print_stats:
             print(f"📊 Batch Statistics")
@@ -158,15 +165,23 @@ class BatchJob:
                 print(f"   Results: {stats_data['total_results']}")
                 if stats_data['citations_enabled']:
                     print(f"   Citations: {stats_data.get('total_citations', 0)}")
+                
+                # Print cost information if available
+                if 'total_cost' in stats_data:
+                    print(f"   Input tokens: {stats_data.get('total_input_tokens', 0):,}")
+                    print(f"   Output tokens: {stats_data.get('total_output_tokens', 0):,}")
+                    print(f"   Total cost: ${stats_data['total_cost']:.4f}")
+                    if stats_data.get('service_tier') == 'batch':
+                        print(f"   (50% batch discount applied)")
         
         return stats_data
     
-    def _save_raw_responses(self, raw_results: List[dict]) -> None:
+    def _save_raw_responses(self, raw_results: List[Any]) -> None:
         """
         Save raw API responses to JSON files.
         
         Args:
-            raw_results: List of raw response dictionaries from API
+            raw_results: List of raw response objects from API (Pydantic models or dicts)
         """
         if not self._raw_results_dir:
             return
@@ -181,4 +196,11 @@ class BatchJob:
             filepath = raw_dir / filename
             
             with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(raw_response, f, indent=2, ensure_ascii=False)
+                # Handle both Pydantic models and plain dicts
+                try:
+                    # Try to call model_dump() if it exists (Pydantic models)
+                    data = raw_response.model_dump()
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                except (AttributeError, TypeError):
+                    # Fall back to direct serialization for plain dicts
+                    json.dump(raw_response, f, indent=2, ensure_ascii=False)

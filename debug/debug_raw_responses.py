@@ -31,109 +31,6 @@ class ExampleModel(BaseModel):
 
 
 
-def test_raw_responses_text_mode():
-    """Test raw response saving with text mode."""
-    print("🔍 Testing raw response saving - Text mode")
-    
-    raw_dir = Path("./raw_responses/text_mode")
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    print(f"📁 Saving raw responses to: {raw_dir}")
-    
-    # Create batch with raw response saving
-    job = batch(
-        messages=[
-            [{"role": "user", "content": "Say hello and tell me your name"}],
-            [{"role": "user", "content": "What is 2+2?"}],
-            [{"role": "user", "content": "Name 3 colors"}]
-        ],
-        model="claude-3-haiku-20240307",
-        raw_results_dir=str(raw_dir),
-        verbose=True
-    )
-        
-    print(f"📊 Batch ID: {job._batch_id}")
-    print(f"🔄 Waiting for batch to complete...")
-    
-    # Wait for completion
-    while not job.is_complete():
-        time.sleep(5)
-        print("⏳ Still processing...")
-    
-    print("✅ Batch completed!")
-    
-    # Get results
-    results = job.results()
-    print(f"📝 Results: {len(results)} responses")
-    
-    # Check raw response files
-    raw_files = list(raw_dir.glob("*.json"))
-    print(f"📄 Raw response files: {len(raw_files)}")
-    
-    for i, raw_file in enumerate(sorted(raw_files)):
-        print(f"   {i+1}. {raw_file.name}")
-        
-        # Show preview of raw response
-        try:
-            with open(raw_file, 'r') as f:
-                raw_data = json.load(f)
-                print(f"      Preview: {json.dumps(raw_data, indent=2)[:200]}...")
-        except json.JSONDecodeError:
-            print(f"      Preview: [Empty or invalid JSON file]")
-    
-    # Show regular results
-    print("\n🎯 Parsed Results:")
-    for i, result in enumerate(results):
-        print(f"   {i+1}. {result[:100]}...")
-
-
-def test_raw_responses_structured_mode():
-    """Test raw response saving with structured mode."""
-    print("\n🔍 Testing raw response saving - Structured mode")
-    
-    raw_dir = Path("./raw_responses/structured_mode")
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    print(f"📁 Saving raw responses to: {raw_dir}")
-    
-    # Create batch with structured output and raw response saving
-    job = batch(
-        messages=[
-            [{"role": "user", "content": "Summarize the benefits of exercise"}],
-            [{"role": "user", "content": "Explain machine learning in simple terms"}]
-        ],
-        model="claude-3-haiku-20240307",
-        response_model=ExampleModel,
-        raw_results_dir=str(raw_dir),
-        verbose=True
-    )
-        
-    print(f"📊 Batch ID: {job._batch_id}")
-    print(f"🔄 Waiting for batch to complete...")
-    
-    # Wait for completion
-    while not job.is_complete():
-        time.sleep(5)
-        print("⏳ Still processing...")
-    
-    print("✅ Batch completed!")
-    
-    # Get results
-    results = job.results()
-    print(f"📝 Results: {len(results)} structured responses")
-    
-    # Check raw response files
-    raw_files = list(raw_dir.glob("*.json"))
-    print(f"📄 Raw response files: {len(raw_files)}")
-    
-    for i, raw_file in enumerate(sorted(raw_files)):
-        print(f"   {i+1}. {raw_file.name}")
-    
-    # Show structured results
-    print("\n🎯 Structured Results:")
-    for i, result in enumerate(results):
-        if hasattr(result, 'summary'):
-            print(f"   {i+1}. Summary: {result.summary[:100]}...")
-            print(f"      Key points: {len(result.key_points)} items")
-
 
 def test_raw_responses_file_processing():
     """Test raw response saving with file processing."""
@@ -187,6 +84,8 @@ def test_raw_responses_file_processing():
         print("\n🎯 File Processing Results:")
         for i, result in enumerate(results):
             print(f"   {i+1}. {result[:100]}...")
+
+        job.stats(print_stats=True)
             
     except Exception as e:
         print(f"⚠️  File processing test failed: {e}")

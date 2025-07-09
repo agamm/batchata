@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-batch"
-version = "0.0.2"
+version = "0.0.3"
 description = "Batch processing for Anthropic's Claude API with structured output"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "anthropic>=0.57.1",
     "python-dotenv>=1.1.1",
+    "tokencost>=0.1.24",
 ]
 
 [project.scripts]

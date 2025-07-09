@@ -3,6 +3,7 @@
 Python SDK for **batch processing** with structured output and citation mapping.
 
 - **50% cost savings** via Anthropic's batch API pricing
+- **Automatic cost tracking** with token usage and pricing
 - **Structured output** with Pydantic models  
 - **Field-level citations** map results to source documents
 - **Type safety** with full validation
@@ -154,9 +155,21 @@ The job object returned by `batch()` and `batch_files()`.
 if job.is_complete():
     results = job.results()
 
-# Get processing statistics
+# Get processing statistics with cost tracking
 stats = job.stats(print_stats=True)
-# Output: {'batch_id': 'abc123', 'status': 'completed', 'total': 3, 'succeeded': 3, ...}
+# Output:
+# 📊 Batch Statistics
+#    ID: msgbatch_01BPtdnmEwxtaDcdJ2eUsq4T
+#    Status: ended
+#    Complete: ✅
+#    Elapsed: 41.8s
+#    Mode: Text + Citations
+#    Results: 0
+#    Citations: 0
+#    Input tokens: 2,117
+#    Output tokens: 81
+#    Total cost: $0.0038
+#    (50% batch discount applied)
 
 # Get citations (if enabled)
 citations = job.citations()
@@ -217,6 +230,28 @@ citations = job.citations()  # List of dicts mapping fields to citations
 
 The field mapping allows you to trace exactly which part of the source document was used to populate each field in your structured output.
 
+## Cost Tracking
+
+AI Batch automatically tracks token usage and costs for all batch operations:
+
+```python
+from ai_batch import batch
+
+job = batch(
+    messages=[...],
+    model="claude-3-5-sonnet-20241022"
+)
+
+# Get cost information
+stats = job.stats()
+print(f"Total cost: ${stats['total_cost']:.4f}")
+print(f"Input tokens: {stats['total_input_tokens']:,}")
+print(f"Output tokens: {stats['total_output_tokens']:,}")
+
+# Or print formatted statistics
+job.stats(print_stats=True)
+```
+
 ## Example Scripts
 
 - [`examples/spam_detection.py`](examples/spam_detection.py) - Email classification
@@ -239,7 +274,7 @@ MIT
 
 ## Todos
 
-- [ ] Add pricing metadata and max_spend controls
+- [x] ~~Add pricing metadata and max_spend controls~~ (Cost tracking implemented)
 - [ ] Auto batch manager (parallel batches, retry, spend control)
 - [ ] Test mode to run on 1% sample before full batch
 - [ ] Quick batch - split into smaller chunks for faster results

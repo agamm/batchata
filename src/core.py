@@ -52,7 +52,7 @@ def batch(
         # Return empty BatchJob for consistency
         provider_instance = AnthropicBatchProvider()
         fake_batch_id = "empty_batch"
-        return BatchJob(provider_instance, fake_batch_id, response_model, verbose, False, raw_results_dir)
+        return BatchJob(provider_instance, fake_batch_id, response_model, verbose, False, raw_results_dir, model)
     
     # Get provider instance
     if provider == "anthropic":
@@ -70,4 +70,4 @@ def batch(
     # Check if citations are enabled
     enable_citations = provider_instance.has_citations_enabled(messages)
     
-    return BatchJob(provider_instance, batch_id, response_model, verbose, enable_citations, raw_results_dir)
+    return BatchJob(provider_instance, batch_id, response_model, verbose, enable_citations, raw_results_dir, model)
