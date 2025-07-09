@@ -19,6 +19,7 @@
 ## Spec rules
 - When creating a new SPEC.md or modifying it, ask the user before making changes to the SPEC.md
 - SPEC.md should be pretty succinct, don't write full source code there, unless it is a helpful snippet to understand the spec.
+- Add learnings into the spec when you have some.
 
 ## Testing
 - Test main functionality, not every detail
@@ -32,19 +33,37 @@ ai-batch/
 ├── CLAUDE.md          # This file
 ├── SPEC.md            # Current feature specification
 ├── pyproject.toml     # Project configuration
-├── ai_batch.py        # Main module with batch() function
-├── .env.example       # Environment variable template
+├── debug/             # Debug and test scripts
+│   ├── debug_new_api.py
+│   └── debug_nested_validation.py
 ├── examples/          # Example usage scripts
-│   ├── __init__.py
+│   ├── citation_example.py
+│   ├── citation_with_pydantic.py
+│   ├── pdf_extraction.py
+│   ├── raw_text_example.py
 │   └── spam_detection.py
 ├── specs/             # Archived feature specifications (numbered by completion order)
-├── tests/             # Test files
+├── src/               # Source code
 │   ├── __init__.py
-│   ├── test_ai_batch.py
-│   ├── test_hello.py
-│   └── e2e/
-│       └── test_batch_integration.py
-└── hello.py           # Legacy file
+│   ├── batch_job.py
+│   ├── citations.py
+│   ├── core.py
+│   ├── file_processing.py
+│   └── providers/
+│       ├── __init__.py
+│       ├── anthropic.py
+│       └── base.py
+└── tests/             # Test files
+    ├── __init__.py
+    ├── test_ai_batch.py
+    ├── test_batch_validation.py
+    ├── test_citation_modes.py
+    ├── test_pdf_processing.py
+    ├── utils/
+    │   ├── __init__.py
+    │   └── pdf_utils.py
+    └── e2e/
+        └── test_batch_integration.py
 ```
 
 ## Commands

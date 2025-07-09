@@ -133,16 +133,19 @@ class BaseBatchProvider(ABC):
         pass
     
     @abstractmethod
-    def parse_results(self, results: List[Any], response_model: Optional[Type[BaseModel]]) -> Union[List[BaseModel], List[str]]:
+    def parse_results(self, results: List[Any], response_model: Optional[Type[BaseModel]], enable_citations: bool) -> tuple:
         """
         Parse API results into Pydantic models or raw text.
         
         Args:
             results: Raw results from API
             response_model: Optional Pydantic model to parse into
+            enable_citations: Whether citations were requested
             
         Returns:
-            List of parsed Pydantic model instances if response_model provided, otherwise raw text strings
+            Tuple of (results, citations) where:
+            - results: List[BaseModel] or List[str]
+            - citations: List[Citation] or List[FieldCitations] or None
             
         Raises:
             RuntimeError: If parsing fails

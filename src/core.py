@@ -4,60 +4,18 @@ Core Batch Processing Module
 A wrapper around AI providers' batch APIs for structured output.
 """
 
-import os
 from pathlib import Path
-from typing import List, Type, TypeVar, Optional, Union, overload
+from typing import List, Type, TypeVar, Optional
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from .providers.anthropic import AnthropicBatchProvider
+from .batch_job import BatchJob
 
 # Load environment variables from project root
 project_root = Path(__file__).parent.parent
 load_dotenv(project_root / ".env")
 
 T = TypeVar('T', bound=BaseModel)
-
-
-@overload
-def batch(
-    messages: List[List[dict]], 
-    model: str, 
-    response_model: Type[T],
-    provider: str = "anthropic",
-    max_tokens: int = 1024,
-    temperature: float = 0.0,
-    wait_for_completion: bool = True,
-    poll_interval: int = 10,
-    verbose: bool = False
-) -> List[T]: ...
-
-
-@overload
-def batch(
-    messages: List[List[dict]], 
-    model: str, 
-    response_model: None = None,
-    provider: str = "anthropic",
-    max_tokens: int = 1024,
-    temperature: float = 0.0,
-    wait_for_completion: bool = True,
-    poll_interval: int = 10,
-    verbose: bool = False
-) -> List[str]: ...
-
-
-@overload
-def batch(
-    messages: List[List[dict]], 
-    model: str, 
-    response_model: Optional[Type[T]] = None,
-    provider: str = "anthropic",
-    max_tokens: int = 1024,
-    temperature: float = 0.0,
-    wait_for_completion: bool = False,
-    poll_interval: int = 10,
-    verbose: bool = False
-) -> str: ...
 
 
 def batch(
@@ -67,10 +25,8 @@ def batch(
     provider: str = "anthropic",
     max_tokens: int = 1024,
     temperature: float = 0.0,
-    wait_for_completion: bool = True,
-    poll_interval: int = 10,
     verbose: bool = False
-) -> Union[List[T], List[str], str]:
+) -> BatchJob:
     """
     Process multiple message conversations using AI providers' batch processing APIs.
     
@@ -81,20 +37,20 @@ def batch(
         provider: AI provider name ("anthropic", etc.)
         max_tokens: Maximum tokens per response (default: 1024)
         temperature: Temperature for response generation (default: 0.0)
-        wait_for_completion: Whether to wait for batch completion (default: True)
-        poll_interval: Polling interval in seconds when waiting (default: 10)
-        verbose: Whether to print status updates (default: False)
+        verbose: Whether to show warnings when accessing incomplete results (default: False)
         
     Returns:
-        If wait_for_completion=True: List of response_model instances if response_model provided, otherwise list of raw text strings
-        If wait_for_completion=False: Batch ID string for manual polling
+        BatchJob instance that can be used to check status and get results
         
     Raises:
         ValueError: If API key is missing, unsupported provider, or batch validation fails
-        RuntimeError: If batch processing fails
+        RuntimeError: If batch creation fails
     """
     if not messages:
-        return []
+        # Return empty BatchJob for consistency
+        provider_instance = AnthropicBatchProvider()
+        fake_batch_id = "empty_batch"
+        return BatchJob(provider_instance, fake_batch_id, response_model, verbose, False)
     
     # Get provider instance
     if provider == "anthropic":
@@ -109,9 +65,7 @@ def batch(
     )
     batch_id = provider_instance.create_batch(batch_requests)
     
-    if not wait_for_completion:
-        return batch_id
+    # Check if citations are enabled
+    enable_citations = provider_instance.has_citations_enabled(messages)
     
-    provider_instance.wait_for_completion(batch_id, poll_interval, verbose)
-    results = provider_instance.get_results(batch_id)
-    return provider_instance.parse_results(results, response_model)
+    return BatchJob(provider_instance, batch_id, response_model, verbose, enable_citations)

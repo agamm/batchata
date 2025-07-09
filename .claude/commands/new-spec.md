@@ -46,6 +46,9 @@ Description of what exists now in the codebase.
 Links to external resources, documentation, or codebases that help understand the requirements:
 - [Example](https://example.com) - Description of what this helps with
 
+## Learnings
+Any ideas or edge cases and how you decided to go about them.
+
 ## Notes
 Additional context, decisions, or considerations.
 ```

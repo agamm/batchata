@@ -82,11 +82,12 @@ def test_batch_with_single_pdf():
         mock_provider.validate_batch.return_value = None
         mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
         mock_provider.create_batch.return_value = "batch_123"
-        mock_provider.wait_for_completion.return_value = None
+        mock_provider.has_citations_enabled.return_value = False
+        mock_provider._is_batch_completed.return_value = True
         mock_provider.get_results.return_value = []
-        mock_provider.parse_results.return_value = [
+        mock_provider.parse_results.return_value = ([
             DocumentInfo(title="Invoice", content="Invoice #12345", page_count=1)
-        ]
+        ], None)
         
         messages = [[
             {"role": "user", "content": [
@@ -99,12 +100,13 @@ def test_batch_with_single_pdf():
             ]}
         ]]
         
-        results = batch(
+        job = batch(
             messages=messages,
             model="claude-3-haiku-20240307",
             response_model=DocumentInfo
         )
         
+        results = job.results()
         assert len(results) == 1
         assert results[0].title == "Invoice"
         assert results[0].content == "Invoice #12345"
@@ -126,13 +128,14 @@ def test_batch_with_multiple_pdfs():
             {'custom_id': 'request_2', 'params': {}}
         ]
         mock_provider.create_batch.return_value = "batch_123"
-        mock_provider.wait_for_completion.return_value = None
+        mock_provider.has_citations_enabled.return_value = False
+        mock_provider._is_batch_completed.return_value = True
         mock_provider.get_results.return_value = []
-        mock_provider.parse_results.return_value = [
+        mock_provider.parse_results.return_value = ([
             DocumentInfo(title="Doc1", content="Document 1", page_count=1),
             DocumentInfo(title="Doc2", content="Document 2", page_count=1),
             DocumentInfo(title="Doc3", content="Document 3", page_count=1)
-        ]
+        ], None)
         
         messages = []
         for i, pdf_content in enumerate([pdf1, pdf2, pdf3], 1):
@@ -148,12 +151,13 @@ def test_batch_with_multiple_pdfs():
                 ]
             }])
         
-        results = batch(
+        job = batch(
             messages=messages,
             model="claude-3-haiku-20240307",
             response_model=DocumentInfo
         )
         
+        results = job.results()
         assert len(results) == 3
         assert results[0].title == "Doc1"
         assert results[1].title == "Doc2"
@@ -178,22 +182,24 @@ def test_batch_with_file_paths():
                 {'custom_id': f'request_{i}', 'params': {}} for i in range(3)
             ]
             mock_provider.create_batch.return_value = "batch_123"
-            mock_provider.wait_for_completion.return_value = None
+            mock_provider.has_citations_enabled.return_value = False
+            mock_provider._is_batch_completed.return_value = True
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = [
+            mock_provider.parse_results.return_value = ([
                 DocumentInfo(title=f"Doc{i}", content=f"Test Document {i}", page_count=1)
                 for i in range(3)
-            ]
+            ], None)
             
             from src.file_processing import batch_files
             
-            results = batch_files(
+            job = batch_files(
                 files=pdf_files,
                 prompt="Extract document information",
                 model="claude-3-haiku-20240307",
                 response_model=DocumentInfo
             )
             
+            results = job.results()
             assert len(results) == 3
             for i, result in enumerate(results):
                 assert result.title == f"Doc{i}"

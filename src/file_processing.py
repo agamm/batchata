@@ -9,20 +9,22 @@ from pathlib import Path
 from typing import List, Type, TypeVar, Optional, Union, overload
 from pydantic import BaseModel
 from .core import batch
+from .batch_job import BatchJob
 
 T = TypeVar('T', bound=BaseModel)
 
 
-def pdf_to_document_block(pdf_bytes: bytes) -> dict:
+def pdf_to_document_block(pdf_bytes: bytes, enable_citations: bool = False) -> dict:
     """Convert PDF bytes to Anthropic document content block format.
     
     Args:
         pdf_bytes: Raw PDF file bytes
+        enable_citations: Whether to enable citations for this document
         
     Returns:
         Document content block dict
     """
-    return {
+    doc_block = {
         "type": "document",
         "source": {
             "type": "base64",
@@ -30,66 +32,11 @@ def pdf_to_document_block(pdf_bytes: bytes) -> dict:
             "data": base64.b64encode(pdf_bytes).decode('utf-8')
         }
     }
-
-
-@overload
-def batch_files(
-    files: List[str],
-    prompt: str,
-    model: str,
-    response_model: Type[T],
-    **kwargs
-) -> List[T]: ...
-
-
-@overload
-def batch_files(
-    files: List[str],
-    prompt: str,
-    model: str,
-    response_model: None = None,
-    **kwargs
-) -> List[str]: ...
-
-
-@overload
-def batch_files(
-    files: List[Path],
-    prompt: str,
-    model: str,
-    response_model: Type[T],
-    **kwargs
-) -> List[T]: ...
-
-
-@overload
-def batch_files(
-    files: List[Path],
-    prompt: str,
-    model: str,
-    response_model: None = None,
-    **kwargs
-) -> List[str]: ...
-
-
-@overload
-def batch_files(
-    files: List[bytes],
-    prompt: str,
-    model: str,
-    response_model: Type[T],
-    **kwargs
-) -> List[T]: ...
-
-
-@overload
-def batch_files(
-    files: List[bytes],
-    prompt: str,
-    model: str,
-    response_model: None = None,
-    **kwargs
-) -> List[str]: ...
+    
+    if enable_citations:
+        doc_block["citations"] = {"enabled": True}
+        
+    return doc_block
 
 
 def batch_files(
@@ -97,8 +44,9 @@ def batch_files(
     prompt: str,
     model: str,
     response_model: Optional[Type[T]] = None,
+    enable_citations: bool = False,
     **kwargs
-) -> Union[List[T], List[str], str]:
+) -> BatchJob:
     """Process multiple PDF files using batch API.
     
     Args:
@@ -107,34 +55,40 @@ def batch_files(
         prompt: Prompt to use for each file
         model: Model name
         response_model: Optional Pydantic model for structured output
+        enable_citations: Whether to enable citations for documents
         **kwargs: Additional arguments passed to batch()
         
     Returns:
-        List of responses
+        BatchJob instance that can be used to check status and get results
         
     Examples:
         # Using file paths
-        results = batch_files(
+        job = batch_files(
             files=["doc1.pdf", "doc2.pdf"],
             prompt="Summarize this document",
             model="claude-3-haiku-20240307"
         )
+        results = job.results()  # Returns empty list until complete
         
-        # Using Path objects
-        results = batch_files(
+        # Using Path objects with structured output
+        job = batch_files(
             files=[Path("doc1.pdf"), Path("doc2.pdf")],
             prompt="Extract data",
             model="claude-3-haiku-20240307",
             response_model=MyModel
         )
+        if job.is_complete():
+            results = job.results()
         
-        # Using bytes
+        # Using bytes with citations
         pdf_bytes = [open("doc.pdf", "rb").read()]
-        results = batch_files(
+        job = batch_files(
             files=pdf_bytes,
             prompt="Analyze",
-            model="claude-3-haiku-20240307"
+            model="claude-3-haiku-20240307",
+            enable_citations=True
         )
+        citations = job.citations()  # Returns List[Citation]
     """
     messages = []
     
@@ -147,7 +101,7 @@ def batch_files(
                 raise FileNotFoundError(f"File not found: {pdf_path}")
             pdf_bytes = pdf_path.read_bytes()
         
-        doc_block = pdf_to_document_block(pdf_bytes)
+        doc_block = pdf_to_document_block(pdf_bytes, enable_citations=enable_citations)
         
         messages.append([{
             "role": "user",
