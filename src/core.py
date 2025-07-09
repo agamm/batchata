@@ -25,7 +25,8 @@ def batch(
     provider: str = "anthropic",
     max_tokens: int = 1024,
     temperature: float = 0.0,
-    verbose: bool = False
+    verbose: bool = False,
+    raw_results_dir: Optional[str] = None
 ) -> BatchJob:
     """
     Process multiple message conversations using AI providers' batch processing APIs.
@@ -38,6 +39,7 @@ def batch(
         max_tokens: Maximum tokens per response (default: 1024)
         temperature: Temperature for response generation (default: 0.0)
         verbose: Whether to show warnings when accessing incomplete results (default: False)
+        raw_results_dir: Optional directory to save raw API responses as JSON files (default: None)
         
     Returns:
         BatchJob instance that can be used to check status and get results
@@ -50,7 +52,7 @@ def batch(
         # Return empty BatchJob for consistency
         provider_instance = AnthropicBatchProvider()
         fake_batch_id = "empty_batch"
-        return BatchJob(provider_instance, fake_batch_id, response_model, verbose, False)
+        return BatchJob(provider_instance, fake_batch_id, response_model, verbose, False, raw_results_dir)
     
     # Get provider instance
     if provider == "anthropic":
@@ -68,4 +70,4 @@ def batch(
     # Check if citations are enabled
     enable_citations = provider_instance.has_citations_enabled(messages)
     
-    return BatchJob(provider_instance, batch_id, response_model, verbose, enable_citations)
+    return BatchJob(provider_instance, batch_id, response_model, verbose, enable_citations, raw_results_dir)

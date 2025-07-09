@@ -9,6 +9,15 @@ Python SDK for **batch processing** with structured output and citation mapping.
 
 Currently supports Anthropic Claude. OpenAI support coming soon.
 
+## API Reference
+
+- [`batch()`](#message-processing) - Process message conversations
+- [`batch_files()`](#file-processing) - Process PDF files
+- [`BatchJob.results()`](#batch-job-methods) - Get processed results
+- [`BatchJob.citations()`](#batch-job-methods) - Get citation mappings
+- [`BatchJob.is_complete()`](#batch-job-methods) - Check completion status
+- [`BatchJob.stats()`](#batch-job-methods) - Get processing statistics
+
 ## Installation
 
 ```bash
@@ -16,6 +25,37 @@ pip install ai-batch
 ```
 
 ## Quick Start
+
+### Message Processing
+
+```python
+from ai_batch import batch
+from pydantic import BaseModel
+
+class SpamResult(BaseModel):
+    is_spam: bool
+    confidence: float
+    reason: str
+
+# Process multiple messages with structured output
+job = batch(
+    messages=[
+        [{"role": "user", "content": "Is this spam? You've won $1000!"}],
+        [{"role": "user", "content": "Meeting at 3pm tomorrow"}],
+        [{"role": "user", "content": "URGENT: Click here now!"}]
+    ],
+    model="claude-3-haiku-20240307",
+    response_model=SpamResult
+)
+
+# Wait for completion (can take up to 24 hours)
+while not job.is_complete():
+    time.sleep(30)
+    
+results = job.results()
+```
+
+### File Processing
 
 ```python
 from ai_batch import batch_files
@@ -85,31 +125,28 @@ job = batch_files(files=["doc.pdf"], prompt="Extract data",
                   response_model=MyModel, enable_citations=True)
 ```
 
-## Message Processing
+## Raw Responses
 
-For direct message processing:
+Save raw API responses for debugging and analysis:
 
 ```python
-from ai_batch import batch
-
-messages = [
-    [{"role": "user", "content": "Is this spam? You've won $1000!"}],
-    [{"role": "user", "content": "Meeting at 3pm tomorrow"}],
-]
-
+# Save raw responses to directory
 job = batch(
     messages=messages,
     model="claude-3-haiku-20240307",
-    response_model=SpamResult
+    raw_results_dir="./raw_responses"
 )
 
+# Files saved as: {batch_id}_0.json, {batch_id}_1.json, etc.
 results = job.results()
 ```
 
 ## Setup
 
+Create a `.env` file in your project root:
+
 ```bash
-export ANTHROPIC_API_KEY="your-api-key"
+ANTHROPIC_API_KEY=your-api-key
 ```
 
 ## Examples
@@ -119,8 +156,23 @@ export ANTHROPIC_API_KEY="your-api-key"
 - `examples/spam_detection.py` - Email classification
 - `examples/pdf_extraction.py` - PDF processing
 
+## BatchJob Methods
+
+```python
+# Check if batch processing is complete
+if job.is_complete():
+    results = job.results()
+
+# Get processing statistics
+stats = job.stats(print_stats=True)
+
+# Get citations (if enabled)
+citations = job.citations()
+```
+
 ## Limitations
 
 - Citations only work with flat Pydantic models (no nested models)
 - PDFs require Sonnet models for best results
-- Batch jobs are asynchronous - call `job.results()` when ready
+- Batch jobs are asynchronous and can take up to 24 hours to process
+- Use `job.is_complete()` to check status before getting results

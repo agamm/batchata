@@ -10,4 +10,6 @@
  - [ ] Test mode to run on 1% from batch to check if works before big one
  - [ ] Quick batch, split to really little chunks for quicker results.
 
-- [ ] Version the library correctly.
+---
+- Add how to version to claude.md
+- Fix batch_files to work with text/other files that provider supports not just pdf.

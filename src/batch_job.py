@@ -4,7 +4,10 @@ BatchJob Module
 Provides a simple interface for async-like batch processing.
 """
 
+import json
+import os
 import time
+from pathlib import Path
 from typing import List, Optional, Type, Union, Dict
 from pydantic import BaseModel
 from .providers.base import BaseBatchProvider
@@ -17,7 +20,7 @@ FieldCitations = Dict[str, List[Citation]]
 class BatchJob:
     """Simple batch job that returns immediately and provides methods to check status."""
     
-    def __init__(self, provider: BaseBatchProvider, batch_id: str, response_model: Optional[Type[BaseModel]] = None, verbose: bool = False, enable_citations: bool = False):
+    def __init__(self, provider: BaseBatchProvider, batch_id: str, response_model: Optional[Type[BaseModel]] = None, verbose: bool = False, enable_citations: bool = False, raw_results_dir: Optional[str] = None):
         """
         Initialize BatchJob.
         
@@ -27,12 +30,14 @@ class BatchJob:
             response_model: Optional Pydantic model for structured responses
             verbose: Whether to show warnings when not complete
             enable_citations: Whether citations were requested for this batch
+            raw_results_dir: Optional directory to save raw API responses as JSON files
         """
         self._provider = provider
         self._batch_id = batch_id
         self._response_model = response_model
         self._verbose = verbose
         self._enable_citations = enable_citations
+        self._raw_results_dir = raw_results_dir
         self._cached_results = None
         self._cached_citations = None
         self._start_time = time.time()
@@ -63,6 +68,11 @@ class BatchJob:
         
         if self._cached_results is None:
             raw_results = self._provider.get_results(self._batch_id)
+            
+            # Save raw responses to files if directory is specified
+            if self._raw_results_dir:
+                self._save_raw_responses(raw_results)
+            
             self._cached_results, self._cached_citations = self._provider.parse_results(
                 raw_results, self._response_model, self._enable_citations
             )
@@ -151,3 +161,25 @@ class BatchJob:
                     print(f"   Citations: {stats_data.get('total_citations', 0)}")
         
         return stats_data
+    
+    def _save_raw_responses(self, raw_results: List[dict]) -> None:
+        """
+        Save raw API responses to JSON files.
+        
+        Args:
+            raw_results: List of raw response dictionaries from API
+        """
+        if not self._raw_results_dir:
+            return
+            
+        # Create directory if it doesn't exist
+        raw_dir = Path(self._raw_results_dir)
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save each response as a separate JSON file
+        for i, raw_response in enumerate(raw_results):
+            filename = f"{self._batch_id}_{i}.json"
+            filepath = raw_dir / filename
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(raw_response.model_dump(), f, indent=2, ensure_ascii=False)

@@ -45,6 +45,7 @@ def batch_files(
     model: str,
     response_model: Optional[Type[T]] = None,
     enable_citations: bool = False,
+    raw_results_dir: Optional[str] = None,
     **kwargs
 ) -> BatchJob:
     """Process multiple PDF files using batch API.
@@ -56,6 +57,7 @@ def batch_files(
         model: Model name
         response_model: Optional Pydantic model for structured output
         enable_citations: Whether to enable citations for documents
+        raw_results_dir: Optional directory to save raw API responses as JSON files
         **kwargs: Additional arguments passed to batch()
         
     Returns:
@@ -80,13 +82,14 @@ def batch_files(
         if job.is_complete():
             results = job.results()
         
-        # Using bytes with citations
+        # Using bytes with citations and raw response saving
         pdf_bytes = [open("doc.pdf", "rb").read()]
         job = batch_files(
             files=pdf_bytes,
             prompt="Analyze",
             model="claude-3-haiku-20240307",
-            enable_citations=True
+            enable_citations=True,
+            raw_results_dir="./raw_responses"
         )
         citations = job.citations()  # Returns List[Citation]
     """
@@ -111,4 +114,4 @@ def batch_files(
             ]
         }])
     
-    return batch(messages, model, response_model, **kwargs)
+    return batch(messages, model, response_model, raw_results_dir=raw_results_dir, **kwargs)

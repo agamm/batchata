@@ -1,0 +1,48 @@
+{
+  "custom_id": "request_0",
+  "result": {
+    "message": {
+      "id": "msg_0171VeakjM7dUNJF7ww1K7Cn",
+      "content": [
+        {
+          "citations": null,
+          "text": "Here's a summary of the document:\n\n",
+          "type": "text"
+        },
+        {
+          "citations": [
+            {
+              "cited_text": "This is a test document about artificial intelligence. AI has revolutionized many industries.",
+              "document_index": 0,
+              "document_title": null,
+              "end_page_number": 2,
+              "start_page_number": 1,
+              "type": "page_location"
+            }
+          ],
+          "text": "The document is a brief text about artificial intelligence (AI) that states AI has made revolutionary changes across multiple industries",
+          "type": "text"
+        },
+        {
+          "citations": null,
+          "text": ".\n\nThe document is quite concise, containing just two sentences that provide a basic introduction to the topic of AI and its broad impact.",
+          "type": "text"
+        }
+      ],
+      "model": "claude-3-5-sonnet-20241022",
+      "role": "assistant",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "type": "message",
+      "usage": {
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "input_tokens": 2117,
+        "output_tokens": 82,
+        "server_tool_use": null,
+        "service_tier": "batch"
+      }
+    },
+    "type": "succeeded"
+  }
+}
