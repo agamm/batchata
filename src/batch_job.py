@@ -182,4 +182,4 @@ class BatchJob:
             filepath = raw_dir / filename
             
             with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(raw_response.model_dump(), f, indent=2, ensure_ascii=False)
+                json.dump(raw_response, f, indent=2, ensure_ascii=False)

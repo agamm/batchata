@@ -24,24 +24,17 @@ uv run pytest tests/test_ai_batch.py
 uv run pytest tests/test_ai_batch.py::test_batch_empty_messages
 ```
 
-## Upgrading Version
+## Releasing a New Version
 
-1. Edit `pyproject.toml` and update the version number:
-   ```toml
-   version = "0.0.2"  # Change this
-   ```
-
-2. Commit the change:
-   ```bash
-   git add pyproject.toml
-   git commit -m "Bump version to 0.0.2"
-   ```
-
-3. Create a release on GitHub:
-   - Go to Releases → Create new release
-   - Create a new tag matching the version (e.g., `v0.0.2`)
-   - Publish the release
-   - The GitHub Action will automatically publish to PyPI
+```bash
+# One-liner to update version, commit, push, and release
+VERSION=0.0.2 && \
+sed -i '' "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml && \
+git add pyproject.toml && \
+git commit -m "Bump version to $VERSION" && \
+git push && \
+gh release create v$VERSION --title "v$VERSION" --generate-notes
+```
 
 ## GitHub Secrets Setup
 

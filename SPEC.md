@@ -26,6 +26,8 @@ Set up automated testing in GitHub Actions to run tests on every push and pull r
 - Created SPEC.md
 - Reviewed existing test structure and commands
 - Created `.github/workflows/test.yml`
+- Fixed raw response saving bug (dict.model_dump() AttributeError)
+- Created DEVELOPMENT.md with test and release instructions
 
 ### In Progress
 - Testing the workflow
@@ -49,7 +51,8 @@ Set up automated testing in GitHub Actions to run tests on every push and pull r
 - [Branch protection rules](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) - GitHub branch protection documentation
 
 ## Learnings
-Any workflow-specific issues or optimizations discovered during implementation.
+- Found and fixed a bug in batch_job.py where raw_response was treated as a Pydantic model when it's actually a dict
+- E2E tests may timeout in CI due to real API calls - consider adding test timeouts or mocking for CI
 
 ## Notes
 - Using `uv` as the package manager (consistent with existing publish workflow)
