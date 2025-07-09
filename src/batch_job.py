@@ -5,7 +5,6 @@ Provides a simple interface for async-like batch processing.
 """
 
 import json
-import os
 import time
 from pathlib import Path
 from typing import List, Optional, Type, Union, Dict

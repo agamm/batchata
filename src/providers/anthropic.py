@@ -289,11 +289,11 @@ class AnthropicBatchProvider(BaseBatchProvider):
                     
                 content = result.result.message.content
                 
-                # Mode 1 & 2: No citations (single block or ignore multi-block)
-                if not enable_citations or (isinstance(content, list) and len(content) == 1):
+                # Mode 1 & 2: No citations
+                if not enable_citations:
                     # Extract text from content
                     if isinstance(content, list):
-                        message_content = content[0].text
+                        message_content = content[0].text if content else ""
                     else:
                         message_content = content.text if hasattr(content, 'text') else str(content)
                     
@@ -305,8 +305,8 @@ class AnthropicBatchProvider(BaseBatchProvider):
                         # Mode 1: Plain text
                         parsed_results.append(message_content)
                 
-                # Mode 3 & 4: Citations enabled (multi-block)
-                elif isinstance(content, list) and len(content) > 1:
+                # Mode 3 & 4: Citations enabled
+                elif enable_citations and isinstance(content, list):
                     # Extract full text and citations
                     full_text, citations = self._parse_content_blocks(content)
                     
@@ -322,6 +322,24 @@ class AnthropicBatchProvider(BaseBatchProvider):
                         # Mode 3: Text + Citations
                         parsed_results.append(full_text)
                         all_citations.extend(citations)
+                elif enable_citations and not isinstance(content, list):
+                    # Single content block with potential citations
+                    message_content = content.text if hasattr(content, 'text') else str(content)
+                    
+                    if response_model:
+                        # Mode 4: Structured + Field Citations (single block)
+                        model_instance = self._extract_json_from_text(message_content, response_model)
+                        parsed_results.append(model_instance)
+                        # Check if single block has citations
+                        if hasattr(content, 'citations') and content.citations:
+                            field_citations = self._map_citations_to_fields([content], response_model)
+                            all_citations.append(field_citations)
+                    else:
+                        # Mode 3: Text + Citations (single block)
+                        parsed_results.append(message_content)
+                        if hasattr(content, 'citations') and content.citations:
+                            _, citations = self._parse_content_blocks([content])
+                            all_citations.extend(citations)
                 else:
                     # Fallback: treat as plain text
                     message_content = str(content)

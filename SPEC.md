@@ -30,7 +30,13 @@ Set up automated testing in GitHub Actions to run tests on every push and pull r
 - Created DEVELOPMENT.md with test and release instructions
 
 ### In Progress
-- Testing the workflow
+- None
+
+### Completed Tasks
+- Created GitHub workflow for automated testing
+- Fixed test failures related to raw response saving
+- Updated citations parsing logic
+- Created DEVELOPMENT.md documentation
 
 ### Next Steps
 1. Review existing tests and test commands
@@ -53,6 +59,8 @@ Set up automated testing in GitHub Actions to run tests on every push and pull r
 ## Learnings
 - Found and fixed a bug in batch_job.py where raw_response was treated as a Pydantic model when it's actually a dict
 - E2E tests may timeout in CI due to real API calls - consider adding test timeouts or mocking for CI
+- Fixed citations parsing logic to handle single content blocks, but discovered API returns citations=None in batch mode
+- The citations e2e test failure appears to be an API limitation where citations aren't returned in batch requests
 
 ## Notes
 - Using `uv` as the package manager (consistent with existing publish workflow)
