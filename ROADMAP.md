@@ -1,6 +1,6 @@
 - [x] Citation feature via anthropic
 
-- [ ] Add github action tests before merge.
+- [x] Add github action tests before merge.
 
 - [x] Raw results in dir.
 
@@ -11,5 +11,4 @@
  - [ ] Quick batch, split to really little chunks for quicker results.
 
 ---
-- Add how to version to claude.md
 - Fix batch_files to work with text/other files that provider supports not just pdf.

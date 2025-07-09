@@ -40,3 +40,5 @@ Thumbs.db
 .env
 .env.local
 .env.production
+
+raw_responses/
