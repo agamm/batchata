@@ -71,3 +71,11 @@ ai-batch/
 - `uv run pytest` - Run tests
 - `uv run python -m examples.spam_detection` - Run example
 
+
+## Code Style
+- **Typing**: Strict type annotations, use `BaseModel` for structured outputs
+- **Imports**: Standard lib → third-party → local
+- **Formatting**: Ruff with Black conventions
+- **Error handling**: Custom exceptions from `exceptions.py`, Pydantic validation
+- **Naming**: `snake_case` functions/variables, `PascalCase` classes
+- **No mocking**: Tests use real API calls

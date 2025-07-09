@@ -1,8 +1,8 @@
 - [x] Citation feature via anthropic
 
-- [ ] Raw results in dir.
-
 - [ ] Add github action tests before merge.
+
+- [ ] Raw results in dir.
 
 - [ ] Add pricing metadata and max_spend
 
