@@ -18,8 +18,7 @@ load_dotenv()
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from src.core import batch
-from src.file_processing import batch_files
+from src import batch
 from tests.utils.pdf_utils import create_pdf
 
 
@@ -49,7 +48,7 @@ def test_raw_responses_file_processing():
     
     try:
         # Create batch with file processing and raw response saving
-        job = batch_files(
+        job = batch(
             files=[str(mock_file_path)],
             prompt="Summarize this document",
             model="claude-3-5-sonnet-20241022",

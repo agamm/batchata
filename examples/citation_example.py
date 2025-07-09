@@ -4,7 +4,7 @@ Citation Example
 Demonstrates how to use citation support with PDF processing.
 """
 
-from src import batch_files, CitedText, BatchJob
+from src import batch, Citation, BatchJob
 
 
 def create_research_paper_pdf(title: str, content: str) -> bytes:
@@ -70,7 +70,7 @@ def main():
     
     try:
         # Process PDFs with citations enabled
-        job = batch_files(
+        job = batch(
             files=[paper1, paper2],
             prompt="Summarize the key findings from these research papers, citing specific claims.",
             model="claude-3-5-sonnet-20241022",

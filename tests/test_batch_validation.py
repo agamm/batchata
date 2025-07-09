@@ -86,11 +86,11 @@ class TestBatchValidation:
         # Should pass (under limit)
         provider.validate_batch(near_limit_messages, None)
     
-    @patch('src.core.AnthropicBatchProvider')
-    def test_batch_function_validation_integration(self, mock_provider_class):
+    @patch('src.core.get_provider_for_model')
+    def test_batch_function_validation_integration(self, mock_provider_func):
         """Test that batch() function calls validation."""
         mock_provider = MagicMock()
-        mock_provider_class.return_value = mock_provider
+        mock_provider_func.return_value = mock_provider
         
         # Mock validation to raise an error
         mock_provider.validate_batch.side_effect = ValueError("Test validation error")

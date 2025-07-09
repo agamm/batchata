@@ -6,7 +6,7 @@ Demonstrates extracting structured data from invoice PDFs with citations enabled
 
 from pydantic import BaseModel
 from typing import Optional
-from src import batch_files, CitedText, BatchJob
+from src import batch, Citation, BatchJob
 
 
 class InvoiceData(BaseModel):
@@ -111,7 +111,7 @@ def main():
     
     try:
         # Process invoice PDFs with citations enabled and structured output
-        job = batch_files(
+        job = batch(
             files=[invoice1, invoice2, invoice3],
             prompt="""
             Extract the following information from this invoice:

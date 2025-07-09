@@ -26,6 +26,12 @@ class BaseBatchProvider(ABC):
         """Get default rate limits for this provider."""
         pass
     
+    @classmethod
+    @abstractmethod
+    def get_supported_models(cls) -> set:
+        """Get set of model names supported by this provider."""
+        pass
+    
     @abstractmethod
     def validate_batch(self, messages: List[List[dict]], response_model: Optional[Type[BaseModel]]) -> None:
         """
@@ -170,5 +176,18 @@ class BaseBatchProvider(ABC):
             - total_cost: Total cost (input + output)
             - service_tier: Service tier used ('batch' or 'standard')
             - request_count: Number of requests in the batch
+        """
+        pass
+    
+    @abstractmethod
+    def has_citations_enabled(self, messages: List[List[dict]]) -> bool:
+        """
+        Check if citations are enabled for the given messages.
+        
+        Args:
+            messages: List of message conversations
+            
+        Returns:
+            True if citations are enabled, False otherwise
         """
         pass

@@ -9,8 +9,7 @@ from pydantic import BaseModel
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
-from src.core import batch
-from src import batch_files, Citation
+from src import batch, Citation
 from tests.utils import create_pdf
 import time
 
@@ -103,7 +102,7 @@ Due Date: April 15, 2024
 Thank you for your business!"""
     ])
     
-    job = batch_files(
+    job = batch(
         files=[test_document],
         prompt="Extract the company name, total amount, and invoice date. Use citations to reference where you found each piece of information.",
         model="claude-3-5-sonnet-20241022",

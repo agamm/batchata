@@ -5,7 +5,7 @@ Demonstrates using ai_batch to extract structured data from multiple PDFs.
 """
 
 from pydantic import BaseModel
-from src import batch_files, pdf_to_document_block, batch
+from src import batch, pdf_to_document_block
 
 
 class InvoiceData(BaseModel):
@@ -74,8 +74,8 @@ def main():
     ]
     
     try:
-        # Method 1: Using batch_files helper with PDF bytes
-        results = batch_files(
+        # Method 1: Using batch() with PDF bytes
+        results = batch(
             files=pdfs_data,
             prompt="Extract the invoice data from this PDF",
             model="claude-3-5-sonnet-20241022",
@@ -83,7 +83,7 @@ def main():
             verbose=True
         )
         
-        print("\nMethod 1 - Using batch_files helper with PDF bytes:")
+        print("\nMethod 1 - Using batch() with PDF bytes:")
         for i, invoice in enumerate(results):
             print(f"\nPDF {i+1}:")
             print(f"  Invoice #: {invoice.invoice_number}")

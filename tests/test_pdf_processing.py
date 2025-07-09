@@ -61,7 +61,7 @@ startxref
 
 def test_pdf_to_document_block():
     """Test converting PDF to document content block."""
-    from src.file_processing import pdf_to_document_block
+    from src import pdf_to_document_block
     
     pdf_content = create_test_pdf("Test PDF Content")
     doc_block = pdf_to_document_block(pdf_content)
@@ -76,9 +76,9 @@ def test_batch_with_single_pdf():
     """Test processing a single PDF file."""
     pdf_content = create_test_pdf("Invoice #12345")
     
-    with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+    with patch('src.core.get_provider_for_model') as mock_provider_func:
         mock_provider = MagicMock()
-        mock_provider_class.return_value = mock_provider
+        mock_provider_func.return_value = mock_provider
         mock_provider.validate_batch.return_value = None
         mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
         mock_provider.create_batch.return_value = "batch_123"
@@ -118,9 +118,9 @@ def test_batch_with_multiple_pdfs():
     pdf2 = create_test_pdf("Document 2")
     pdf3 = create_test_pdf("Document 3")
     
-    with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+    with patch('src.core.get_provider_for_model') as mock_provider_func:
         mock_provider = MagicMock()
-        mock_provider_class.return_value = mock_provider
+        mock_provider_func.return_value = mock_provider
         mock_provider.validate_batch.return_value = None
         mock_provider.prepare_batch_requests.return_value = [
             {'custom_id': 'request_0', 'params': {}},
@@ -174,9 +174,9 @@ def test_batch_with_file_paths():
             pdf_path.write_bytes(pdf_content)
             pdf_files.append(pdf_path)
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [
                 {'custom_id': f'request_{i}', 'params': {}} for i in range(3)
@@ -190,9 +190,9 @@ def test_batch_with_file_paths():
                 for i in range(3)
             ], None)
             
-            from src.file_processing import batch_files
+            from src import batch
             
-            job = batch_files(
+            job = batch(
                 files=pdf_files,
                 prompt="Extract document information",
                 model="claude-3-haiku-20240307",

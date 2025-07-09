@@ -72,6 +72,20 @@ ai-batch/
 - `uv run python -m examples.spam_detection` - Run example
 
 
+## Version and releaseing
+- Add good commit messages
+- Add good version description, remember to bump pyproject.toml
+```bash
+# One-liner to update version, commit, push, and release
+VERSION=0.0.2 && \
+sed -i '' "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml && \
+git add pyproject.toml && \
+git commit -m "Bump version to $VERSION" && \
+git push && \
+gh release create v$VERSION --title "v$VERSION" --generate-notes
+```
+
+
 ## Code Style
 - **Typing**: Strict type annotations, use `BaseModel` for structured outputs
 - **Imports**: Standard lib → third-party → local

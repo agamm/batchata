@@ -17,6 +17,17 @@ from ..citations import Citation
 class AnthropicBatchProvider(BaseBatchProvider):
     """Anthropic batch processing provider."""
     
+    # Supported models for this provider
+    SUPPORTED_MODELS = {
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022", 
+        "claude-3-opus-20240229",
+        "claude-3-sonnet-20240229",
+        "claude-3-haiku-20240307",
+        "claude-3-5-sonnet-20240620",
+        "claude-3-5-haiku-20240307",
+    }
+    
     # Batch limitations from https://docs.anthropic.com/en/docs/build-with-claude/batch-processing#batch-limitations
     MAX_REQUESTS = 100_000      # Max requests per batch
     MAX_TOTAL_SIZE_MB = 256     # Max total batch size in MB
@@ -34,6 +45,11 @@ class AnthropicBatchProvider(BaseBatchProvider):
             "batches_per_minute": 5,
             "requests_per_minute": 500
         }
+    
+    @classmethod
+    def get_supported_models(cls) -> set:
+        """Get set of model names supported by this provider."""
+        return cls.SUPPORTED_MODELS
     
     def validate_batch(self, messages: List[List[dict]], response_model: Optional[Type[BaseModel]]) -> None:
         if not messages:

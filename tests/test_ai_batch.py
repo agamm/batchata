@@ -24,21 +24,16 @@ def test_batch_empty_messages():
 
 
 def test_batch_invalid_model():
-    """Test batch function with invalid model name - now handled by Anthropic API."""
+    """Test batch function with invalid model name - now handled by provider registry."""
     messages = [[{"role": "user", "content": "Test message"}]]
     
-    # Since we removed model validation, batch creation should succeed
-    # The error will come from the API when trying to get results
-    job = batch(
-        messages=messages,
-        model="invalid-model",
-        response_model=SpamResult
-    )
-    
-    # Job should be created successfully
-    assert job is not None
-    from src.batch_job import BatchJob
-    assert isinstance(job, BatchJob)
+    # Should raise ValueError immediately when trying to get provider for invalid model
+    with pytest.raises(ValueError, match="No provider supports model 'invalid-model'"):
+        batch(
+            messages=messages,
+            model="invalid-model",
+            response_model=SpamResult
+        )
 
 
 def test_batch_missing_required_params():
@@ -77,12 +72,12 @@ def test_missing_api_key():
         job.results()
 
 
-@patch('src.core.AnthropicBatchProvider')
-def test_batch_creates_batch_job(mock_provider_class):
+@patch('src.core.get_provider_for_model')
+def test_batch_creates_batch_job(mock_provider_func):
     """Test that batch function creates a batch job."""
     # Mock provider instance
     mock_provider = MagicMock()
-    mock_provider_class.return_value = mock_provider
+    mock_provider_func.return_value = mock_provider
     mock_provider.validate_batch.return_value = None
     mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
     mock_provider.create_batch.return_value = "batch_123"
@@ -116,12 +111,12 @@ def test_batch_creates_batch_job(mock_provider_class):
     assert results[0].is_spam == True
 
 
-@patch('src.core.AnthropicBatchProvider')
-def test_batch_multiple_messages(mock_provider_class):
+@patch('src.core.get_provider_for_model')
+def test_batch_multiple_messages(mock_provider_func):
     """Test that batch processes multiple messages correctly."""
     # Mock provider instance
     mock_provider = MagicMock()
-    mock_provider_class.return_value = mock_provider
+    mock_provider_func.return_value = mock_provider
     mock_provider.validate_batch.return_value = None
     mock_provider.prepare_batch_requests.return_value = [
         {'custom_id': 'request_0', 'params': {}},
@@ -153,12 +148,12 @@ def test_batch_multiple_messages(mock_provider_class):
     assert results[1].is_spam == False
 
 
-@patch('src.core.AnthropicBatchProvider')
-def test_batch_without_response_model(mock_provider_class):
+@patch('src.core.get_provider_for_model')
+def test_batch_without_response_model(mock_provider_func):
     """Test that batch returns raw text when no response_model is provided."""
     # Mock provider instance
     mock_provider = MagicMock()
-    mock_provider_class.return_value = mock_provider
+    mock_provider_func.return_value = mock_provider
     mock_provider.validate_batch.return_value = None
     mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
     mock_provider.create_batch.return_value = "batch_123"

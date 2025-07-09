@@ -11,7 +11,7 @@ Test the 4 output modes of the citation API:
 import pytest
 from unittest.mock import MagicMock, patch
 from pydantic import BaseModel
-from src import batch_files, Citation
+from src import batch, Citation
 from tests.utils import create_pdf
 
 
@@ -27,9 +27,9 @@ class TestCitationModes:
         """Test Mode 1: Plain text output without citations."""
         test_pdf = create_pdf(["Test document content"])
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
             mock_provider.create_batch.return_value = "batch_123"
@@ -38,7 +38,7 @@ class TestCitationModes:
             mock_provider.get_results.return_value = []
             mock_provider.parse_results.return_value = (["Test response"], None)
             
-            job = batch_files(
+            job = batch(
                 files=[test_pdf],
                 prompt="Summarize this document",
                 model="claude-3-haiku-20240307"
@@ -58,9 +58,9 @@ class TestCitationModes:
         """Test Mode 2: Structured output without citations."""
         test_pdf = create_pdf(["Test document content"])
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
             mock_provider.create_batch.return_value = "batch_123"
@@ -69,7 +69,7 @@ class TestCitationModes:
             mock_provider.get_results.return_value = []
             mock_provider.parse_results.return_value = ([InvoiceTestData(name="test", value="123")], None)
             
-            job = batch_files(
+            job = batch(
                 files=[test_pdf],
                 prompt="Extract data",
                 model="claude-3-haiku-20240307",
@@ -99,9 +99,9 @@ class TestCitationModes:
             end_page_number=1
         )
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
             mock_provider.create_batch.return_value = "batch_123"
@@ -110,7 +110,7 @@ class TestCitationModes:
             mock_provider.get_results.return_value = []
             mock_provider.parse_results.return_value = (["Test response"], [mock_citation])
             
-            job = batch_files(
+            job = batch(
                 files=[test_pdf],
                 prompt="Analyze document",
                 model="claude-3-haiku-20240307",
@@ -145,9 +145,9 @@ class TestCitationModes:
         
         field_citations = {"name": [mock_citation], "value": [mock_citation]}
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
             mock_provider.create_batch.return_value = "batch_123"
@@ -156,7 +156,7 @@ class TestCitationModes:
             mock_provider.get_results.return_value = []
             mock_provider.parse_results.return_value = ([InvoiceTestData(name="test", value="123")], [field_citations])
             
-            job = batch_files(
+            job = batch(
                 files=[test_pdf],
                 prompt="Extract data with citations",
                 model="claude-3-haiku-20240307",
@@ -183,7 +183,7 @@ class TestCitationModes:
     
     def test_empty_batch(self):
         """Test empty batch returns empty results."""
-        job = batch_files(
+        job = batch(
             files=[],
             prompt="Test",
             model="claude-3-haiku-20240307"
@@ -198,9 +198,9 @@ class TestCitationModes:
         """Test BatchJob stats method."""
         test_pdf = create_pdf(["Test content"])
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
             mock_provider.create_batch.return_value = "batch_123"
@@ -210,7 +210,7 @@ class TestCitationModes:
             mock_provider.get_results.return_value = []
             mock_provider.parse_results.return_value = (["Test"], [])
             
-            job = batch_files(
+            job = batch(
                 files=[test_pdf],
                 prompt="Test",
                 model="claude-3-haiku-20240307",
@@ -276,7 +276,7 @@ class TestCitationModes:
         
         # Test should raise ValueError when trying to use nested model with citations
         with pytest.raises(ValueError, match="Citations are only supported.*flat Pydantic models"):
-            batch_files(
+            batch(
                 files=[test_pdf],
                 prompt="Extract person information",
                 model="claude-3-haiku-20240307",
@@ -295,9 +295,9 @@ class TestCitationModes:
         
         test_pdf = create_pdf(["John Doe, 30 years old, lives at 123 Main St, New York"])
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
             mock_provider.create_batch.return_value = "batch_123"
@@ -318,7 +318,7 @@ class TestCitationModes:
             )
             
             # This should work without raising an error
-            job = batch_files(
+            job = batch(
                 files=[test_pdf],
                 prompt="Extract person information",
                 model="claude-3-haiku-20240307",
@@ -347,9 +347,9 @@ class TestCitationModes:
         
         test_pdf = create_pdf(["Test document with complex data"])
         
-        with patch('src.core.AnthropicBatchProvider') as mock_provider_class:
+        with patch('src.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
-            mock_provider_class.return_value = mock_provider
+            mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
             mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
             mock_provider.create_batch.return_value = "batch_123"
@@ -364,7 +364,7 @@ class TestCitationModes:
             )
             
             # This should work - Optional, Union, and List are allowed
-            job = batch_files(
+            job = batch(
                 files=[test_pdf],
                 prompt="Extract data",
                 model="claude-3-haiku-20240307",

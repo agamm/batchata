@@ -78,12 +78,12 @@ class TestUsageCosts:
         assert total_usage["service_tier"] == "batch"
         assert total_usage["request_count"] == 3
     
-    @patch('src.core.AnthropicBatchProvider')
-    def test_batch_job_stats_includes_costs(self, mock_provider_class):
+    @patch('src.core.get_provider_for_model')
+    def test_batch_job_stats_includes_costs(self, mock_provider_func):
         """Test that BatchJob.stats() includes cost information."""
         # Mock provider instance
         mock_provider = MagicMock()
-        mock_provider_class.return_value = mock_provider
+        mock_provider_func.return_value = mock_provider
         mock_provider.validate_batch.return_value = None
         mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
         mock_provider.create_batch.return_value = "batch_123"

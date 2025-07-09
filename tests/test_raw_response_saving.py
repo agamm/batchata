@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from src.batch_job import BatchJob
 from src.core import batch
-from src.file_processing import batch_files
 
 
 class MockProvider:
@@ -243,11 +242,11 @@ class TestRawResponseSaving:
             
             assert actual_files == expected_files, f"Expected {expected_files}, got {actual_files}"
     
-    @patch('src.core.AnthropicBatchProvider')
-    def test_batch_api_with_raw_results_dir(self, mock_provider_class):
+    @patch('src.core.get_provider_for_model')
+    def test_batch_api_with_raw_results_dir(self, mock_provider_func):
         """Test batch() API accepts raw_results_dir parameter."""
         mock_provider = Mock()
-        mock_provider_class.return_value = mock_provider
+        mock_provider_func.return_value = mock_provider
         mock_provider.validate_batch.return_value = None
         mock_provider.prepare_batch_requests.return_value = []
         mock_provider.create_batch.return_value = "test_batch"
@@ -268,26 +267,27 @@ class TestRawResponseSaving:
             assert job._raw_results_dir == temp_dir
     
     def test_batch_files_api_with_raw_results_dir(self):
-        """Test batch_files() API accepts raw_results_dir parameter."""
+        """Test batch() API with files accepts raw_results_dir parameter."""
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create a mock PDF file
             pdf_path = Path(temp_dir) / "test.pdf"
             pdf_path.write_bytes(b"mock pdf content")
             
-            with patch('src.file_processing.batch') as mock_batch:
-                mock_job = Mock()
-                mock_batch.return_value = mock_job
+            with patch('src.core.get_provider_for_model') as mock_provider_func:
+                mock_provider = Mock()
+                mock_provider_func.return_value = mock_provider
+                mock_provider.validate_batch.return_value = None
+                mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
+                mock_provider.create_batch.return_value = "batch_123"
+                mock_provider.has_citations_enabled.return_value = False
                 
                 # This should not raise an error
-                job = batch_files(
+                job = batch(
                     files=[str(pdf_path)],
                     prompt="Test prompt",
                     model="claude-3-haiku-20240307",
                     raw_results_dir=temp_dir
                 )
                 
-                # Check that batch() was called with raw_results_dir
-                mock_batch.assert_called_once()
-                call_kwargs = mock_batch.call_args[1]
-                assert 'raw_results_dir' in call_kwargs
-                assert call_kwargs['raw_results_dir'] == temp_dir
+                # Check that the job was created with raw_results_dir
+                assert job._raw_results_dir == temp_dir

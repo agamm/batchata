@@ -12,14 +12,13 @@ Currently supports Anthropic Claude. OpenAI support coming soon.
 
 ## API Reference
 
-- [`batch()`](#batch) - Process message conversations
-- [`batch_files()`](#batch_files) - Process PDF files
+- [`batch()`](#batch) - Process message conversations or PDF files
 - [`BatchJob`](#batchjob) - Job status and results
 
 ## Quick Start
 
 ```python
-from ai_batch import batch_files
+from ai_batch import batch
 from pydantic import BaseModel
 
 class Invoice(BaseModel):
@@ -28,7 +27,7 @@ class Invoice(BaseModel):
     date: str
 
 # Process PDFs with structured output + citations
-job = batch_files(
+job = batch(
     files=["invoice1.pdf", "invoice2.pdf", "invoice3.pdf"],
     prompt="Extract the company name, total amount, and date.",
     model="claude-3-5-sonnet-20241022",
@@ -97,12 +96,12 @@ results = job.results()
 ]
 ```
 
-### batch_files()
+### batch() with files
 
 Process PDF files with optional structured output and citations.
 
 ```python
-from ai_batch import batch_files
+from ai_batch import batch
 from pydantic import BaseModel
 
 class Invoice(BaseModel):
@@ -111,7 +110,7 @@ class Invoice(BaseModel):
     date: str
 
 # Process PDFs with citations
-job = batch_files(
+job = batch(
     files=["invoice1.pdf", "invoice2.pdf"],
     prompt="Extract the company name, total amount, and date.",
     model="claude-3-5-sonnet-20241022",
@@ -148,7 +147,7 @@ citations = job.citations()
 
 ### BatchJob
 
-The job object returned by `batch()` and `batch_files()`.
+The job object returned by `batch()`.
 
 ```python
 # Check completion status
@@ -187,7 +186,7 @@ Citations work in two modes depending on whether you use structured output:
 When `enable_citations=True` without a response model, citations are returned as a flat list:
 
 ```python
-job = batch_files(
+job = batch(
     files=["document.pdf"],
     prompt="Summarize the key findings",
     enable_citations=True
@@ -208,7 +207,7 @@ citations = job.citations()  # Flat list of Citation objects
 When using both `response_model` and `enable_citations=True`, citations are mapped to specific fields:
 
 ```python
-job = batch_files(
+job = batch(
     files=["document.pdf"],
     prompt="Extract the data",
     response_model=MyModel,
