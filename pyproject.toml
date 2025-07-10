@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-batch"
-version = "0.0.3"
+version = "0.1.0"
 description = "Batch processing for Anthropic's Claude API with structured output"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,6 +33,7 @@ ai-batch-pdf-example = "examples.pdf_extraction:main"
 
 [dependency-groups]
 dev = [
+    "pytest-cov>=6.2.1",
     "pytest>=8.4.1",
 ]
 
