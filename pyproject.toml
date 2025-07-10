@@ -35,6 +35,7 @@ ai-batch-pdf-example = "examples.pdf_extraction:main"
 dev = [
     "pytest-cov>=6.2.1",
     "pytest>=8.4.1",
+    "pytest-xdist>=3.6.1",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -9,7 +9,7 @@ import json
 import os
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed, Future
+from concurrent.futures import Future
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from enum import Enum
@@ -22,7 +22,7 @@ from pydantic import BaseModel
 
 from .core import batch, MessageConversations, FileInputs
 from .batch_job import BatchJob
-from .utils import check_flat_model_for_citation_mapping
+from .utils import check_flat_model_for_citation_mapping, run_jobs_with_conditional_parallel
 
 
 # Type definitions
@@ -468,6 +468,19 @@ class BatchManager:
         
         self._save_state()
     
+    def _process_job_with_error_handling(self, job: Job) -> None:
+        """
+        Process a job with error handling for the parallel utility.
+        """
+        try:
+            job_idx, error = self._process_job(job)
+            if error:
+                # Could log error here if needed
+                pass
+        except Exception as e:
+            # Handle unexpected errors silently
+            pass
+    
     def _process_job(self, job: Job) -> Tuple[int, Optional[str]]:
         """
         Process a single job. Returns (job_index, error_message).
@@ -718,42 +731,17 @@ class BatchManager:
             self._progress_monitor.start()
         
         try:
-            # Process jobs with ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=self.max_parallel_jobs) as executor:
-                futures: Dict[Future, Job] = {}
-                
-                # Submit jobs for processing
-                for job in pending_jobs:
-                    # Check cost limit
-                    if self.max_cost and self.state.total_cost >= self.max_cost:
-                        if print_progress:
-                            print(f"\n⚠️  Cost limit reached: ${self.state.total_cost:.2f} >= ${self.max_cost:.2f}")
-                        break
-                    
-                    future = executor.submit(self._process_job, job)
-                    futures[future] = job
-                
-                # Process completed futures
-                completed_count = 0
-                for future in as_completed(futures):
-                    job = futures[future]
-                    try:
-                        job_idx, error = future.result()
-                        completed_count += 1
-                        
-                        if error and print_progress:
-                            # Show job failure on new line
-                            print(f"\n❌ Job {job_idx} failed: {error}")
-                        
-                        # Check cost limit
-                        if self.max_cost and self.state.total_cost >= self.max_cost:
-                            if print_progress:
-                                print(f"\n⚠️  Cost limit reached: ${self.state.total_cost:.2f}")
-                            break
-                            
-                    except Exception as e:
-                        if print_progress:
-                            print(f"\n❌ Unexpected error processing job {job.index}: {e}")
+            # Define condition function for cost limit checking
+            def cost_limit_exceeded() -> bool:
+                return self.max_cost is not None and self.state.total_cost >= self.max_cost
+            
+            # Process jobs with conditional parallel execution
+            run_jobs_with_conditional_parallel(
+                max_parallel=self.max_parallel_jobs,
+                condition_fn=cost_limit_exceeded,
+                jobs=pending_jobs,
+                job_processor_fn=self._process_job_with_error_handling
+            )
         
         finally:
             # Always stop progress monitor

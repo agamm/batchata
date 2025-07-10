@@ -14,6 +14,12 @@ from pydantic import BaseModel
 
 from src.batch_manager import BatchManager, BatchManagerError
 from src.batch_job import BatchJob
+from tests.fixtures import (
+    create_mock_batch_job, 
+    create_structured_results, 
+    create_cited_results,
+    setup_mock_batch_function
+)
 
 
 class InvoiceModel(BaseModel):
@@ -207,17 +213,9 @@ class TestBatchManager:
     @patch('src.batch_manager.batch')
     def test_run_simple_batch(self, mock_batch):
         """Test running a simple batch without parallel processing"""
-        # Mock batch() to return a successful BatchJob
-        mock_job = Mock(spec=BatchJob)
-        mock_job.is_complete.return_value = True
-        mock_job.results.return_value = ["Result 1", "Result 2"]
-        mock_job.results.return_value = [
-            {"result": "Result 1", "citations": None},
-            {"result": "Result 2", "citations": None}
-        ]
-        mock_job.stats.return_value = {"total_cost": 0.02}
-        mock_job._batch_id = "batch_123"
-        mock_batch.return_value = mock_job
+        # Create realistic results
+        results = create_structured_results(2)
+        setup_mock_batch_function(mock_batch, results, "batch_123")
         
         manager = BatchManager(
             messages=self.test_messages[:2],
@@ -237,27 +235,18 @@ class TestBatchManager:
     @patch('src.batch_manager.batch')
     def test_run_with_parallel_execution(self, mock_batch):
         """Test running batch with parallel execution"""
-        # Mock batch() to return successful BatchJobs
-        mock_job1 = Mock(spec=BatchJob)
-        mock_job1.is_complete.return_value = True
-        mock_job1.results.return_value = ["Result 1", "Result 2"]
-        mock_job1.results.return_value = [
+        # Create realistic results for two jobs
+        results1 = [
             {"result": "Result 1", "citations": None},
             {"result": "Result 2", "citations": None}
         ]
-        mock_job1.stats.return_value = {"total_cost": 0.02}
-        mock_job1._batch_id = "batch_123"
-        
-        mock_job2 = Mock(spec=BatchJob)
-        mock_job2.is_complete.return_value = True
-        mock_job2.results.return_value = ["Result 3", "Result 4"]
-        mock_job2.results.return_value = [
+        results2 = [
             {"result": "Result 3", "citations": None},
             {"result": "Result 4", "citations": None}
         ]
-        mock_job2.stats.return_value = {"total_cost": 0.02}
-        mock_job2._batch_id = "batch_456"
         
+        mock_job1 = create_mock_batch_job("batch_123", results1)
+        mock_job2 = create_mock_batch_job("batch_456", results2)
         mock_batch.side_effect = [mock_job1, mock_job2]
         
         manager = BatchManager(
@@ -278,18 +267,16 @@ class TestBatchManager:
     @patch('src.batch_manager.batch')
     def test_cost_limit_enforcement(self, mock_batch):
         """Test that cost limit stops new jobs"""
-        # Mock first batch to use up the cost limit
-        mock_job1 = Mock(spec=BatchJob)
-        mock_job1.is_complete.return_value = True
-        mock_job1.results.return_value = ["Result 1", "Result 2"]
-        mock_job1.results.return_value = [
+        # Create expensive results that use up the cost limit
+        results = [
             {"result": "Result 1", "citations": None},
             {"result": "Result 2", "citations": None}
         ]
-        mock_job1.stats.return_value = {"total_cost": 5.0}  # Uses up cost limit
-        mock_job1._batch_id = "batch_123"
         
-        mock_batch.return_value = mock_job1
+        def create_expensive_job(*args, **kwargs):
+            return create_mock_batch_job("batch_123", results, total_cost=5.0)
+        
+        mock_batch.side_effect = create_expensive_job
         
         manager = BatchManager(
             messages=self.test_messages[:6],  # Should create 3 jobs
@@ -327,17 +314,17 @@ class TestBatchManager:
         manager.state.jobs[1].items[1].status = ItemStatus.FAILED
         manager.state.jobs[1].items[1].error = "Rate limit"
         
-        # Mock batch() for retry
-        mock_job = Mock(spec=BatchJob)
-        mock_job.is_complete.return_value = True
-        mock_job.results.return_value = ["Retry Result 1", "Retry Result 2"]
-        mock_job.results.return_value = [
+        # Create realistic retry results
+        retry_results = [
             {"result": "Retry Result 1", "citations": None},
             {"result": "Retry Result 2", "citations": None}
         ]
-        mock_job.stats.return_value = {"total_cost": 0.02}
-        mock_job._batch_id = "retry_batch_123"
-        mock_batch.return_value = mock_job
+        
+        def create_retry_jobs(*args, **kwargs):
+            # For pending jobs and retry job
+            return create_mock_batch_job("retry_batch_123", retry_results[:2])
+        
+        mock_batch.side_effect = create_retry_jobs
         
         retry_summary = manager.retry_failed()
         
@@ -591,17 +578,12 @@ class TestBatchManager:
         with open(self.state_file, 'w') as f:
             json.dump(partial_state, f)
         
-        # Mock batch() for the remaining job
-        mock_job = Mock(spec=BatchJob)
-        mock_job.is_complete.return_value = True
-        mock_job.results.return_value = ["Result 3", "Result 4"]
-        mock_job.results.return_value = [
+        # Create realistic results for the remaining job
+        remaining_results = [
             {"result": "Result 3", "citations": None},
             {"result": "Result 4", "citations": None}
         ]
-        mock_job.stats.return_value = {"total_cost": 0.02}
-        mock_job._batch_id = "resume_batch_123"
-        mock_batch.return_value = mock_job
+        setup_mock_batch_function(mock_batch, remaining_results, "resume_batch_123")
         
         manager = BatchManager(
             messages=self.test_messages[:4],  # This should be ignored since we load state
@@ -615,3 +597,157 @@ class TestBatchManager:
         assert summary["completed_items"] == 4
         # Only the pending job should be processed
         assert mock_batch.call_count == 1
+
+    @patch('src.batch_manager.batch')
+    def test_cost_limit_sequential_execution(self, mock_batch):
+        """Test cost limit prevents new job submission with sequential execution"""
+        # Create initial state with some cost already accumulated
+        initial_state = {
+            "manager_id": "test-uuid",
+            "created_at": "2024-01-20T10:00:00Z",
+            "model": "claude-3-5-haiku-20241022",
+            "items_per_job": 1,
+            "max_cost": 0.03,
+            "save_results_dir": None,
+            "batch_kwargs": {"prompt": "Extract invoice data"},
+            "jobs": [
+                {
+                    "index": 0,
+                    "batch_id": "completed_batch_1",
+                    "status": "completed",
+                    "items": [{
+                        "original_index": 0,
+                        "content": "invoice_001.pdf",
+                        "status": "succeeded",
+                        "error": None,
+                        "cost": 0.025,  # Already used most of the budget
+                        "completed_at": "2024-01-20T10:01:00Z"
+                    }],
+                    "job_cost": 0.025,
+                    "started_at": "2024-01-20T10:00:30Z",
+                    "completed_at": "2024-01-20T10:01:00Z"
+                },
+                {
+                    "index": 1,
+                    "batch_id": None,
+                    "status": "pending",
+                    "items": [{
+                        "original_index": 1,
+                        "content": "invoice_002.pdf",
+                        "status": "pending",
+                        "error": None,
+                        "cost": None,
+                        "completed_at": None
+                    }],
+                    "job_cost": 0.0,
+                    "started_at": None,
+                    "completed_at": None
+                },
+                {
+                    "index": 2,
+                    "batch_id": None,
+                    "status": "pending",
+                    "items": [{
+                        "original_index": 2,
+                        "content": "invoice_003.pdf",
+                        "status": "pending",
+                        "error": None,
+                        "cost": None,
+                        "completed_at": None
+                    }],
+                    "job_cost": 0.0,
+                    "started_at": None,
+                    "completed_at": None
+                }
+            ],
+            "total_cost": 0.025,  # Already close to limit of 0.03
+            "last_updated": "2024-01-20T10:01:00Z"
+        }
+        
+        # Save initial state
+        with open(self.state_file, 'w') as f:
+            json.dump(initial_state, f)
+        
+        # Create mock files
+        test_files = ["invoice_001.pdf", "invoice_002.pdf", "invoice_003.pdf"]
+        
+        # Mock batch job with cost that would exceed limit
+        def create_job(*args, **kwargs):
+            mock_job = Mock(spec=BatchJob)
+            mock_job.is_complete.return_value = True
+            mock_job.results.return_value = [{"result": {"invoice_number": "INV-002"}, "citations": None}]
+            mock_job.stats.return_value = {"total_cost": 0.02}  # 0.025 + 0.02 = 0.045 > 0.03 limit
+            mock_job._batch_id = "test_batch_2"
+            return mock_job
+        
+        mock_batch.side_effect = create_job
+        
+        # Load manager from state
+        manager = BatchManager(
+            files=test_files,
+            prompt="Extract invoice data",
+            model="claude-3-5-haiku-20241022",
+            state_path=self.state_file,
+            max_parallel_jobs=1
+        )
+        
+        # Run processing
+        summary = manager.run(print_progress=False)
+        
+        # First job processes and exceeds limit, second job should be blocked
+        assert summary['completed_items'] == 2  # 1 from initial + 1 new
+        assert summary['total_cost'] >= 0.03
+        assert summary['cost_limit_reached'] == True
+        
+        # Only the first pending job should be processed
+        assert mock_batch.call_count == 1  # Only one new job submitted
+
+    @patch('src.batch_manager.batch')
+    def test_cost_limit_parallel_execution(self, mock_batch):
+        """Test cost limit with parallel execution - first batch completes, second batch prevented"""
+        # Create test files
+        test_files = []
+        for i in range(4):
+            file_path = os.path.join(self.temp_dir, f"invoice_{i+1:03d}.pdf")
+            with open(file_path, 'wb') as f:
+                f.write(b"Mock PDF content")
+            test_files.append(file_path)
+        
+        # Mock batch jobs - first two will exceed limit when completed
+        job_count = 0
+        def create_job(*args, **kwargs):
+            nonlocal job_count
+            job_count += 1
+            mock_job = Mock(spec=BatchJob)
+            mock_job.is_complete.return_value = True
+            mock_job.results.return_value = [{"result": {"invoice_number": f"INV-{job_count:03d}"}, "citations": None}]
+            # First two jobs use up the budget
+            mock_job.stats.return_value = {"total_cost": 0.018}  # 2 * 0.018 = 0.036 > 0.03 limit
+            mock_job._batch_id = f"batch_{job_count}"
+            return mock_job
+        
+        mock_batch.side_effect = create_job
+        
+        # Initialize manager with parallel execution
+        manager = BatchManager(
+            files=test_files,
+            prompt="Extract invoice data",
+            model="claude-3-5-haiku-20241022",
+            items_per_job=1,  # 1 file per job = 4 jobs total
+            max_parallel_jobs=2,  # Process 2 at a time
+            max_cost=0.03,  # Limit that first 2 jobs will exceed
+            state_path=self.state_file
+        )
+        
+        # Run processing
+        summary = manager.run(print_progress=False)
+        
+        # With parallel execution, first 2 jobs get submitted before cost is known
+        # They complete and exceed limit, preventing jobs 3-4 from being submitted
+        assert mock_batch.call_count == 2  # Only first batch of 2 jobs
+        assert summary['completed_items'] == 2
+        assert summary['total_cost'] >= 0.03
+        assert summary['cost_limit_reached'] == True
+        
+        # 2 jobs should remain unprocessed
+        assert summary['total_items'] - summary['completed_items'] == 2

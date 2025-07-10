@@ -11,11 +11,8 @@ uv sync --dev
 # Set API key
 export ANTHROPIC_API_KEY="your-api-key"
 
-# Run all tests
-uv run pytest
-
-# Run tests with verbose output
-uv run pytest -v
+# Run all tests (parallel)
+uv run pytest -v -n auto 
 
 # Run a specific test file
 uv run pytest tests/test_ai_batch.py

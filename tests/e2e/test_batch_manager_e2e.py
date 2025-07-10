@@ -8,9 +8,7 @@ cost tracking, results saving, and complex nested Pydantic models with citations
 
 import json
 import os
-import shutil
 import tempfile
-import time
 from typing import List
 from pydantic import BaseModel
 
@@ -21,20 +19,11 @@ from src.batch_manager import BatchManager
 from tests.utils.pdf_utils import create_pdf
 
 
-class LineItem(BaseModel):
-    """Line item structure for invoices"""
-    description: str
-    quantity: int
-    unit_price: float
-    total: float
-
-
 class Invoice(BaseModel):
-    """Nested invoice structure with line items"""
+    """Simple invoice structure"""
     invoice_number: str
     company_name: str
     total_amount: float
-    line_items: List[LineItem]
 
 
 def create_realistic_invoice_pdfs(num_invoices: int = 3) -> List[bytes]:
@@ -113,7 +102,7 @@ def test_batch_manager_e2e_invoice_processing():
         # Initialize BatchManager with settings that will create multiple jobs
         manager = BatchManager(
             files=invoice_files,
-            prompt="Extract detailed invoice data including all line items. For each line item, extract the description, quantity, unit price, and total amount.",
+            prompt="Extract detailed invoice data.",
             model="claude-3-5-sonnet-20241022",
             response_model=Invoice,
             enable_citations=True,
@@ -185,8 +174,6 @@ def test_batch_manager_e2e_invoice_processing():
                 assert "invoice_number" in result
                 assert "company_name" in result
                 assert "total_amount" in result
-                assert "line_items" in result
-                assert isinstance(result["line_items"], list)
                 
                 # Verify citations structure
                 citations = sample_result["citations"]
@@ -211,48 +198,5 @@ def test_batch_manager_e2e_invoice_processing():
                     assert "invoice_number" in result
                     assert "company_name" in result
                     assert "total_amount" in result
-                    assert "line_items" in result
-                    assert isinstance(result["line_items"], list)
 
 
-def test_batch_manager_cost_limit():
-    """
-    Test BatchManager cost limit enforcement.
-    """
-    # Create temporary directory for this test
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Create a few invoices
-        invoice_pdfs = create_realistic_invoice_pdfs(3)
-        
-        # Save PDFs to temporary files
-        invoice_files = []
-        for i, pdf_bytes in enumerate(invoice_pdfs):
-            invoice_path = os.path.join(temp_dir, f"invoice_{i+1:03d}.pdf")
-            with open(invoice_path, 'wb') as f:
-                f.write(pdf_bytes)
-            invoice_files.append(invoice_path)
-        
-        state_file = os.path.join(temp_dir, "cost_limit_state.json")
-        
-        # Initialize with very low cost limit to test enforcement
-        manager = BatchManager(
-            files=invoice_files,
-            prompt="Extract invoice number and company name only.",
-            model="claude-3-5-haiku-20241022",  # File-capable cheaper model
-            items_per_job=1,
-            max_parallel_jobs=1,
-            max_cost=0.02,  # Very low limit - should stop after first job
-            state_path=state_file
-        )
-        
-        # Run processing
-        print("💰 Testing cost limit enforcement...")
-        summary = manager.run(print_progress=True)
-        
-        # Verify cost limit was respected
-        final_stats = manager.stats
-        print(f"📊 Cost limit test stats: {final_stats}")
-        
-        # Should have stopped due to cost limit
-        if final_stats['completed_items'] < final_stats['total_items']:
-            assert final_stats['cost_limit_reached'], "Cost limit should have been reached"

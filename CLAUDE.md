@@ -68,7 +68,7 @@ ai-batch/
 
 ## Commands
 - `uv add <package>` - Add dependency
-- `uv run pytest` - Run tests
+- `uv run pytest -v -n auto ` - Run tests
 - `uv run python -m examples.spam_detection` - Run example
 
 

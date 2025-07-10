@@ -6,7 +6,7 @@ A wrapper around AI providers' batch APIs for structured output.
 
 import base64
 from pathlib import Path
-from typing import List, Type, TypeVar, Optional, Union, Dict, Any, TypedDict
+from typing import List, Type, TypeVar, Optional, Union, Dict, Any
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from .providers import get_provider_for_model
