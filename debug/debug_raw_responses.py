@@ -81,7 +81,8 @@ def test_raw_responses_file_processing():
         
         # Show file processing results
         print("\n🎯 File Processing Results:")
-        for i, result in enumerate(results):
+        for i, result_entry in enumerate(results):
+            result = result_entry["result"]
             print(f"   {i+1}. {result[:100]}...")
 
         job.stats(print_stats=True)

@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock
 from pydantic import BaseModel
 
 
-class TestResult(BaseModel):
+class ResultModel(BaseModel):
     content: str
     status: str
 
@@ -85,21 +85,21 @@ class TestUnifiedBatch:
             mock_provider.has_citations_enabled.return_value = False
             mock_provider._is_batch_completed.return_value = True
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = ([
-                TestResult(content="Response 1", status="ok"),
-                TestResult(content="Response 2", status="ok")
-            ], None)
+            mock_provider.parse_results.return_value = [
+                {"result": ResultModel(content="Response 1", status="ok"), "citations": None},
+                {"result": ResultModel(content="Response 2", status="ok"), "citations": None}
+            ]
             
             job = batch(
                 messages=messages,
                 model="claude-3-haiku-20240307",
-                response_model=TestResult
+                response_model=ResultModel
             )
             
             results = job.results()
             assert len(results) == 2
-            assert results[0].content == "Response 1"
-            assert results[1].content == "Response 2"
+            assert results[0]["result"].content == "Response 1"
+            assert results[1]["result"].content == "Response 2"
     
     def test_batch_with_files_and_prompt(self):
         """Test batch() with files parameter (batch_files behavior)."""
@@ -126,10 +126,10 @@ class TestUnifiedBatch:
                 mock_provider.has_citations_enabled.return_value = False
                 mock_provider._is_batch_completed.return_value = True
                 mock_provider.get_results.return_value = []
-                mock_provider.parse_results.return_value = ([
-                    DocumentInfo(title="Doc1", content="Content 1"),
-                    DocumentInfo(title="Doc2", content="Content 2")
-                ], None)
+                mock_provider.parse_results.return_value = [
+                    {"result": DocumentInfo(title="Doc1", content="Content 1"), "citations": None},
+                    {"result": DocumentInfo(title="Doc2", content="Content 2"), "citations": None}
+                ]
                 
                 job = batch(
                     files=[str(file1), str(file2)],
@@ -140,8 +140,8 @@ class TestUnifiedBatch:
                 
                 results = job.results()
                 assert len(results) == 2
-                assert results[0].title == "Doc1"
-                assert results[1].title == "Doc2"
+                assert results[0]["result"].title == "Doc1"
+                assert results[1]["result"].title == "Doc2"
     
     def test_batch_with_both_messages_and_files_raises_error(self):
         """Test that providing both messages and files raises ValueError."""
@@ -203,10 +203,10 @@ class TestUnifiedBatch:
                 mock_provider.has_citations_enabled.return_value = False
                 mock_provider._is_batch_completed.return_value = True
                 mock_provider.get_results.return_value = []
-                mock_provider.parse_results.return_value = ([
-                    DocumentInfo(title=f"Doc{i}", content="Test Document")
+                mock_provider.parse_results.return_value = [
+                    {"result": DocumentInfo(title=f"Doc{i}", content="Test Document"), "citations": None}
                     for i in range(3)
-                ], None)
+                ]
                 
                 job = batch(
                     files=[str_path, path_obj, raw_bytes],
@@ -217,8 +217,8 @@ class TestUnifiedBatch:
                 
                 results = job.results()
                 assert len(results) == 3
-                for result in results:
-                    assert result.content == "Test Document"
+                for result_entry in results:
+                    assert result_entry["result"].content == "Test Document"
     
     def test_batch_with_empty_messages_list(self):
         """Test batch() with empty messages list."""
@@ -237,8 +237,7 @@ class TestUnifiedBatch:
         from src import batch
         
         job = batch(
-            files=[],
-            prompt="Extract info",
+            messages=[],
             model="claude-3-haiku-20240307"
         )
         
@@ -280,10 +279,9 @@ class TestUnifiedBatch:
                     )]
                 }
                 
-                mock_provider.parse_results.return_value = (
-                    [DocumentInfo(title="Test", content="Test Document")],
-                    [mock_citations]
-                )
+                mock_provider.parse_results.return_value = [
+                    {"result": DocumentInfo(title="Test", content="Test Document"), "citations": mock_citations}
+                ]
                 
                 job = batch(
                     files=[str(pdf_path)],
@@ -294,13 +292,12 @@ class TestUnifiedBatch:
                 )
                 
                 results = job.results()
-                citations = job.citations()
                 
                 assert len(results) == 1
-                assert results[0].title == "Test"
-                assert len(citations) == 1
-                assert "title" in citations[0]
-                assert len(citations[0]["title"]) == 1
+                assert results[0]["result"].title == "Test"
+                citations = results[0]["citations"]
+                assert "title" in citations
+                assert len(citations["title"]) == 1
     
     def test_batch_messages_without_prompt_works(self):
         """Test that messages without prompt parameter works fine."""

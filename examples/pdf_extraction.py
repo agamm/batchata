@@ -6,6 +6,7 @@ Demonstrates using ai_batch to extract structured data from multiple PDFs.
 
 from pydantic import BaseModel
 from src import batch, pdf_to_document_block
+from tests.utils.pdf_utils import create_pdf
 
 
 class InvoiceData(BaseModel):
@@ -15,49 +16,6 @@ class InvoiceData(BaseModel):
     vendor_name: str
 
 
-def create_sample_pdf(invoice_num: str, vendor: str, amount: float) -> bytes:
-    """Create a minimal valid PDF with invoice data for demo purposes."""
-    # Create invoice content text
-    content = f"INVOICE {invoice_num} - {vendor} - ${amount:.2f} - Date: 2024-01-15"
-    
-    # Create a minimal but valid PDF structure
-    pdf_content = f"""%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 612 792] /Contents 5 0 R >>
-endobj
-4 0 obj
-<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
-endobj
-5 0 obj
-<< /Length {len(content) + 60} >>
-stream
-BT
-/F1 12 Tf
-72 720 Td
-({content}) Tj
-ET
-endstream
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000229 00000 n 
-0000000327 00000 n 
-trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-{400 + len(content)}
-%%EOF"""
-    return pdf_content.encode('latin-1')
 
 
 def main():
@@ -68,9 +26,9 @@ def main():
     
     # Create sample PDFs (in real use, these would be actual PDF files)
     pdfs_data = [
-        create_sample_pdf("INV-001", "Acme Corp", 1250.00),
-        create_sample_pdf("INV-002", "Tech Supplies Ltd", 3499.99),
-        create_sample_pdf("INV-003", "Office Depot", 245.50),
+        create_pdf([f"INVOICE INV-001 - Acme Corp - $1250.00 - Date: 2024-01-15"]),
+        create_pdf([f"INVOICE INV-002 - Tech Supplies Ltd - $3499.99 - Date: 2024-01-15"]),
+        create_pdf([f"INVOICE INV-003 - Office Depot - $245.50 - Date: 2024-01-15"]),
     ]
     
     try:

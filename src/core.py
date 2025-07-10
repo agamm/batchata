@@ -6,7 +6,7 @@ A wrapper around AI providers' batch APIs for structured output.
 
 import base64
 from pathlib import Path
-from typing import List, Type, TypeVar, Optional, Union, Dict, Any
+from typing import List, Type, TypeVar, Optional, Union, Dict, Any, TypedDict
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from .providers import get_provider_for_model
@@ -17,6 +17,11 @@ project_root = Path(__file__).parent.parent
 load_dotenv(project_root / ".env")
 
 T = TypeVar('T', bound=BaseModel)
+
+# Input type aliases for better clarity
+MessageConversations = List[List[dict]]  # List of conversations, each conversation is a list of message dicts
+FileInputs = Union[List[str], List[Path], List[bytes]]  # List of file paths (str/Path) or file content (bytes)
+
 
 
 def pdf_to_document_block(pdf_bytes: bytes, enable_citations: bool = False) -> Dict[str, Any]:
@@ -46,8 +51,8 @@ def pdf_to_document_block(pdf_bytes: bytes, enable_citations: bool = False) -> D
 
 def batch(
     model: str,
-    messages: Optional[List[List[dict]]] = None,
-    files: Optional[Union[List[str], List[Path], List[bytes]]] = None,
+    messages: Optional[MessageConversations] = None,
+    files: Optional[FileInputs] = None,
     prompt: Optional[str] = None,
     response_model: Optional[Type[T]] = None,
     enable_citations: bool = False,
@@ -108,6 +113,24 @@ def batch(
     if files is not None and prompt is None:
         raise ValueError("prompt is required when using files.")
     
+    # Validate flat model requirement for citation mapping
+    from .utils import check_flat_model_for_citation_mapping
+    check_flat_model_for_citation_mapping(response_model, enable_citations)
+    
+    # Store original input types for validation
+    original_has_files = files is not None
+    original_has_messages = messages is not None
+    
+    # Get provider instance automatically based on model
+    provider_instance = get_provider_for_model(model)
+    
+    # Validate model capabilities first (before conversion)
+    provider_instance.validate_model_capabilities(
+        model=model,
+        has_files=original_has_files,
+        has_messages=original_has_messages
+    )
+    
     # If using files, convert to messages format
     if files is not None:
         messages = []
@@ -133,12 +156,8 @@ def batch(
     # Handle empty lists
     if not messages:
         # Return empty BatchJob for consistency
-        provider_instance = get_provider_for_model(model)
         fake_batch_id = "empty_batch"
         return BatchJob(provider_instance, fake_batch_id, response_model, verbose, False, raw_results_dir, model)
-    
-    # Get provider instance automatically based on model
-    provider_instance = get_provider_for_model(model)
     
     # Provider handles all complexity
     provider_instance.validate_batch(messages, response_model)

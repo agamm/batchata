@@ -34,10 +34,19 @@ def create_pdf(pages: List[str]) -> bytes:
         page_objects.append(f"<< /Type /Page /Parent 2 0 R /Resources {2 + num_pages + num_pages + 1} 0 R /MediaBox [0 0 612 792] /Contents {content_num} 0 R >>")
         page_objects.append("endobj")
         
+        # Split content into lines and position each line separately
+        lines = page_content.split('\n')
+        line_commands = []
+        for i, line in enumerate(lines):
+            if i == 0:
+                line_commands.append(f"72 720 Td")
+            else:
+                line_commands.append(f"0 -15 Td")  # Move down 15 points for each line
+            line_commands.append(f"({line}) Tj")
+        
         stream_content = f"""BT
 /F1 12 Tf
-72 720 Td
-({page_content}) Tj
+{chr(10).join(line_commands)}
 ET"""
         
         content_objects.append(f"{content_num} 0 obj")

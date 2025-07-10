@@ -83,7 +83,7 @@ def test_batch_creates_batch_job(mock_provider_func):
     mock_provider.create_batch.return_value = "batch_123"
     mock_provider._is_batch_completed.return_value = True
     mock_provider.get_results.return_value = []
-    mock_provider.parse_results.return_value = ([SpamResult(is_spam=True, confidence=0.9, reason="Test")], None)
+    mock_provider.parse_results.return_value = [{"result": SpamResult(is_spam=True, confidence=0.9, reason="Test"), "citations": None}]
     
     messages = [[{"role": "user", "content": "Test message"}]]
     
@@ -106,7 +106,7 @@ def test_batch_creates_batch_job(mock_provider_func):
     # Test getting results
     results = job.results()
     assert len(results) == 1
-    assert results[0].is_spam == True
+    assert results[0]["result"].is_spam == True
 
 
 @patch('src.core.get_provider_for_model')
@@ -123,10 +123,10 @@ def test_batch_multiple_messages(mock_provider_func):
     mock_provider.create_batch.return_value = "batch_123"
     mock_provider._is_batch_completed.return_value = True
     mock_provider.get_results.return_value = []
-    mock_provider.parse_results.return_value = ([
-        SpamResult(is_spam=True, confidence=0.9, reason="Spam"),
-        SpamResult(is_spam=False, confidence=0.1, reason="Not spam")
-    ], None)
+    mock_provider.parse_results.return_value = [
+        {"result": SpamResult(is_spam=True, confidence=0.9, reason="Spam"), "citations": None},
+        {"result": SpamResult(is_spam=False, confidence=0.1, reason="Not spam"), "citations": None}
+    ]
     
     messages = [
         [{"role": "user", "content": "Message 1"}],
@@ -141,8 +141,8 @@ def test_batch_multiple_messages(mock_provider_func):
     
     results = job.results()
     assert len(results) == 2
-    assert results[0].is_spam == True
-    assert results[1].is_spam == False
+    assert results[0]["result"].is_spam == True
+    assert results[1]["result"].is_spam == False
 
 
 @patch('src.core.get_provider_for_model')
@@ -156,7 +156,7 @@ def test_batch_without_response_model(mock_provider_func):
     mock_provider.create_batch.return_value = "batch_123"
     mock_provider._is_batch_completed.return_value = True
     mock_provider.get_results.return_value = []
-    mock_provider.parse_results.return_value = (["This is a raw text response"], None)
+    mock_provider.parse_results.return_value = [{"result": "This is a raw text response", "citations": None}]
     
     messages = [[{"role": "user", "content": "Test message"}]]
     
@@ -167,5 +167,5 @@ def test_batch_without_response_model(mock_provider_func):
     
     results = job.results()
     assert len(results) == 1
-    assert results[0] == "This is a raw text response"
-    assert isinstance(results[0], str)
+    assert results[0]["result"] == "This is a raw text response"
+    assert isinstance(results[0]["result"], str)

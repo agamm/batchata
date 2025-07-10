@@ -7,6 +7,7 @@ Demonstrates extracting structured data from invoice PDFs with citations enabled
 from pydantic import BaseModel
 from typing import Optional
 from src import batch, Citation, BatchJob
+from tests.utils.pdf_utils import create_pdf
 
 
 class InvoiceData(BaseModel):
@@ -16,63 +17,6 @@ class InvoiceData(BaseModel):
     product_title: str
 
 
-def create_invoice_pdf(invoice_num: str, company: str, product: str, amount: str, date: str) -> bytes:
-    """Create an invoice PDF."""
-    content = f"""INVOICE
-
-Invoice #: {invoice_num}
-Date: {date}
-Bill To: Customer Name
-
-From: {company}
-123 Business Street
-City, State 12345
-
-ITEM DESCRIPTION                    AMOUNT
-{product}                          {amount}
-
-TOTAL: {amount}
-
-Payment Terms: Net 30
-Thank you for your business!"""
-    
-    pdf_content = f"""%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 612 792] /Contents 5 0 R >>
-endobj
-4 0 obj
-<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
-endobj
-5 0 obj
-<< /Length {len(content) + 100} >>
-stream
-BT
-/F2 12 Tf
-72 720 Td
-({content}) Tj
-ET
-endstream
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000229 00000 n 
-0000000380 00000 n 
-trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-{500 + len(content)}
-%%EOF"""
-    return pdf_content.encode('latin-1')
 
 
 def main():
@@ -82,29 +26,65 @@ def main():
     print("=" * 60)
     
     # Create 3 different invoice PDFs
-    invoice1 = create_invoice_pdf(
-        "INV-001",
-        "TechCorp Solutions",
-        "Cloud Computing Platform License",
-        "$2,450.00",
-        "2024-01-15"
-    )
+    invoice1 = create_pdf([
+        """INVOICE
+
+Invoice #: INV-001
+Date: 2024-01-15
+Bill To: Customer Name
+
+From: TechCorp Solutions
+123 Business Street
+City, State 12345
+
+ITEM DESCRIPTION                    AMOUNT
+Cloud Computing Platform License    $2,450.00
+
+TOTAL: $2,450.00
+
+Payment Terms: Net 30
+Thank you for your business!"""
+    ])
     
-    invoice2 = create_invoice_pdf(
-        "INV-002", 
-        "Design Studio LLC",
-        "Website Design and Development",
-        "$3,200.00",
-        "2024-02-20"
-    )
+    invoice2 = create_pdf([
+        """INVOICE
+
+Invoice #: INV-002
+Date: 2024-02-20
+Bill To: Customer Name
+
+From: Design Studio LLC
+123 Business Street
+City, State 12345
+
+ITEM DESCRIPTION                    AMOUNT
+Website Design and Development      $3,200.00
+
+TOTAL: $3,200.00
+
+Payment Terms: Net 30
+Thank you for your business!"""
+    ])
     
-    invoice3 = create_invoice_pdf(
-        "INV-003",
-        "Equipment Rental Co",
-        "Professional Camera Equipment Rental",
-        "$850.00", 
-        "2024-03-10"
-    )
+    invoice3 = create_pdf([
+        """INVOICE
+
+Invoice #: INV-003
+Date: 2024-03-10
+Bill To: Customer Name
+
+From: Equipment Rental Co
+123 Business Street
+City, State 12345
+
+ITEM DESCRIPTION                    AMOUNT
+Professional Camera Equipment Rental $850.00
+
+TOTAL: $850.00
+
+Payment Terms: Net 30
+Thank you for your business!"""
+    ])
     
     print("\nProcessing 3 invoice PDFs for data extraction...")
     print("This may take a few minutes due to batch processing...")

@@ -6,7 +6,7 @@ from src.providers.anthropic import AnthropicBatchProvider
 from src.batch_job import BatchJob
 
 
-class TestModel(BaseModel):
+class CostTestModel(BaseModel):
     result: str
 
 
@@ -90,7 +90,7 @@ class TestUsageCosts:
         mock_provider.has_citations_enabled.return_value = False
         mock_provider._is_batch_completed.return_value = True
         mock_provider.get_results.return_value = []
-        mock_provider.parse_results.return_value = ([TestModel(result="test")], None)
+        mock_provider.parse_results.return_value = [{"result": CostTestModel(result="test"), "citations": None}]
         
         # Mock cost data
         mock_provider.get_batch_usage_costs.return_value = {
@@ -108,7 +108,7 @@ class TestUsageCosts:
         job = batch(
             messages=messages,
             model="claude-3-5-sonnet-20241022",
-            response_model=TestModel
+            response_model=CostTestModel
         )
         
         stats = job.stats()
@@ -129,7 +129,7 @@ class TestUsageCosts:
         job = batch(
             messages=[],
             model="claude-3-5-sonnet-20241022",
-            response_model=TestModel
+            response_model=CostTestModel
         )
         
         stats = job.stats()

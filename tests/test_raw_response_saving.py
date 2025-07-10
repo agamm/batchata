@@ -41,7 +41,10 @@ class MockProvider:
     
     def parse_results(self, raw_results, response_model, enable_citations):
         """Mock parsed results."""
-        return ["Response 1", "Response 2"], []
+        return [
+            {"result": "Response 1", "citations": None},
+            {"result": "Response 2", "citations": None}
+        ]
     
     def get_batch_status(self, batch_id):
         """Mock batch status."""

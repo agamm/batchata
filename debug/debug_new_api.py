@@ -81,16 +81,14 @@ def test_mode_1_plain_text():
         time.sleep(3)
     
     results = job.results()
-    citations = job.citations()
     
     print(f"\nResults type: {type(results)}")
     print(f"Results: {results}")
-    print(f"Citations: {citations}")
     
     assert isinstance(results, list)
     assert len(results) == 1
-    assert isinstance(results[0], str)
-    assert citations is None
+    assert isinstance(results[0]["result"], str)
+    assert results[0]["citations"] is None
 
 
 def test_mode_2_structured_only():
@@ -118,16 +116,14 @@ def test_mode_2_structured_only():
         time.sleep(3)
     
     results = job.results()
-    citations = job.citations()
     
     print(f"\nResults type: {type(results)}")
     print(f"Results: {results}")
-    print(f"Citations: {citations}")
     
     assert isinstance(results, list)
     assert len(results) == 1
-    assert isinstance(results[0], InvoiceData)
-    assert citations is None
+    assert isinstance(results[0]["result"], InvoiceData)
+    assert results[0]["citations"] is None
 
 
 def test_mode_3_text_citations():
@@ -155,10 +151,11 @@ def test_mode_3_text_citations():
         time.sleep(3)
     
     results = job.results()
-    citations = job.citations()
     
     print(f"\nResults type: {type(results)}")
     print(f"Results: {results}")
+    
+    citations = results[0]["citations"]
     print(f"\nCitations type: {type(citations)}")
     print(f"Number of citations: {len(citations) if citations else 0}")
     
@@ -174,7 +171,7 @@ def test_mode_3_text_citations():
     
     assert isinstance(results, list)
     assert len(results) == 1
-    assert isinstance(results[0], str)
+    assert isinstance(results[0]["result"], str)
     assert isinstance(citations, list)
     assert all(isinstance(c, Citation) for c in citations)
 
@@ -205,40 +202,37 @@ def test_mode_4_structured_field_citations():
         time.sleep(3)
     
     results = job.results()
-    citations = job.citations()
     
     print(f"\nResults type: {type(results)}")
     print(f"Results: {results}")
+    
+    citations = results[0]["citations"]
     print(f"\nCitations type: {type(citations)}")
     
     if citations:
-        print(f"Number of field citation dicts: {len(citations)}")
-        for i, field_cit_dict in enumerate(citations):
-            print(f"\n📄 Result {i+1} field citations:")
-            # Type assertion to help type checker
-            assert isinstance(field_cit_dict, dict)
-            for field_name, field_citations in field_cit_dict.items():
-                print(f"  🔍 {field_name}: {len(field_citations)} citation(s)")
-                for j, cit in enumerate(field_citations):
-                    # Type assertion to help type checker
-                    assert isinstance(cit, Citation)
-                    print(f"    [{j+1}] \"{cit.cited_text[:80]}{'...' if len(cit.cited_text) > 80 else ''}\"")
-                    print(f"        Type: {cit.type}")
-                    if cit.start_page_number:
-                        print(f"        Pages: {cit.start_page_number}-{cit.end_page_number}")
-                    if cit.document_title:
-                        print(f"        Document: {cit.document_title}")
-                    print()
+        print(f"Field citations dict for result 1:")
+        # Type assertion to help type checker
+        assert isinstance(citations, dict)
+        for field_name, field_citations in citations.items():
+            print(f"  🔍 {field_name}: {len(field_citations)} citation(s)")
+            for j, cit in enumerate(field_citations):
+                # Type assertion to help type checker
+                assert isinstance(cit, Citation)
+                print(f"    [{j+1}] \"{cit.cited_text[:80]}{'...' if len(cit.cited_text) > 80 else ''}\"")
+                print(f"        Type: {cit.type}")
+                if cit.start_page_number:
+                    print(f"        Pages: {cit.start_page_number}-{cit.end_page_number}")
+                if cit.document_title:
+                    print(f"        Document: {cit.document_title}")
+                print()
     
     assert isinstance(results, list)
     assert len(results) == 1
-    assert isinstance(results[0], InvoiceData)
-    assert isinstance(citations, list)
-    assert len(citations) == 1  # One FieldCitations dict per result
-    assert isinstance(citations[0], dict)
+    assert isinstance(results[0]["result"], InvoiceData)
+    assert isinstance(citations, dict)
     
     # Check field citations structure
-    field_cits = citations[0]
+    field_cits = citations
     assert all(isinstance(field, str) for field in field_cits.keys())
     assert all(isinstance(cits, list) for cits in field_cits.values())
     assert all(isinstance(c, Citation) for cits in field_cits.values() for c in cits)
@@ -248,29 +242,29 @@ def main():
     """Run all tests."""
     print("🧪 Testing New Simplified API")
     
-    try:
-        test_mode_1_plain_text()
-        print("\n✅ Mode 1: Plain Text - PASSED")
-    except Exception as e:
-        print(f"\n❌ Mode 1 failed: {e}")
-        import traceback
-        traceback.print_exc()
+    # try:
+    #     test_mode_1_plain_text()
+    #     print("\n✅ Mode 1: Plain Text - PASSED")
+    # except Exception as e:
+    #     print(f"\n❌ Mode 1 failed: {e}")
+    #     import traceback
+    #     traceback.print_exc()
     
-    try:
-        test_mode_2_structured_only()
-        print("\n✅ Mode 2: Structured Only - PASSED")
-    except Exception as e:
-        print(f"\n❌ Mode 2 failed: {e}")
-        import traceback
-        traceback.print_exc()
+    # try:
+    #     test_mode_2_structured_only()
+    #     print("\n✅ Mode 2: Structured Only - PASSED")
+    # except Exception as e:
+    #     print(f"\n❌ Mode 2 failed: {e}")
+    #     import traceback
+    #     traceback.print_exc()
     
-    try:
-        test_mode_3_text_citations()
-        print("\n✅ Mode 3: Text + Citations - PASSED")
-    except Exception as e:
-        print(f"\n❌ Mode 3 failed: {e}")
-        import traceback
-        traceback.print_exc()
+    # try:
+    #     test_mode_3_text_citations()
+    #     print("\n✅ Mode 3: Text + Citations - PASSED")
+    # except Exception as e:
+    #     print(f"\n❌ Mode 3 failed: {e}")
+    #     import traceback
+    #     traceback.print_exc()
     
     try:
         test_mode_4_structured_field_citations()

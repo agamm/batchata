@@ -36,7 +36,7 @@ class TestCitationModes:
             mock_provider.has_citations_enabled.return_value = False
             mock_provider._is_batch_completed.return_value = True
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = (["Test response"], None)
+            mock_provider.parse_results.return_value = [{"result": "Test response", "citations": None}]
             
             job = batch(
                 files=[test_pdf],
@@ -45,13 +45,12 @@ class TestCitationModes:
             )
             
             results = job.results()
-            citations = job.citations()
             
             assert isinstance(results, list)
             assert len(results) == 1
-            assert isinstance(results[0], str)
-            assert results[0] == "Test response"
-            assert citations is None
+            assert isinstance(results[0]["result"], str)
+            assert results[0]["result"] == "Test response"
+            assert results[0]["citations"] is None
             assert not job._enable_citations
     
     def test_mode_2_structured_only(self):
@@ -67,7 +66,7 @@ class TestCitationModes:
             mock_provider.has_citations_enabled.return_value = False
             mock_provider._is_batch_completed.return_value = True
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = ([InvoiceTestData(name="test", value="123")], None)
+            mock_provider.parse_results.return_value = [{"result": InvoiceTestData(name="test", value="123"), "citations": None}]
             
             job = batch(
                 files=[test_pdf],
@@ -77,14 +76,13 @@ class TestCitationModes:
             )
             
             results = job.results()
-            citations = job.citations()
             
             assert isinstance(results, list)
             assert len(results) == 1
-            assert isinstance(results[0], InvoiceTestData)
-            assert results[0].name == "test"
-            assert results[0].value == "123"
-            assert citations is None
+            assert isinstance(results[0]["result"], InvoiceTestData)
+            assert results[0]["result"].name == "test"
+            assert results[0]["result"].value == "123"
+            assert results[0]["citations"] is None
             assert not job._enable_citations
     
     def test_mode_3_text_citations(self):
@@ -108,7 +106,7 @@ class TestCitationModes:
             mock_provider.has_citations_enabled.return_value = True
             mock_provider._is_batch_completed.return_value = True
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = (["Test response"], [mock_citation])
+            mock_provider.parse_results.return_value = [{"result": "Test response", "citations": [mock_citation]}]
             
             job = batch(
                 files=[test_pdf],
@@ -118,12 +116,12 @@ class TestCitationModes:
             )
             
             results = job.results()
-            citations = job.citations()
             
             assert isinstance(results, list)
             assert len(results) == 1
-            assert isinstance(results[0], str)
-            assert results[0] == "Test response"
+            assert isinstance(results[0]["result"], str)
+            assert results[0]["result"] == "Test response"
+            citations = results[0]["citations"]
             assert isinstance(citations, list)
             assert len(citations) == 1
             assert isinstance(citations[0], Citation)
@@ -154,7 +152,7 @@ class TestCitationModes:
             mock_provider.has_citations_enabled.return_value = True
             mock_provider._is_batch_completed.return_value = True
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = ([InvoiceTestData(name="test", value="123")], [field_citations])
+            mock_provider.parse_results.return_value = [{"result": InvoiceTestData(name="test", value="123"), "citations": field_citations}]
             
             job = batch(
                 files=[test_pdf],
@@ -165,34 +163,31 @@ class TestCitationModes:
             )
             
             results = job.results()
-            citations = job.citations()
             
             assert isinstance(results, list)
             assert len(results) == 1
-            assert isinstance(results[0], InvoiceTestData)
-            assert results[0].name == "test"
-            assert results[0].value == "123"
-            assert isinstance(citations, list)
-            assert len(citations) == 1
-            assert isinstance(citations[0], dict)
-            assert "name" in citations[0]
-            assert "value" in citations[0]
-            assert isinstance(citations[0]["name"], list)
-            assert isinstance(citations[0]["name"][0], Citation)
+            assert isinstance(results[0]["result"], InvoiceTestData)
+            assert results[0]["result"].name == "test"
+            assert results[0]["result"].value == "123"
+            citations = results[0]["citations"]
+            assert isinstance(citations, dict)
+            assert "name" in citations
+            assert "value" in citations
+            assert isinstance(citations["name"], list)
+            assert isinstance(citations["name"][0], Citation)
             assert job._enable_citations
     
     def test_empty_batch(self):
         """Test empty batch returns empty results."""
         job = batch(
-            files=[],
-            prompt="Test",
+            messages=[],
             model="claude-3-haiku-20240307"
         )
         
         assert job._batch_id == "empty_batch"
         assert job.is_complete()
+        # Empty batch should have no results
         assert job.results() == []
-        assert job.citations() is None
     
     def test_batch_job_stats(self):
         """Test BatchJob stats method."""
@@ -208,7 +203,7 @@ class TestCitationModes:
             mock_provider._is_batch_completed.return_value = True
             mock_provider.get_batch_status.return_value = "ended"
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = (["Test"], [])
+            mock_provider.parse_results.return_value = [{"result": "Test", "citations": []}]
             
             job = batch(
                 files=[test_pdf],
@@ -251,11 +246,11 @@ class TestCitationModes:
         test_pdf = create_pdf(["Test document with person information"])
         
         # Test should raise ValueError when trying to use nested model with citations
-        with pytest.raises(ValueError, match="Citations are only supported.*flat Pydantic models"):
+        with pytest.raises(ValueError, match="Citation mapping requires flat Pydantic models.*contains nested model"):
             batch(
                 files=[test_pdf],
                 prompt="Extract person information",
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-sonnet-20241022",
                 response_model=PersonWithAddress,
                 enable_citations=True
             )
@@ -288,28 +283,26 @@ class TestCitationModes:
                 "street": [Citation(type="page_location", cited_text="123 Main St", document_index=0)],
                 "city": [Citation(type="page_location", cited_text="New York", document_index=0)]
             }
-            mock_provider.parse_results.return_value = (
-                [PersonFlat(name="John Doe", age=30, street="123 Main St", city="New York")],
-                [field_citations]
-            )
+            mock_provider.parse_results.return_value = [
+                {"result": PersonFlat(name="John Doe", age=30, street="123 Main St", city="New York"), "citations": field_citations}
+            ]
             
             # This should work without raising an error
             job = batch(
                 files=[test_pdf],
                 prompt="Extract person information",
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-sonnet-20241022",
                 response_model=PersonFlat,
                 enable_citations=True
             )
             
             results = job.results()
-            citations = job.citations()
             
             assert len(results) == 1
-            assert isinstance(results[0], PersonFlat)
+            assert isinstance(results[0]["result"], PersonFlat)
+            citations = results[0]["citations"]
             assert citations is not None
-            assert len(citations) == 1
-            assert isinstance(citations[0], dict)
+            assert isinstance(citations, dict)
     
     def test_complex_field_types_with_citations(self):
         """Test that models with Optional and Union types work with citations."""
@@ -334,20 +327,20 @@ class TestCitationModes:
             mock_provider.get_results.return_value = []
             
             # Mock results
-            mock_provider.parse_results.return_value = (
-                [ComplexModel(name="Test", age=25, score=95.5, tags=["tag1", "tag2"])],
-                [{"name": [Citation(type="page_location", cited_text="Test", document_index=0)]}]
-            )
+            mock_provider.parse_results.return_value = [
+                {"result": ComplexModel(name="Test", age=25, score=95.5, tags=["tag1", "tag2"]), 
+                 "citations": {"name": [Citation(type="page_location", cited_text="Test", document_index=0)]}}
+            ]
             
             # This should work - Optional, Union, and List are allowed
             job = batch(
                 files=[test_pdf],
                 prompt="Extract data",
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-sonnet-20241022",
                 response_model=ComplexModel,
                 enable_citations=True
             )
             
             results = job.results()
             assert len(results) == 1
-            assert isinstance(results[0], ComplexModel)
+            assert isinstance(results[0]["result"], ComplexModel)

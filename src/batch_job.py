@@ -7,13 +7,10 @@ Provides a simple interface for async-like batch processing.
 import json
 import time
 from pathlib import Path
-from typing import List, Optional, Type, Union, Dict, Any
+from typing import List, Optional, Type, Dict, Any
 from pydantic import BaseModel
 from .providers.base import BaseBatchProvider
-from .citations import Citation
-
-# Type alias for field-level citations mapping
-FieldCitations = Dict[str, List[Citation]]
+from .types import BatchResult
 
 
 class BatchJob:
@@ -40,7 +37,6 @@ class BatchJob:
         self._raw_results_dir = raw_results_dir
         self._model = model
         self._cached_results = None
-        self._cached_citations = None
         self._start_time = time.time()
     
     def is_complete(self) -> bool:
@@ -50,13 +46,12 @@ class BatchJob:
         status = self._provider.get_batch_status(self._batch_id)
         return self._provider._is_batch_completed(status)
     
-    def results(self) -> Union[List[BaseModel], List[str]]:
+    def results(self) -> List[BatchResult]:
         """
-        Get batch results.
+        Get batch results in unified format with citations.
         
         Returns:
-            List[str] if no response_model provided
-            List[BaseModel] if response_model provided
+            List of BatchResult entries with result and citations together
             Empty list if not complete
         """
         if self._batch_id == "empty_batch":
@@ -74,35 +69,13 @@ class BatchJob:
             if self._raw_results_dir:
                 self._save_raw_responses(raw_results)
             
-            self._cached_results, self._cached_citations = self._provider.parse_results(
+            # Get unified results from provider
+            self._cached_results = self._provider.parse_results(
                 raw_results, self._response_model, self._enable_citations
             )
         
         return self._cached_results
     
-    def citations(self) -> Union[List[Citation], List[FieldCitations], None]:
-        """
-        Get citations.
-        
-        Returns:
-            None if citations not enabled
-            List[Citation] if no response_model (text + citations mode)
-            List[FieldCitations] if response_model provided (structured + field citations mode)
-            Empty list if not complete
-        """
-        if not self._enable_citations:
-            return None
-            
-        if not self.is_complete():
-            if self._verbose:
-                print(f"⚠️  Batch {self._batch_id} is still running. Citations not yet available.")
-            return []
-        
-        # Ensure results have been fetched
-        if self._cached_results is None:
-            self.results()
-        
-        return self._cached_citations if self._cached_citations is not None else []
     
     def stats(self, print_stats: bool = False) -> Dict[str, Any]:
         """
@@ -136,8 +109,18 @@ class BatchJob:
             stats_data["total_results"] = len(results)
             
             if self._enable_citations:
-                citations = self.citations()
-                stats_data["total_citations"] = len(citations) if citations else 0
+                # Count total citations across all results
+                total_citations = 0
+                for result_entry in results:
+                    if result_entry.get("citations"):
+                        if isinstance(result_entry["citations"], list):
+                            total_citations += len(result_entry["citations"])
+                        elif isinstance(result_entry["citations"], dict):
+                            # For field citations, count total across all fields
+                            for field_citations in result_entry["citations"].values():
+                                if isinstance(field_citations, list):
+                                    total_citations += len(field_citations)
+                stats_data["total_citations"] = total_citations
             
             # Add cost information if model is provided
             if self._model:

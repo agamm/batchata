@@ -49,11 +49,11 @@ def test_spam_detection_happy_path():
     results = job.results()
     
     assert len(results) == 2
-    assert all(isinstance(result, SpamResult) for result in results)
+    assert all(isinstance(result_entry["result"], SpamResult) for result_entry in results)
     
     # Type assertions for proper type checking
-    first_result = results[0]
-    second_result = results[1]
+    first_result = results[0]["result"]
+    second_result = results[1]["result"]
     assert isinstance(first_result, SpamResult)
     assert isinstance(second_result, SpamResult)
     
@@ -116,36 +116,40 @@ Thank you for your business!"""
         time.sleep(3)
     
     results = job.results()
-    citations = job.citations()
     
     # Verify results structure
     assert isinstance(results, list)
     assert len(results) == 1
     
-    result = results[0]
+    result_entry = results[0]
+    assert isinstance(result_entry, dict)
+    assert "result" in result_entry
+    assert "citations" in result_entry
+    
+    # Verify the actual result model
+    result = result_entry["result"]
     assert isinstance(result, InvoiceData)
     assert len(result.company_name) > 0
     assert len(result.amount) > 0
     assert len(result.date) > 0
     
     # Verify citations structure for field-level citations
-    assert isinstance(citations, list)
-    assert len(citations) == 1
-    assert isinstance(citations[0], dict)
+    citations = result_entry["citations"]
+    assert isinstance(citations, dict)
     
     # Citations should contain the relevant text, but API may return larger chunks
-    assert "TechCorp Solutions Inc." in citations[0]['company_name'][0].cited_text
-    assert citations[0]['company_name'][0].start_page_number is not None
-    assert citations[0]['company_name'][0].end_page_number is not None
-    assert citations[0]['company_name'][0].document_index == 0
+    assert "TechCorp Solutions Inc." in citations['company_name'][0].cited_text
+    assert citations['company_name'][0].start_page_number is not None
+    assert citations['company_name'][0].end_page_number is not None
+    assert citations['company_name'][0].document_index == 0
     
     # Test amount field citation
-    assert '$12,500.00' in citations[0]['amount'][0].cited_text
-    assert citations[0]['amount'][0].document_index == 0
+    assert '$12,500.00' in citations['amount'][0].cited_text
+    assert citations['amount'][0].document_index == 0
     
     # Test date field citation  
-    assert 'date' in citations[0] and len(citations[0]['date']) > 0
-    assert citations[0]['date'][0].document_index == 0
+    assert 'date' in citations and len(citations['date']) > 0
+    assert citations['date'][0].document_index == 0
     
 
 

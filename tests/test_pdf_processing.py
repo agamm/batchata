@@ -85,9 +85,9 @@ def test_batch_with_single_pdf():
         mock_provider.has_citations_enabled.return_value = False
         mock_provider._is_batch_completed.return_value = True
         mock_provider.get_results.return_value = []
-        mock_provider.parse_results.return_value = ([
-            DocumentInfo(title="Invoice", content="Invoice #12345", page_count=1)
-        ], None)
+        mock_provider.parse_results.return_value = [
+            {"result": DocumentInfo(title="Invoice", content="Invoice #12345", page_count=1), "citations": None}
+        ]
         
         messages = [[
             {"role": "user", "content": [
@@ -108,8 +108,8 @@ def test_batch_with_single_pdf():
         
         results = job.results()
         assert len(results) == 1
-        assert results[0].title == "Invoice"
-        assert results[0].content == "Invoice #12345"
+        assert results[0]["result"].title == "Invoice"
+        assert results[0]["result"].content == "Invoice #12345"
 
 
 def test_batch_with_multiple_pdfs():
@@ -131,11 +131,11 @@ def test_batch_with_multiple_pdfs():
         mock_provider.has_citations_enabled.return_value = False
         mock_provider._is_batch_completed.return_value = True
         mock_provider.get_results.return_value = []
-        mock_provider.parse_results.return_value = ([
-            DocumentInfo(title="Doc1", content="Document 1", page_count=1),
-            DocumentInfo(title="Doc2", content="Document 2", page_count=1),
-            DocumentInfo(title="Doc3", content="Document 3", page_count=1)
-        ], None)
+        mock_provider.parse_results.return_value = [
+            {"result": DocumentInfo(title="Doc1", content="Document 1", page_count=1), "citations": None},
+            {"result": DocumentInfo(title="Doc2", content="Document 2", page_count=1), "citations": None},
+            {"result": DocumentInfo(title="Doc3", content="Document 3", page_count=1), "citations": None}
+        ]
         
         messages = []
         for i, pdf_content in enumerate([pdf1, pdf2, pdf3], 1):
@@ -159,9 +159,9 @@ def test_batch_with_multiple_pdfs():
         
         results = job.results()
         assert len(results) == 3
-        assert results[0].title == "Doc1"
-        assert results[1].title == "Doc2"
-        assert results[2].title == "Doc3"
+        assert results[0]["result"].title == "Doc1"
+        assert results[1]["result"].title == "Doc2"
+        assert results[2]["result"].title == "Doc3"
 
 
 def test_batch_with_file_paths():
@@ -185,10 +185,10 @@ def test_batch_with_file_paths():
             mock_provider.has_citations_enabled.return_value = False
             mock_provider._is_batch_completed.return_value = True
             mock_provider.get_results.return_value = []
-            mock_provider.parse_results.return_value = ([
-                DocumentInfo(title=f"Doc{i}", content=f"Test Document {i}", page_count=1)
+            mock_provider.parse_results.return_value = [
+                {"result": DocumentInfo(title=f"Doc{i}", content=f"Test Document {i}", page_count=1), "citations": None}
                 for i in range(3)
-            ], None)
+            ]
             
             from src import batch
             
@@ -201,6 +201,6 @@ def test_batch_with_file_paths():
             
             results = job.results()
             assert len(results) == 3
-            for i, result in enumerate(results):
-                assert result.title == f"Doc{i}"
-                assert result.content == f"Test Document {i}"
+            for i, result_entry in enumerate(results):
+                assert result_entry["result"].title == f"Doc{i}"
+                assert result_entry["result"].content == f"Test Document {i}"
