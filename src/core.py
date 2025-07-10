@@ -6,7 +6,7 @@ A wrapper around AI providers' batch APIs for structured output.
 
 import base64
 from pathlib import Path
-from typing import List, Type, TypeVar, Optional, Union
+from typing import List, Type, TypeVar, Optional, Union, Dict, Any
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from .providers import get_provider_for_model
@@ -19,7 +19,7 @@ load_dotenv(project_root / ".env")
 T = TypeVar('T', bound=BaseModel)
 
 
-def pdf_to_document_block(pdf_bytes: bytes, enable_citations: bool = False) -> dict:
+def pdf_to_document_block(pdf_bytes: bytes, enable_citations: bool = False) -> Dict[str, Any]:
     """Convert PDF bytes to Anthropic document content block format.
     
     Args:
@@ -142,12 +142,11 @@ def batch(
     
     # Provider handles all complexity
     provider_instance.validate_batch(messages, response_model)
+    
+    # Check if citations are enabled
     batch_requests = provider_instance.prepare_batch_requests(
-        messages, response_model, model=model, max_tokens=max_tokens, temperature=temperature
+        messages, response_model, model=model, max_tokens=max_tokens, temperature=temperature, enable_citations=enable_citations
     )
     batch_id = provider_instance.create_batch(batch_requests)
     
-    # Check if citations are enabled
-    enable_citations_flag = provider_instance.has_citations_enabled(messages)
-    
-    return BatchJob(provider_instance, batch_id, response_model, verbose, enable_citations_flag, raw_results_dir, model)
+    return BatchJob(provider_instance, batch_id, response_model, verbose, enable_citations, raw_results_dir, model)

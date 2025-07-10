@@ -14,7 +14,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-from src import batch_files, Citation
+from src import batch, Citation
 from tests.utils import create_pdf
 from pydantic import BaseModel
 import time
@@ -65,7 +65,7 @@ def test_mode_1_plain_text():
     
     invoice = create_test_invoice()
     
-    job = batch_files(
+    job = batch(
         files=[invoice],
         prompt="Summarize this invoice in one sentence.",
         model="claude-3-5-sonnet-20241022",
@@ -101,7 +101,7 @@ def test_mode_2_structured_only():
     
     invoice = create_test_invoice()
     
-    job = batch_files(
+    job = batch(
         files=[invoice],
         prompt="Extract the company name, total amount, and invoice date.",
         model="claude-3-5-sonnet-20241022",
@@ -138,7 +138,7 @@ def test_mode_3_text_citations():
     
     invoice = create_test_invoice()
     
-    job = batch_files(
+    job = batch(
         files=[invoice],
         prompt="What is the company name and total amount? Cite your sources.",
         model="claude-3-5-sonnet-20241022",
@@ -187,7 +187,7 @@ def test_mode_4_structured_field_citations():
     
     invoice = create_test_invoice()
     
-    job = batch_files(
+    job = batch(
         files=[invoice],
         prompt="Extract the company name, total amount, and invoice date. Use citations to reference where you found each piece of information.",
         model="claude-3-5-sonnet-20241022",
@@ -284,4 +284,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_mode_4_structured_field_citations()

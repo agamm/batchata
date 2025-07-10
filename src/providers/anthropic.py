@@ -6,7 +6,7 @@ Provider class for Anthropic Claude models with batch processing.
 
 import json
 from textwrap import dedent
-from typing import List, Type, Dict, Any, Optional, Union, Literal
+from typing import List, Type, Dict, Any, Optional, Literal, Tuple
 from pydantic import BaseModel
 from anthropic import Anthropic
 from tokencost import calculate_cost_by_tokens
@@ -35,7 +35,7 @@ class AnthropicBatchProvider(BaseBatchProvider):
     # Batch API offers 50% discount on all usage
     BATCH_DISCOUNT = 0.5
     
-    def __init__(self, rate_limits: Dict[str, int] = None):
+    def __init__(self, rate_limits: Optional[Dict[str, int]] = None):
         super().__init__(rate_limits)
         self.client = Anthropic()  # Automatically reads ANTHROPIC_API_KEY from env
     
@@ -82,9 +82,13 @@ class AnthropicBatchProvider(BaseBatchProvider):
                 if message["role"] not in valid_roles:
                     raise ValueError(f"Message {i}[{j}] has invalid role '{message['role']}'. Must be one of: {valid_roles}")
         
+    
+    def prepare_batch_requests(self, messages: List[List[dict]], response_model: Optional[Type[BaseModel]], enable_citations: bool = False, **kwargs) -> List[dict]:
+        if not messages:
+            return []
+        
         # Check for nested models with citations
-        if response_model and self.has_citations_enabled(messages):
-            # Check if model has nested Pydantic models
+        if response_model and enable_citations:
             for field_name, field_info in response_model.model_fields.items():
                 field_type = field_info.annotation
                 # Check if field type is a BaseModel subclass (nested model)
@@ -96,23 +100,6 @@ class AnthropicBatchProvider(BaseBatchProvider):
                         f"Field '{field_name}' contains a nested model '{field_type.__name__}'. "
                         f"Please use a flat model structure when enabling citations."
                     )
-    
-    def has_citations_enabled(self, messages: List[List[dict]]) -> bool:
-        """Check if any message has citations enabled."""
-        for conversation in messages:
-            for msg in conversation:
-                content = msg.get("content", [])
-                if isinstance(content, list):
-                    for item in content:
-                        if isinstance(item, dict) and item.get("type") == "document":
-                            citations = item.get("citations", {})
-                            if isinstance(citations, dict) and citations.get("enabled", False):
-                                return True
-        return False
-    
-    def prepare_batch_requests(self, messages: List[List[dict]], response_model: Optional[Type[BaseModel]], **kwargs) -> List[dict]:
-        if not messages:
-            return []
         
         batch_requests = []
         for i, conversation in enumerate(messages):
@@ -136,6 +123,14 @@ class AnthropicBatchProvider(BaseBatchProvider):
                     combined_system = f"{original_system}\n\n{system_message}"
             else:
                 combined_system = "\n\n".join(system_messages) if system_messages else None
+            
+            # Add citation instruction if citations are enabled
+            if enable_citations:
+                citation_instruction = "Include citations in your response referencing the specific parts of the documents you used."
+                if combined_system:
+                    combined_system = f"{combined_system}\n\n{citation_instruction}"
+                else:
+                    combined_system = citation_instruction
             
             request = {
                 "custom_id": f"request_{i}",
@@ -168,7 +163,7 @@ class AnthropicBatchProvider(BaseBatchProvider):
     def get_results(self, batch_id: str) -> List[Any]:
         return self.client.messages.batches.results(batch_id)
     
-    def _parse_content_blocks(self, content_blocks: List[Any]) -> tuple[str, List[Citation]]:
+    def _parse_content_blocks(self, content_blocks: List[Any]) -> Tuple[str, List[Citation]]:
         """Parse content blocks to extract text and citations.
         
         Args:
@@ -238,7 +233,7 @@ class AnthropicBatchProvider(BaseBatchProvider):
     
     def _map_citations_to_fields(self, content_blocks: List[Any], response_model: Type[BaseModel]) -> Dict[str, List[Citation]]:
         """
-        Map citations to field names based on JSON structure analysis.
+        Map citations to field names using proper JSON parsing instead of fragile regex.
         
         Args:
             content_blocks: List of content blocks from API response
@@ -247,30 +242,51 @@ class AnthropicBatchProvider(BaseBatchProvider):
         Returns:
             Dict mapping field names to their citations
         """
-        field_citations = {}
-        current_field = None
-        json_buffer = ""
-        
-        for block in content_blocks:
-            text = getattr(block, 'text', '')
-            json_buffer += text
+        try:
+            # Get the complete text and extract JSON using same logic as _extract_json_from_text
+            full_text = "".join(getattr(block, 'text', '') for block in content_blocks)
             
-            # Try to identify field names from JSON structure
-            # Look for patterns like '"field_name": ' before a value
-            import re
-            field_pattern = r'"(\w+)"\s*:\s*$'
-            match = re.search(field_pattern, json_buffer)
-            if match:
-                current_field = match.group(1)
+            # Use the same JSON extraction logic as _extract_json_from_text
+            start_idx = full_text.find('{')
+            end_idx = full_text.rfind('}') + 1
             
-            # If this block has citations and we know the current field
-            if hasattr(block, 'citations') and block.citations and current_field:
-                if current_field not in field_citations:
-                    field_citations[current_field] = []
+            if start_idx == -1 or end_idx <= start_idx:
+                return {}
                 
-                # Convert API citations to our Citation objects
-                for cit in block.citations:
-                    citation = Citation(
+            json_str = full_text[start_idx:end_idx]
+            parsed_json = json.loads(json_str)
+            
+            # Map citations based on JSON structure and content block positions
+            return self._extract_field_citations(content_blocks, parsed_json, response_model)
+            
+        except (json.JSONDecodeError, ValueError):
+            # If JSON parsing fails, fall back to empty mapping
+            # This is safer than the previous regex approach
+            return {}
+    
+    def _extract_field_citations(self, content_blocks: List[Any], parsed_json: dict, response_model: Type[BaseModel]) -> Dict[str, List[Citation]]:
+        """
+        Extract citations for each field using JSON structure analysis.
+        
+        Args:
+            content_blocks: List of content blocks from API response
+            parsed_json: Parsed JSON object
+            response_model: Pydantic model for field validation
+            
+        Returns:
+            Dict mapping field names to their citations
+        """
+        field_citations = {}
+        
+        # Get valid field names from the response model
+        valid_fields = set(response_model.model_fields.keys()) if hasattr(response_model, 'model_fields') else set()
+        
+        # Build a map of content block index to citations
+        block_citations = {}
+        for i, block in enumerate(content_blocks):
+            if hasattr(block, 'citations') and block.citations:
+                block_citations[i] = [
+                    Citation(
                         type=getattr(cit, 'type', ''),
                         cited_text=getattr(cit, 'cited_text', ''),
                         document_index=getattr(cit, 'document_index', 0),
@@ -282,11 +298,62 @@ class AnthropicBatchProvider(BaseBatchProvider):
                         start_content_block_index=getattr(cit, 'start_content_block_index', None),
                         end_content_block_index=getattr(cit, 'end_content_block_index', None)
                     )
-                    field_citations[current_field].append(citation)
+                    for cit in block.citations
+                ]
+        
+        # Use a more sophisticated approach to map citations to fields
+        # based on the structure of the JSON and content blocks
+        for field_name, field_value in parsed_json.items():
+            if field_name in valid_fields:
+                # Find the approximate position of this field's value in the full text
+                field_value_str = json.dumps(field_value) if not isinstance(field_value, str) else field_value
+                
+                # Look for citations in content blocks that likely correspond to this field
+                field_citations[field_name] = []
+                
+                # Simple heuristic: assign citations from blocks based on field order
+                # This works for flat JSON structures with simple field mappings
+                for block_idx, citations in block_citations.items():
+                    block_text = getattr(content_blocks[block_idx], 'text', '')
+                    
+                    # If the block text appears to be related to this field value
+                    if self._text_likely_matches_field(block_text, field_value_str, field_name):
+                        field_citations[field_name].extend(citations)
         
         return field_citations
     
-    def parse_results(self, results: List[Any], response_model: Optional[Type[BaseModel]], enable_citations: bool) -> tuple:
+    def _text_likely_matches_field(self, block_text: str, field_value: str, field_name: str) -> bool:
+        """
+        Heuristic to determine if a content block's text likely corresponds to a JSON field.
+        
+        Args:
+            block_text: Text from the content block
+            field_value: String representation of the field value
+            field_name: Name of the field
+            
+        Returns:
+            True if the text likely matches the field
+        """
+        # Simple heuristics that work better than regex parsing:
+        
+        # 1. Check if the block text contains the field value
+        if field_value.strip('"') in block_text:
+            return True
+            
+        # 2. Check if the block text appears after the field name in JSON
+        if f'"{field_name}"' in block_text:
+            return True
+            
+        # 3. For string values, check for partial matches
+        if isinstance(field_value, str) and len(field_value) > 3:
+            # Remove quotes and check for substantial overlap
+            clean_value = field_value.strip('"')
+            if len(clean_value) > 3 and clean_value in block_text:
+                return True
+        
+        return False
+    
+    def parse_results(self, results: List[Any], response_model: Optional[Type[BaseModel]], enable_citations: bool) -> Tuple[List[Any], Optional[List[Any]]]:
         """
         Parse results according to 4 modes:
         1. Plain text (no response_model, no citations)

@@ -235,30 +235,6 @@ class TestCitationModes:
         assert len(pdf_bytes) > 0
         assert pdf_bytes.startswith(b"%PDF-1.4")
     
-    def test_citations_enabled_detection(self):
-        """Test citation detection in messages."""
-        from src.providers.anthropic import AnthropicBatchProvider
-        
-        provider = AnthropicBatchProvider()
-        
-        # Messages without citations
-        messages_no_citations = [[{
-            "role": "user",
-            "content": [{"type": "text", "text": "Hello"}]
-        }]]
-        
-        assert not provider.has_citations_enabled(messages_no_citations)
-        
-        # Messages with citations
-        messages_with_citations = [[{
-            "role": "user", 
-            "content": [
-                {"type": "text", "text": "Hello"},
-                {"type": "document", "source": {"type": "base64", "data": "test"}, "citations": {"enabled": True}}
-            ]
-        }]]
-        
-        assert provider.has_citations_enabled(messages_with_citations)
     
     def test_nested_model_with_citations_raises_error(self):
         """Test that nested Pydantic models with citations raise an error."""

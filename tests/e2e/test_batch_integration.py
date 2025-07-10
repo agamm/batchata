@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
-from src import batch, Citation
+from src import batch
 from tests.utils import create_pdf
 import time
 
@@ -104,7 +104,7 @@ Thank you for your business!"""
     
     job = batch(
         files=[test_document],
-        prompt="Extract the company name, total amount, and invoice date. Use citations to reference where you found each piece of information.",
+        prompt="Extract the company name, total amount, and invoice date.",
         model="claude-3-5-sonnet-20241022",
         response_model=InvoiceData,
         enable_citations=True,
@@ -130,36 +130,22 @@ Thank you for your business!"""
     
     # Verify citations structure for field-level citations
     assert isinstance(citations, list)
+    assert len(citations) == 1
+    assert isinstance(citations[0], dict)
     
-    # Skip test if API didn't return citations (known Batch API limitation)
-    if len(citations) == 0 or (len(citations) == 1 and isinstance(citations[0], dict) and len(citations[0]) == 0):
-        import pytest
-        pytest.skip("Anthropic Batch API doesn't return citation metadata - known limitation")
+    # Citations should contain the relevant text, but API may return larger chunks
+    assert "TechCorp Solutions Inc." in citations[0]['company_name'][0].cited_text
+    assert citations[0]['company_name'][0].start_page_number is not None
+    assert citations[0]['company_name'][0].end_page_number is not None
+    assert citations[0]['company_name'][0].document_index == 0
     
-    assert len(citations) == 1  # One FieldCitations dict per result
+    # Test amount field citation
+    assert '$12,500.00' in citations[0]['amount'][0].cited_text
+    assert citations[0]['amount'][0].document_index == 0
     
-    field_citations = citations[0]
-    assert isinstance(field_citations, dict)
+    # Test date field citation  
+    assert 'date' in citations[0] and len(citations[0]['date']) > 0
+    assert citations[0]['date'][0].document_index == 0
     
-    # Check that we have field-level citations
-    expected_fields = ["company_name", "amount", "date"]
-    found_fields = list(field_citations.keys())
-    
-    # At least some fields should have citations
-    assert len(found_fields) > 0
-    assert all(field in expected_fields for field in found_fields)
-    
-    # Verify citation structure for each field
-    for field_cit_list in field_citations.values():
-        assert isinstance(field_cit_list, list)
-        assert len(field_cit_list) > 0
-        
-        for cit in field_cit_list:
-            assert isinstance(cit, Citation)
-            assert len(cit.cited_text) > 0
-            assert cit.type in ["page_location", "document_location"]
-            if cit.start_page_number is not None:
-                assert cit.start_page_number >= 1
-                if cit.end_page_number is not None:
-                    assert cit.end_page_number >= cit.start_page_number
+
 

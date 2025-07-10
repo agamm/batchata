@@ -104,7 +104,7 @@ class BatchJob:
         
         return self._cached_citations if self._cached_citations is not None else []
     
-    def stats(self, print_stats: bool = False) -> dict:
+    def stats(self, print_stats: bool = False) -> Dict[str, Any]:
         """
         Get batch statistics.
         

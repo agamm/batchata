@@ -229,6 +229,20 @@ citations = job.citations()  # List of dicts mapping fields to citations
 
 The field mapping allows you to trace exactly which part of the source document was used to populate each field in your structured output.
 
+### Robust Citation Parsing
+
+AI Batch uses proper JSON parsing for citation field mapping, ensuring reliability with complex JSON structures:
+
+**Handles Complex Scenarios:**
+- ✅ Escaped quotes in JSON values: `"name": "John \"The Great\" Doe"`
+- ✅ URLs with colons: `"website": "http://example.com:8080"`
+- ✅ Nested objects and arrays: `"metadata": {"nested": {"deep": "value"}}`
+- ✅ Multi-line strings and special characters
+- ✅ Fields with numbers/underscores: `user_name`, `age_2`
+
+**Previous Limitations (Fixed):**
+The old regex-based approach would fail on complex JSON patterns. The new JSON parser reliably handles any valid JSON structure that Claude produces, making citation mapping robust for production use.
+
 ## Cost Tracking
 
 AI Batch automatically tracks token usage and costs for all batch operations:

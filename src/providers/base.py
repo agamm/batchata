@@ -5,14 +5,14 @@ Abstract base class for all batch processing providers.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Type, Any, Optional, Union
+from typing import List, Dict, Type, Any, Optional, Union, Tuple
 from pydantic import BaseModel
 
 
 class BaseBatchProvider(ABC):
     """Abstract base class for batch processing providers."""
     
-    def __init__(self, rate_limits: Dict[str, int] = None):
+    def __init__(self, rate_limits: Optional[Dict[str, int]] = None):
         """
         Initialize provider with optional rate limits.
         
@@ -47,13 +47,14 @@ class BaseBatchProvider(ABC):
         pass
     
     @abstractmethod
-    def prepare_batch_requests(self, messages: List[List[dict]], response_model: Optional[Type[BaseModel]], **kwargs) -> List[dict]:
+    def prepare_batch_requests(self, messages: List[List[dict]], response_model: Optional[Type[BaseModel]], enable_citations: bool = False, **kwargs) -> List[dict]:
         """
         Prepare batch requests ready for API submission.
         
         Args:
             messages: List of message conversations
             response_model: Optional Pydantic model for responses
+            enable_citations: Whether to enable citations in system prompt
             **kwargs: Additional parameters (model, max_tokens, etc.)
             
         Returns:
@@ -87,7 +88,7 @@ class BaseBatchProvider(ABC):
         """
         pass
     
-    def wait_for_completion(self, batch_id: str, poll_interval: int, verbose: bool) -> None:
+    def wait_for_completion(self, batch_id: str, poll_interval: Union[int, float], verbose: bool) -> None:
         """
         Wait for batch completion with status monitoring.
         
@@ -139,7 +140,7 @@ class BaseBatchProvider(ABC):
         pass
     
     @abstractmethod
-    def parse_results(self, results: List[Any], response_model: Optional[Type[BaseModel]], enable_citations: bool) -> tuple:
+    def parse_results(self, results: List[Any], response_model: Optional[Type[BaseModel]], enable_citations: bool) -> Tuple[List[Any], Optional[List[Any]]]:
         """
         Parse API results into Pydantic models or raw text.
         
@@ -179,15 +180,3 @@ class BaseBatchProvider(ABC):
         """
         pass
     
-    @abstractmethod
-    def has_citations_enabled(self, messages: List[List[dict]]) -> bool:
-        """
-        Check if citations are enabled for the given messages.
-        
-        Args:
-            messages: List of message conversations
-            
-        Returns:
-            True if citations are enabled, False otherwise
-        """
-        pass

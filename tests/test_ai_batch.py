@@ -81,7 +81,6 @@ def test_batch_creates_batch_job(mock_provider_func):
     mock_provider.validate_batch.return_value = None
     mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
     mock_provider.create_batch.return_value = "batch_123"
-    mock_provider.has_citations_enabled.return_value = False
     mock_provider._is_batch_completed.return_value = True
     mock_provider.get_results.return_value = []
     mock_provider.parse_results.return_value = ([SpamResult(is_spam=True, confidence=0.9, reason="Test")], None)
@@ -98,7 +97,6 @@ def test_batch_creates_batch_job(mock_provider_func):
     mock_provider.validate_batch.assert_called_once()
     mock_provider.prepare_batch_requests.assert_called_once()
     mock_provider.create_batch.assert_called_once()
-    mock_provider.has_citations_enabled.assert_called_once()
     
     # Test that BatchJob is returned
     from src.batch_job import BatchJob
@@ -123,7 +121,6 @@ def test_batch_multiple_messages(mock_provider_func):
         {'custom_id': 'request_1', 'params': {}}
     ]
     mock_provider.create_batch.return_value = "batch_123"
-    mock_provider.has_citations_enabled.return_value = False
     mock_provider._is_batch_completed.return_value = True
     mock_provider.get_results.return_value = []
     mock_provider.parse_results.return_value = ([
@@ -157,7 +154,6 @@ def test_batch_without_response_model(mock_provider_func):
     mock_provider.validate_batch.return_value = None
     mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0', 'params': {}}]
     mock_provider.create_batch.return_value = "batch_123"
-    mock_provider.has_citations_enabled.return_value = False
     mock_provider._is_batch_completed.return_value = True
     mock_provider.get_results.return_value = []
     mock_provider.parse_results.return_value = (["This is a raw text response"], None)
