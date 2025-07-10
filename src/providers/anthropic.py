@@ -364,6 +364,66 @@ class AnthropicBatchProvider(BaseBatchProvider):
         if not results:
             return [], None
             
+        if not enable_citations and not response_model:
+            return self._parse_plain_text(results)
+        elif not enable_citations and response_model:
+            return self._parse_structured_only(results, response_model)
+        elif enable_citations and not response_model:
+            return self._parse_text_with_citations(results)
+        else:
+            return self._parse_structured_with_citations(results, response_model)
+    
+    def _parse_plain_text(self, results: List[Any]) -> Tuple[List[Any], Optional[List[Any]]]:
+        """Mode 1: Plain text (no response_model, no citations)."""
+        parsed_results = []
+        errors = []
+        
+        for result in results:
+            try:
+                if result.result.type != "succeeded":
+                    errors.append(result.model_dump())
+                    continue
+                    
+                content = result.result.message.content
+                if isinstance(content, list):
+                    message_content = content[0].text if content else ""
+                else:
+                    message_content = content.text if hasattr(content, 'text') else str(content)
+                parsed_results.append(message_content)
+                    
+            except Exception as e:
+                errors.append({"error": str(e), "result": result.model_dump()})
+        
+        self._handle_errors(errors)
+        return parsed_results, None
+    
+    def _parse_structured_only(self, results: List[Any], response_model: Type[BaseModel]) -> Tuple[List[Any], Optional[List[Any]]]:
+        """Mode 2: Structured only (response_model, no citations)."""
+        parsed_results = []
+        errors = []
+        
+        for result in results:
+            try:
+                if result.result.type != "succeeded":
+                    errors.append(result.model_dump())
+                    continue
+                    
+                content = result.result.message.content
+                if isinstance(content, list):
+                    message_content = content[0].text if content else ""
+                else:
+                    message_content = content.text if hasattr(content, 'text') else str(content)
+                model_instance = self._extract_json_from_text(message_content, response_model)
+                parsed_results.append(model_instance)
+                    
+            except Exception as e:
+                errors.append({"error": str(e), "result": result.model_dump()})
+        
+        self._handle_errors(errors)
+        return parsed_results, None
+    
+    def _parse_text_with_citations(self, results: List[Any]) -> Tuple[List[Any], Optional[List[Any]]]:
+        """Mode 3: Text + Citations (no response_model, citations)."""
         parsed_results = []
         all_citations = []
         errors = []
@@ -376,102 +436,88 @@ class AnthropicBatchProvider(BaseBatchProvider):
                     
                 content = result.result.message.content
                 
-                # Mode 1 & 2: No citations
-                if not enable_citations:
-                    # Extract text from content
-                    if isinstance(content, list):
-                        message_content = content[0].text if content else ""
-                    else:
-                        message_content = content.text if hasattr(content, 'text') else str(content)
-                    
-                    if response_model:
-                        # Mode 2: Structured only
-                        model_instance = self._extract_json_from_text(message_content, response_model)
-                        parsed_results.append(model_instance)
-                    else:
-                        # Mode 1: Plain text
-                        parsed_results.append(message_content)
-                
-                # Mode 3 & 4: Citations enabled
-                elif enable_citations and isinstance(content, list):
-                    # Extract full text and citations
+                if isinstance(content, list):
                     full_text, citations = self._parse_content_blocks(content)
-                    
-                    if response_model:
-                        # Mode 4: Structured + Field Citations
-                        model_instance = self._extract_json_from_text(full_text, response_model)
-                        parsed_results.append(model_instance)
-                        
-                        # Map citations to fields
-                        field_citations = self._map_citations_to_fields(content, response_model)
-                        all_citations.append(field_citations)
-                    else:
-                        # Mode 3: Text + Citations
-                        parsed_results.append(full_text)
-                        all_citations.extend(citations)
-                elif enable_citations and not isinstance(content, list):
-                    # Single content block with potential citations
-                    message_content = content.text if hasattr(content, 'text') else str(content)
-                    
-                    if response_model:
-                        # Mode 4: Structured + Field Citations (single block)
-                        model_instance = self._extract_json_from_text(message_content, response_model)
-                        parsed_results.append(model_instance)
-                        # Check if single block has citations
-                        if hasattr(content, 'citations') and content.citations:
-                            field_citations = self._map_citations_to_fields([content], response_model)
-                            all_citations.append(field_citations)
-                        else:
-                            all_citations.append({})
-                    else:
-                        # Mode 3: Text + Citations (single block)
-                        parsed_results.append(message_content)
-                        if hasattr(content, 'citations') and content.citations:
-                            _, citations = self._parse_content_blocks([content])
-                            all_citations.extend(citations)
+                    parsed_results.append(full_text)
+                    all_citations.extend(citations)
                 else:
-                    # Fallback: treat as plain text
-                    message_content = str(content)
-                    if response_model:
-                        model_instance = self._extract_json_from_text(message_content, response_model)
-                        parsed_results.append(model_instance)
-                    else:
-                        parsed_results.append(message_content)
+                    message_content = content.text if hasattr(content, 'text') else str(content)
+                    parsed_results.append(message_content)
+                    
+                    if hasattr(content, 'citations') and content.citations:
+                        _, citations = self._parse_content_blocks([content])
+                        all_citations.extend(citations)
                     
             except Exception as e:
                 errors.append({"error": str(e), "result": result.model_dump()})
-            
-        if errors:
-            print(f"\n❌ Batch processing errors ({len(errors)} failed):")
-            for i, error in enumerate(errors, 1):
-                print(f"\nError {i}:")
-                if "error" in error:
-                    print(f"  Exception: {error['error']}")
-                if "result" in error:
-                    result_data = error["result"]
-                    if isinstance(result_data, dict):
-                        if "result" in result_data and isinstance(result_data["result"], dict):
-                            res = result_data["result"]
-                            if "type" in res:
-                                print(f"  Result type: {res['type']}")
-                            if "error" in res:
-                                print(f"  API error: {res['error']}")
-                        if "custom_id" in result_data:
-                            print(f"  Custom ID: {result_data['custom_id']}")
-                    else:
-                        print(f"  Result data: {result_data}")
-                print(f"  Full error: {error}")
-            raise RuntimeError(f"Some batch requests failed: {len(errors)} errors")
         
-        # Return appropriate citation format based on mode
-        if not enable_citations:
-            return parsed_results, None
-        elif response_model:
-            # Mode 4: List of FieldCitations (one per result)
-            return parsed_results, all_citations
-        else:
-            # Mode 3: Flat list of citations
-            return parsed_results, all_citations
+        self._handle_errors(errors)
+        return parsed_results, all_citations
+    
+    def _parse_structured_with_citations(self, results: List[Any], response_model: Type[BaseModel]) -> Tuple[List[Any], Optional[List[Any]]]:
+        """Mode 4: Structured + Field Citations (response_model + citations)."""
+        parsed_results = []
+        all_citations = []
+        errors = []
+        
+        for result in results:
+            try:
+                if result.result.type != "succeeded":
+                    errors.append(result.model_dump())
+                    continue
+                    
+                content = result.result.message.content
+                
+                if isinstance(content, list):
+                    full_text, _ = self._parse_content_blocks(content)
+                    model_instance = self._extract_json_from_text(full_text, response_model)
+                    parsed_results.append(model_instance)
+                    
+                    field_citations = self._map_citations_to_fields(content, response_model)
+                    all_citations.append(field_citations)
+                else:
+                    message_content = content.text if hasattr(content, 'text') else str(content)
+                    model_instance = self._extract_json_from_text(message_content, response_model)
+                    parsed_results.append(model_instance)
+                    
+                    if hasattr(content, 'citations') and content.citations:
+                        field_citations = self._map_citations_to_fields([content], response_model)
+                        all_citations.append(field_citations)
+                    else:
+                        all_citations.append({})
+                    
+            except Exception as e:
+                errors.append({"error": str(e), "result": result.model_dump()})
+        
+        self._handle_errors(errors)
+        return parsed_results, all_citations
+    
+    
+    def _handle_errors(self, errors: List[dict]) -> None:
+        """Handle and report batch processing errors."""
+        if not errors:
+            return
+            
+        print(f"\n❌ Batch processing errors ({len(errors)} failed):")
+        for i, error in enumerate(errors, 1):
+            print(f"\nError {i}:")
+            if "error" in error:
+                print(f"  Exception: {error['error']}")
+            if "result" in error:
+                result_data = error["result"]
+                if isinstance(result_data, dict):
+                    if "result" in result_data and isinstance(result_data["result"], dict):
+                        res = result_data["result"]
+                        if "type" in res:
+                            print(f"  Result type: {res['type']}")
+                        if "error" in res:
+                            print(f"  API error: {res['error']}")
+                    if "custom_id" in result_data:
+                        print(f"  Custom ID: {result_data['custom_id']}")
+                else:
+                    print(f"  Result data: {result_data}")
+            print(f"  Full error: {error}")
+        raise RuntimeError(f"Some batch requests failed: {len(errors)} errors")
     
     def _extract_usage_from_result(self, result: Any) -> Dict[str, Any]:
         """
