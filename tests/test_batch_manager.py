@@ -289,12 +289,12 @@ class TestBatchManager:
         
         summary = manager.run(print_progress=False)
         
-        # With max_parallel_jobs=1, all jobs get submitted before any complete
-        # But cost limit should be noted as reached after first job
+        # With max_parallel_jobs=1, first job completes and hits cost limit
+        # Remaining jobs are blocked
         assert summary["cost_limit_reached"] == True
-        # All jobs complete since they were already submitted  
-        assert summary["completed_items"] == 6
-        assert mock_batch.call_count == 3
+        # Only first job completes (2 items)
+        assert summary["completed_items"] == 2
+        assert mock_batch.call_count == 1
 
     @patch('src.batch_manager.batch')
     def test_retry_failed_items(self, mock_batch):
@@ -742,9 +742,9 @@ class TestBatchManager:
         # Run processing
         summary = manager.run(print_progress=False)
         
-        # With parallel execution, first 2 jobs get submitted before cost is known
-        # They complete and exceed limit, preventing jobs 3-4 from being submitted
-        assert mock_batch.call_count == 2  # Only first batch of 2 jobs
+        # With parallel execution, first 2 jobs start simultaneously
+        # Both complete and exceed limit before 3rd job can start
+        assert mock_batch.call_count == 2  # Only first 2 jobs
         assert summary['completed_items'] == 2
         assert summary['total_cost'] >= 0.03
         assert summary['cost_limit_reached'] == True

@@ -61,19 +61,23 @@ def run_jobs_with_conditional_parallel(max_parallel: int, condition_fn: Callable
         
         # Process completed jobs and submit new ones
         while futures:
+            # Get the next completed future
+            completed_future = None
             for future in as_completed(futures):
+                completed_future = future
+                break
+            
+            if completed_future:
                 try:
-                    future.result()
+                    completed_future.result()
                 except Exception:
                     pass  # Let caller handle errors
                 
                 # Remove completed job
-                del futures[future]
+                del futures[completed_future]
                 
                 # Submit next job if available and condition allows
                 if remaining_jobs and not condition_fn():
                     job = remaining_jobs.pop(0)
                     new_future = executor.submit(job_processor_fn, job)
                     futures[new_future] = job
-                
-                break  # Only process one completion at a time
