@@ -3,7 +3,7 @@
 import pytest
 from typing import List, Optional, Union
 from pydantic import BaseModel
-from src.batch_manager import BatchManager
+from batchata.batch_manager import BatchManager
 
 
 class SimpleModel(BaseModel):

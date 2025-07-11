@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 from pydantic import BaseModel
 from typing import List, Optional
 
-from src.providers.anthropic import AnthropicBatchProvider
-from src.citations import Citation
+from batchata.providers.anthropic import AnthropicBatchProvider
+from batchata.citations import Citation
 
 
 class SimpleModel(BaseModel):

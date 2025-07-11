@@ -5,7 +5,7 @@ Unit tests for ProgressMonitor component.
 import time
 from unittest.mock import Mock, patch
 
-from src.batch_manager import ProgressMonitor, BatchManager
+from batchata.batch_manager import ProgressMonitor, BatchManager
 
 
 class TestProgressMonitor:
@@ -33,7 +33,7 @@ class TestProgressMonitor:
         assert monitor.thread is None
         assert monitor.is_retry == False
         
-    @patch('src.batch_manager.time.sleep')
+    @patch('batchata.batch_manager.time.sleep')
     def test_progress_monitor_start_stop(self, mock_sleep):
         """Test starting and stopping the progress monitor."""
         monitor = ProgressMonitor(self.mock_manager)
@@ -51,7 +51,7 @@ class TestProgressMonitor:
         monitor.stop()
         assert monitor.running == False
         
-    @patch('src.batch_manager.time.sleep')
+    @patch('batchata.batch_manager.time.sleep')
     def test_progress_monitor_retry_mode(self, mock_sleep):
         """Test progress monitor in retry mode."""
         monitor = ProgressMonitor(self.mock_manager)
@@ -93,7 +93,7 @@ class TestProgressMonitor:
         # Monitor should still be functional
         assert monitor.batch_manager == broken_manager
         
-    @patch('src.batch_manager.time.sleep')
+    @patch('batchata.batch_manager.time.sleep')
     def test_progress_monitor_thread_termination(self, mock_sleep):
         """Test that progress monitor thread terminates properly."""
         monitor = ProgressMonitor(self.mock_manager)
@@ -124,7 +124,7 @@ class TestProgressMonitor:
         time.sleep(0.01)  # Minimal sleep time
         monitor.stop()
         
-    @patch('src.batch_manager.time.sleep')
+    @patch('batchata.batch_manager.time.sleep')
     def test_multiple_start_stop_cycles(self, mock_sleep):
         """Test multiple start/stop cycles work correctly."""
         monitor = ProgressMonitor(self.mock_manager)

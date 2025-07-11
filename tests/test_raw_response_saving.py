@@ -9,8 +9,8 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import BaseModel
 
-from src.batch_job import BatchJob
-from src.core import batch
+from batchata.batch_job import BatchJob
+from batchata.core import batch
 
 
 class MockProvider:
@@ -245,7 +245,7 @@ class TestRawResponseSaving:
             
             assert actual_files == expected_files, f"Expected {expected_files}, got {actual_files}"
     
-    @patch('src.core.get_provider_for_model')
+    @patch('batchata.core.get_provider_for_model')
     def test_batch_api_with_raw_results_dir(self, mock_provider_func):
         """Test batch() API accepts raw_results_dir parameter."""
         mock_provider = Mock()
@@ -276,7 +276,7 @@ class TestRawResponseSaving:
             pdf_path = Path(temp_dir) / "test.pdf"
             pdf_path.write_bytes(b"mock pdf content")
             
-            with patch('src.core.get_provider_for_model') as mock_provider_func:
+            with patch('batchata.core.get_provider_for_model') as mock_provider_func:
                 mock_provider = Mock()
                 mock_provider_func.return_value = mock_provider
                 mock_provider.validate_batch.return_value = None

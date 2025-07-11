@@ -2,7 +2,7 @@ import pytest
 import os
 from unittest.mock import patch, MagicMock
 from pydantic import BaseModel
-from src import batch
+from batchata import batch
 
 
 class SpamResult(BaseModel):
@@ -74,7 +74,7 @@ def test_missing_api_key():
         job.results()
 
 
-@patch('src.core.get_provider_for_model')
+@patch('batchata.core.get_provider_for_model')
 def test_batch_creates_batch_job(mock_provider_func):
     """Test that batch function creates a batch job and calls provider correctly."""
     # Create a mock provider instance with realistic behavior
@@ -104,7 +104,7 @@ def test_batch_creates_batch_job(mock_provider_func):
     mock_provider.create_batch.assert_called_once()
     
     # Test that BatchJob is returned with correct properties
-    from src.batch_job import BatchJob
+    from batchata.batch_job import BatchJob
     assert isinstance(job, BatchJob)
     assert job._batch_id == "batch_123"
     assert job._response_model == SpamResult
@@ -115,7 +115,7 @@ def test_batch_creates_batch_job(mock_provider_func):
     assert results[0]["result"].is_spam == True
 
 
-@patch('src.core.get_provider_for_model')
+@patch('batchata.core.get_provider_for_model')
 def test_batch_multiple_messages(mock_provider_func):
     """Test that batch processes multiple messages correctly."""
     # Create mock provider with realistic multi-message handling
@@ -157,7 +157,7 @@ def test_batch_multiple_messages(mock_provider_func):
     assert results[1]["result"].is_spam == False
 
 
-@patch('src.core.get_provider_for_model')
+@patch('batchata.core.get_provider_for_model')
 def test_batch_without_response_model(mock_provider_func):
     """Test that batch returns raw text when no response_model is provided."""
     # Mock provider for raw text responses

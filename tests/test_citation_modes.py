@@ -11,7 +11,7 @@ Test the 4 output modes of the citation API:
 import pytest
 from unittest.mock import MagicMock, patch
 from pydantic import BaseModel
-from src import batch, Citation
+from batchata import batch, Citation
 from tests.utils import create_pdf
 
 
@@ -27,7 +27,7 @@ class TestCitationModes:
         """Test Mode 1: Plain text output without citations."""
         test_pdf = create_pdf(["Test document content"])
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -57,7 +57,7 @@ class TestCitationModes:
         """Test Mode 2: Structured output without citations."""
         test_pdf = create_pdf(["Test document content"])
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -97,7 +97,7 @@ class TestCitationModes:
             end_page_number=1
         )
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -143,7 +143,7 @@ class TestCitationModes:
         
         field_citations = {"name": [mock_citation], "value": [mock_citation]}
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -193,7 +193,7 @@ class TestCitationModes:
         """Test BatchJob stats method."""
         test_pdf = create_pdf(["Test content"])
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -266,7 +266,7 @@ class TestCitationModes:
         
         test_pdf = create_pdf(["John Doe, 30 years old, lives at 123 Main St, New York"])
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -316,7 +316,7 @@ class TestCitationModes:
         
         test_pdf = create_pdf(["Test document with complex data"])
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None

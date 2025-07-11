@@ -66,14 +66,14 @@ class TestUnifiedBatch:
     
     def test_batch_with_messages_only(self):
         """Test batch() with messages parameter (existing behavior)."""
-        from src import batch
+        from batchata import batch
         
         messages = [
             [{"role": "user", "content": "Hello"}],
             [{"role": "user", "content": "World"}]
         ]
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -103,7 +103,7 @@ class TestUnifiedBatch:
     
     def test_batch_with_files_and_prompt(self):
         """Test batch() with files parameter (batch_files behavior)."""
-        from src import batch
+        from batchata import batch
         
         pdf1 = create_test_pdf("Document 1")
         pdf2 = create_test_pdf("Document 2")
@@ -114,7 +114,7 @@ class TestUnifiedBatch:
             file1.write_bytes(pdf1)
             file2.write_bytes(pdf2)
             
-            with patch('src.core.get_provider_for_model') as mock_provider_func:
+            with patch('batchata.core.get_provider_for_model') as mock_provider_func:
                 mock_provider = MagicMock()
                 mock_provider_func.return_value = mock_provider
                 mock_provider.validate_batch.return_value = None
@@ -145,7 +145,7 @@ class TestUnifiedBatch:
     
     def test_batch_with_both_messages_and_files_raises_error(self):
         """Test that providing both messages and files raises ValueError."""
-        from src import batch
+        from batchata import batch
         
         with pytest.raises(ValueError, match="Cannot provide both messages and files"):
             batch(
@@ -157,7 +157,7 @@ class TestUnifiedBatch:
     
     def test_batch_with_neither_messages_nor_files_raises_error(self):
         """Test that providing neither messages nor files raises ValueError."""
-        from src import batch
+        from batchata import batch
         
         with pytest.raises(ValueError, match="Must provide either messages or files"):
             batch(
@@ -166,7 +166,7 @@ class TestUnifiedBatch:
     
     def test_batch_with_files_but_no_prompt_raises_error(self):
         """Test that using files without prompt raises ValueError."""
-        from src import batch
+        from batchata import batch
         
         with pytest.raises(ValueError, match="prompt is required when using files"):
             batch(
@@ -176,7 +176,7 @@ class TestUnifiedBatch:
     
     def test_batch_with_different_file_types(self):
         """Test batch() with string paths, Path objects, and bytes."""
-        from src import batch
+        from batchata import batch
         
         pdf_bytes = create_test_pdf("Test Document")
         
@@ -192,7 +192,7 @@ class TestUnifiedBatch:
             # Raw bytes
             raw_bytes = pdf_bytes
             
-            with patch('src.core.get_provider_for_model') as mock_provider_func:
+            with patch('batchata.core.get_provider_for_model') as mock_provider_func:
                 mock_provider = MagicMock()
                 mock_provider_func.return_value = mock_provider
                 mock_provider.validate_batch.return_value = None
@@ -222,7 +222,7 @@ class TestUnifiedBatch:
     
     def test_batch_with_empty_messages_list(self):
         """Test batch() with empty messages list."""
-        from src import batch
+        from batchata import batch
         
         job = batch(
             messages=[],
@@ -234,7 +234,7 @@ class TestUnifiedBatch:
     
     def test_batch_with_empty_files_list(self):
         """Test batch() with empty files list."""
-        from src import batch
+        from batchata import batch
         
         job = batch(
             messages=[],
@@ -246,8 +246,8 @@ class TestUnifiedBatch:
     
     def test_batch_with_files_and_citations(self):
         """Test batch() with files and citations enabled."""
-        from src import batch
-        from src import Citation
+        from batchata import batch
+        from batchata import Citation
         
         pdf_bytes = create_test_pdf("Test Document")
         
@@ -255,7 +255,7 @@ class TestUnifiedBatch:
             pdf_path = Path(temp_dir) / "test.pdf"
             pdf_path.write_bytes(pdf_bytes)
             
-            with patch('src.core.get_provider_for_model') as mock_provider_func:
+            with patch('batchata.core.get_provider_for_model') as mock_provider_func:
                 mock_provider = MagicMock()
                 mock_provider_func.return_value = mock_provider
                 mock_provider.validate_batch.return_value = None
@@ -301,11 +301,11 @@ class TestUnifiedBatch:
     
     def test_batch_messages_without_prompt_works(self):
         """Test that messages without prompt parameter works fine."""
-        from src import batch
+        from batchata import batch
         
         messages = [[{"role": "user", "content": "Hello"}]]
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None

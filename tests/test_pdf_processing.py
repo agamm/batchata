@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from pydantic import BaseModel
-from src import batch
+from batchata import batch
 
 
 class DocumentInfo(BaseModel):
@@ -61,7 +61,7 @@ startxref
 
 def test_pdf_to_document_block():
     """Test converting PDF to document content block."""
-    from src import pdf_to_document_block
+    from batchata import pdf_to_document_block
     
     pdf_content = create_test_pdf("Test PDF Content")
     doc_block = pdf_to_document_block(pdf_content)
@@ -76,7 +76,7 @@ def test_batch_with_single_pdf():
     """Test processing a single PDF file."""
     pdf_content = create_test_pdf("Invoice #12345")
     
-    with patch('src.core.get_provider_for_model') as mock_provider_func:
+    with patch('batchata.core.get_provider_for_model') as mock_provider_func:
         mock_provider = MagicMock()
         mock_provider_func.return_value = mock_provider
         mock_provider.validate_batch.return_value = None
@@ -118,7 +118,7 @@ def test_batch_with_multiple_pdfs():
     pdf2 = create_test_pdf("Document 2")
     pdf3 = create_test_pdf("Document 3")
     
-    with patch('src.core.get_provider_for_model') as mock_provider_func:
+    with patch('batchata.core.get_provider_for_model') as mock_provider_func:
         mock_provider = MagicMock()
         mock_provider_func.return_value = mock_provider
         mock_provider.validate_batch.return_value = None
@@ -174,7 +174,7 @@ def test_batch_with_file_paths():
             pdf_path.write_bytes(pdf_content)
             pdf_files.append(pdf_path)
         
-        with patch('src.core.get_provider_for_model') as mock_provider_func:
+        with patch('batchata.core.get_provider_for_model') as mock_provider_func:
             mock_provider = MagicMock()
             mock_provider_func.return_value = mock_provider
             mock_provider.validate_batch.return_value = None
@@ -190,7 +190,7 @@ def test_batch_with_file_paths():
                 for i in range(3)
             ]
             
-            from src import batch
+            from batchata import batch
             
             job = batch(
                 files=pdf_files,

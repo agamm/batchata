@@ -15,7 +15,7 @@ from pydantic import BaseModel
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 
-from src.batch_manager import BatchManager
+from batchata.batch_manager import BatchManager
 from tests.utils.pdf_utils import create_pdf
 
 

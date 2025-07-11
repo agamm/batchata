@@ -7,7 +7,7 @@ import os
 import tempfile
 import shutil
 
-from src.batch_manager import BatchManager
+from batchata.batch_manager import BatchManager
 
 
 class TestStateManagement:

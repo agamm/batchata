@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
-from src import batch
+from batchata import batch
 from tests.utils import create_pdf
 import time
 

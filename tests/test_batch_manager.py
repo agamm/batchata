@@ -12,8 +12,8 @@ from typing import List, Optional
 import pytest
 from pydantic import BaseModel
 
-from src.batch_manager import BatchManager, BatchManagerError
-from src.batch_job import BatchJob
+from batchata.batch_manager import BatchManager, BatchManagerError
+from batchata.batch_job import BatchJob
 from tests.fixtures import (
     create_mock_batch_job, 
     create_structured_results, 
@@ -210,7 +210,7 @@ class TestBatchManager:
         assert len(manager.state.jobs) == 1
         assert manager.state.jobs[0].status.value == "completed"
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_run_simple_batch(self, mock_batch):
         """Test running a simple batch without parallel processing"""
         # Create realistic results
@@ -232,7 +232,7 @@ class TestBatchManager:
         assert summary["total_cost"] == 0.02
         assert mock_batch.call_count == 1
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_run_with_parallel_execution(self, mock_batch):
         """Test running batch with parallel execution"""
         # Create realistic results for two jobs
@@ -264,7 +264,7 @@ class TestBatchManager:
         assert summary["total_cost"] == 0.04  # Two jobs at 0.02 each
         assert mock_batch.call_count == 2
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_cost_limit_enforcement(self, mock_batch):
         """Test that cost limit stops new jobs"""
         # Create expensive results that use up the cost limit
@@ -296,7 +296,7 @@ class TestBatchManager:
         assert summary["completed_items"] == 2
         assert mock_batch.call_count == 1
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_retry_failed_items(self, mock_batch):
         """Test retry_failed() method"""
         # Setup state with failed items
@@ -308,7 +308,7 @@ class TestBatchManager:
         )
         
         # Mark some items as failed
-        from src.batch_manager import ItemStatus
+        from batchata.batch_manager import ItemStatus
         manager.state.jobs[0].items[0].status = ItemStatus.FAILED
         manager.state.jobs[0].items[0].error = "API Error"
         manager.state.jobs[1].items[1].status = ItemStatus.FAILED
@@ -334,7 +334,7 @@ class TestBatchManager:
         assert retry_summary["retry_count"] == 2  # Number of items that were retried
         assert mock_batch.call_count == 2  # Pending job items + retry job
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_results_saving(self, mock_batch):
         """Test saving results to directory"""
         # Mock batch() with structured results and citations
@@ -437,7 +437,7 @@ class TestBatchManager:
         )
         
         # Simulate partial failure in a job
-        from src.batch_manager import ItemStatus
+        from batchata.batch_manager import ItemStatus
         manager.state.jobs[0].items[0].status = ItemStatus.SUCCEEDED
         manager.state.jobs[0].items[0].cost = 0.01
         manager.state.jobs[0].items[1].status = ItemStatus.FAILED
@@ -460,7 +460,7 @@ class TestBatchManager:
         )
         
         # Simulate some progress
-        from src.batch_manager import ItemStatus, JobStatus
+        from batchata.batch_manager import ItemStatus, JobStatus
         manager.state.total_cost = 2.5
         manager.state.jobs[0].status = JobStatus.COMPLETED
         manager.state.jobs[0].items[0].status = ItemStatus.SUCCEEDED
@@ -505,7 +505,7 @@ class TestBatchManager:
         item = manager_files.state.jobs[0].items[0]
         assert item.content == "test_file.pdf"
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_resume_from_partial_completion(self, mock_batch):
         """Test resuming from a partially completed batch"""
         # Create state with partial completion
@@ -598,7 +598,7 @@ class TestBatchManager:
         # Only the pending job should be processed
         assert mock_batch.call_count == 1
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_cost_limit_sequential_execution(self, mock_batch):
         """Test cost limit prevents new job submission with sequential execution"""
         # Create initial state with some cost already accumulated
@@ -702,7 +702,7 @@ class TestBatchManager:
         # Only the first pending job should be processed
         assert mock_batch.call_count == 1  # Only one new job submitted
 
-    @patch('src.batch_manager.batch')
+    @patch('batchata.batch_manager.batch')
     def test_cost_limit_parallel_execution(self, mock_batch):
         """Test cost limit with parallel execution - realistic cost tracking with timing variability"""
         # Create test files

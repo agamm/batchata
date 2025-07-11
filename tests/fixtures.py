@@ -7,9 +7,9 @@ Provides realistic mock implementations that match the real API behavior.
 from unittest.mock import Mock, MagicMock
 from typing import List, Dict, Any, Optional, Type
 from pydantic import BaseModel
-from src.batch_job import BatchJob
-from src.providers.base import BaseBatchProvider
-from src.types import BatchResult
+from batchata.batch_job import BatchJob
+from batchata.providers.base import BaseBatchProvider
+from batchata.types import BatchResult
 
 
 class MockBatchJob:

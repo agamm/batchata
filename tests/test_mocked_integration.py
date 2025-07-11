@@ -12,8 +12,8 @@ import shutil
 from unittest.mock import MagicMock, patch
 from pydantic import BaseModel
 
-from src.batch_manager import BatchManager
-from src import batch
+from batchata.batch_manager import BatchManager
+from batchata import batch
 
 
 class IntegrationTestModel(BaseModel):
@@ -35,9 +35,9 @@ class TestMockedIntegration:
         """Cleanup after each test."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
         
-    @patch('src.utils.check_flat_model_for_citation_mapping')
-    @patch('src.providers.get_provider_for_model')
-    @patch('src.batch_manager.batch')
+    @patch('batchata.utils.check_flat_model_for_citation_mapping')
+    @patch('batchata.providers.get_provider_for_model')
+    @patch('batchata.batch_manager.batch')
     def test_batch_manager_provider_coordination(self, mock_batch, mock_get_provider, mock_check_flat_model):
         """Test coordination between BatchManager and provider."""
         # Set up mock provider and utility functions
@@ -95,8 +95,8 @@ class TestMockedIntegration:
         assert summary["completed_items"] == 2
         assert summary["total_cost"] == 0.02
         
-    @patch('src.utils.check_flat_model_for_citation_mapping')
-    @patch('src.core.get_provider_for_model')
+    @patch('batchata.utils.check_flat_model_for_citation_mapping')
+    @patch('batchata.core.get_provider_for_model')
     def test_batch_function_integration(self, mock_get_provider, mock_check_flat_model):
         """Test direct batch() function integration."""
         # Set up provider and utility functions
@@ -141,8 +141,8 @@ class TestMockedIntegration:
         assert len(job_results) == 1
         assert isinstance(job_results[0]["result"], IntegrationTestModel)
         
-    @patch('src.utils.check_flat_model_for_citation_mapping')
-    @patch('src.batch_manager.batch')
+    @patch('batchata.utils.check_flat_model_for_citation_mapping')
+    @patch('batchata.batch_manager.batch')
     def test_state_persistence_integration(self, mock_batch, mock_check_flat_model):
         """Test state persistence through the full flow."""
         # Set up utility functions

@@ -6,8 +6,8 @@ Tests the validation of batch size and request count limits.
 
 import pytest
 from unittest.mock import patch, MagicMock
-from src.providers.anthropic import AnthropicBatchProvider
-from src import batch
+from batchata.providers.anthropic import AnthropicBatchProvider
+from batchata import batch
 
 
 class TestBatchValidation:
@@ -86,7 +86,7 @@ class TestBatchValidation:
         # Should pass (under limit)
         provider.validate_batch(near_limit_messages, None)
     
-    @patch('src.core.get_provider_for_model')
+    @patch('batchata.core.get_provider_for_model')
     def test_batch_function_validation_integration(self, mock_provider_func):
         """Test that batch() function calls validation."""
         mock_provider = MagicMock()

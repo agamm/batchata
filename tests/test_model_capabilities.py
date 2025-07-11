@@ -1,8 +1,8 @@
 """Test model capability validation"""
 
 import pytest
-from src.core import batch
-from src.providers.anthropic import AnthropicBatchProvider
+from batchata.core import batch
+from batchata.providers.anthropic import AnthropicBatchProvider
 
 
 class TestModelCapabilities:

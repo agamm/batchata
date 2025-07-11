@@ -6,7 +6,7 @@ import time
 from typing import List, Optional, Union
 from unittest.mock import Mock
 from pydantic import BaseModel
-from src.utils import check_flat_model_for_citation_mapping, run_jobs_with_conditional_parallel
+from batchata.utils import check_flat_model_for_citation_mapping, run_jobs_with_conditional_parallel
 
 
 class FlatModel(BaseModel):

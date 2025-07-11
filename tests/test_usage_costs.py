@@ -1,9 +1,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from pydantic import BaseModel
-from src import batch
-from src.providers.anthropic import AnthropicBatchProvider
-from src.batch_job import BatchJob
+from batchata import batch
+from batchata.providers.anthropic import AnthropicBatchProvider
+from batchata.batch_job import BatchJob
 
 
 class CostTestModel(BaseModel):
@@ -78,7 +78,7 @@ class TestUsageCosts:
         assert total_usage["service_tier"] == "batch"
         assert total_usage["request_count"] == 3
     
-    @patch('src.core.get_provider_for_model')
+    @patch('batchata.core.get_provider_for_model')
     def test_batch_job_stats_includes_costs(self, mock_provider_func):
         """Test that BatchJob.stats() includes cost information."""
         # Mock provider instance
