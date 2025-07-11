@@ -8,13 +8,8 @@ import base64
 from pathlib import Path
 from typing import List, Type, TypeVar, Optional, Union, Dict, Any
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from .providers import get_provider_for_model
 from .batch_job import BatchJob
-
-# Load environment variables from project root
-project_root = Path(__file__).parent.parent
-load_dotenv(project_root / ".env")
 
 T = TypeVar('T', bound=BaseModel)
 

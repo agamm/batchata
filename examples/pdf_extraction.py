@@ -4,9 +4,13 @@ PDF Data Extraction Example
 Demonstrates using bachata to extract structured data from multiple PDFs.
 """
 
+from dotenv import load_dotenv
 from pydantic import BaseModel
-from src import batch, pdf_to_document_block
+from batchata import batch, pdf_to_document_block
 from tests.utils.pdf_utils import create_pdf
+
+# Load environment variables for examples
+load_dotenv()
 
 
 class InvoiceData(BaseModel):

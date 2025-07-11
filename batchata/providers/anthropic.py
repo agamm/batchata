@@ -5,6 +5,7 @@ Provider class for Anthropic Claude models with batch processing.
 """
 
 import json
+import os
 from textwrap import dedent
 from typing import List, Type, Dict, Any, Optional, Literal, Tuple
 from pydantic import BaseModel
@@ -70,6 +71,15 @@ class AnthropicBatchProvider(BaseBatchProvider):
     
     def __init__(self, rate_limits: Optional[Dict[str, int]] = None):
         super().__init__(rate_limits)
+        
+        # Check if ANTHROPIC_API_KEY is set
+        api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        if not api_key:
+            raise ValueError(
+                "ANTHROPIC_API_KEY environment variable is required. "
+                "Please set it with your Anthropic API key."
+            )
+        
         self.client = Anthropic()  # Automatically reads ANTHROPIC_API_KEY from env
     
     def get_default_rate_limits(self) -> Dict[str, int]:

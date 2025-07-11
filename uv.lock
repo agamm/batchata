@@ -130,7 +130,6 @@ version = "0.2.3"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
-    { name = "python-dotenv" },
     { name = "tokencost" },
 ]
 
@@ -139,12 +138,12 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
+    { name = "python-dotenv" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.57.1" },
-    { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "tokencost", specifier = ">=0.1.24" },
 ]
 
@@ -153,6 +152,7 @@ dev = [
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-cov", specifier = ">=6.2.1" },
     { name = "pytest-xdist", specifier = ">=3.6.1" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
 ]
 
 [[package]]
