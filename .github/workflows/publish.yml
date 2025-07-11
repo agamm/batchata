@@ -39,7 +39,7 @@ jobs:
 
     environment:
       name: pypi
-      url: https://pypi.org/p/ai-batch
+      url: https://pypi.org/p/batchata
 
     steps:
       - name: Retrieve release distributions

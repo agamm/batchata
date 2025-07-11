@@ -125,7 +125,7 @@ wheels = [
 ]
 
 [[package]]
-name = "bachata"
+name = "batchata"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
