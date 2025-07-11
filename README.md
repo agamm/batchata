@@ -224,6 +224,43 @@ print(f"Total cost: ${stats['total_cost']:.2f}")
 results = manager.get_results_from_disk()
 ```
 
+<details>
+<summary><strong>Response Format</strong></summary>
+
+The `manager.run()` method returns a processing summary dictionary:
+
+```python
+{
+    "total_items": 100,
+    "completed_items": 95,
+    "failed_items": 5,
+    "total_cost": 12.34,
+    "jobs_completed": 10,
+    "cost_limit_reached": False
+}
+```
+
+The `manager.retry_failed()` method returns the same format with an additional field:
+```python
+{
+    "total_items": 100,
+    "completed_items": 98,
+    "failed_items": 2,
+    "total_cost": 13.45,
+    "jobs_completed": 11,
+    "cost_limit_reached": False,
+    "retry_count": 5  # Number of items that were retried
+}
+```
+
+**Getting Individual Results:**
+- Use `manager.get_results_from_disk()` to load all individual results
+- Results are saved in the same format as `batch()` function results
+- With citations enabled: `[{"result": Model(...), "citations": {...}}, ...]`
+- Without citations: `[Model(...), Model(...), ...]`
+
+</details>
+
 **Key Features:**
 - **Automatic job splitting**: Breaks large batches into smaller chunks
 - **Parallel processing**: Multiple jobs run concurrently with ThreadPoolExecutor
