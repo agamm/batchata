@@ -731,9 +731,18 @@ class BatchManager:
             self._progress_monitor.start()
         
         try:
-            # Define condition function for cost limit checking
+            # Define condition function for cost limit checking with thread safety
             def cost_limit_exceeded() -> bool:
-                return self.max_cost is not None and self.state.total_cost >= self.max_cost
+                if self.max_cost is None:
+                    return False
+                
+                # Use state file lock for thread-safe cost reading
+                if self.state_path:
+                    lock = self._get_state_lock(self.state_path)
+                    with lock:
+                        return self.state.total_cost >= self.max_cost
+                else:
+                    return self.state.total_cost >= self.max_cost
             
             # Process jobs with conditional parallel execution
             run_jobs_with_conditional_parallel(

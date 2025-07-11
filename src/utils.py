@@ -76,7 +76,8 @@ def run_jobs_with_conditional_parallel(max_parallel: int, condition_fn: Callable
                 # Remove completed job
                 del futures[completed_future]
                 
-                # Submit next job if available and condition allows
+                # Check condition after job completion before submitting new jobs
+                # This prevents race conditions where costs are updated after job completion
                 if remaining_jobs and not condition_fn():
                     job = remaining_jobs.pop(0)
                     new_future = executor.submit(job_processor_fn, job)
