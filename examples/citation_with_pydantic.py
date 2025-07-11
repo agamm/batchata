@@ -144,10 +144,10 @@ Thank you for your business!"""
                         if hasattr(citation, 'start_page'):
                             print(f"        Page: {citation.start_page}")
             else:
-                print(f"\n📚 No citations found")
+                print(f"\nNo citations found")
         
         print(f"\n{'='*60}")
-        print("💡 NOTE: With response_model + enable_citations=True, you get")
+        print("NOTE: With response_model + enable_citations=True, you get")
         print("   structured data AND field-level citations mapping!")
         print('='*60)
                 

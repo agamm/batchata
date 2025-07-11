@@ -154,6 +154,7 @@ class Job:
     job_cost: float = 0.0
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    results: Optional[List[Dict[str, Any]]] = None
     
     def __post_init__(self):
         if self.items is None:
@@ -599,6 +600,9 @@ class BatchManager:
                         self._update_item_status(job_idx, item_idx, ItemStatus.FAILED, 
                                                error="No result returned", cost=0.0)
             
+            # Store results in memory
+            job.results = results
+            
             # Save results if requested
             if self.results_dir and results:
                 self._save_job_results(job_idx, results)
@@ -836,20 +840,22 @@ class BatchManager:
         
         Returns:
             List of dicts with {"result": ..., "citations": ...} format.
-            Results are ordered by original item index.
         """
+        # Try memory first - collect results from all completed jobs
+        all_results = []
+        for job in self.state.jobs:
+            if job.status == JobStatus.COMPLETED and job.results:
+                all_results.extend(job.results)
+        
+        if all_results:
+            return all_results
+        
+        # Fall back to disk
         if self.results_dir:
-            # Load from disk if results directory is configured
             from batchata.utils import load_results_from_disk
             return load_results_from_disk(self.results_dir, self._response_model)
         else:
-            # When no results_dir, results aren't saved to disk
-            # User should use results_dir parameter to save and load results
-            raise BatchManagerError(
-                "Results are not available in memory. "
-                "Use results_dir parameter to save results to disk, "
-                "then use load_results_from_disk() to load them."
-            )
+            raise BatchManagerError("No results available. Run batch processing first.")
     
     
     def _print_final_stats(self) -> None:

@@ -189,8 +189,8 @@ print(f"Completed: {stats['completed_items']}/{stats['total_items']}")
 print(f"Total cost: ${stats['total_cost']:.2f}")
 print(f"Results saved to: {stats['results_dir']}")
 
-# Get results directly from BatchManager
-results = manager.results()
+# Get results directly from BatchManager (returns unified format)
+results = manager.results()  # List[{"result": Invoice(...), "citations": {...}}]
 for entry in results:
     invoice = entry["result"]  # This is an Invoice instance  
     citations = entry["citations"]  # Citation objects
@@ -231,8 +231,8 @@ The `manager.retry_failed()` method returns the same format with an additional f
 ```
 
 **Result Storage:**
-- Results saved to `results_dir/processed/` as JSON files
-- Raw API responses saved to `results_dir/raw/` for debugging
+- Results saved to `{{results_dir}}/processed/` as JSON files
+- Raw API responses saved to `{{results_dir}}/raw/` for debugging
 - Use `load_results_from_disk()` to reload results with full Pydantic model reconstruction
 
 </details>
@@ -246,22 +246,6 @@ The `manager.retry_failed()` method returns the same format with an additional f
 - **Retry mechanism**: Easily retry failed items
 - **Result saving**: Organized directory structure for results
 
-**Getting Results:**
-
-BatchManager provides two ways to access results:
-
-```python
-# Method 1: Direct access (requires results_dir)
-results = manager.results()  # Returns unified format
-for entry in results:
-    invoice = entry["result"]  # Pydantic model instance
-    citations = entry["citations"]  # Citation objects
-    print(f"Company: {invoice.company_name}")
-
-# Method 2: Load from disk (if program exited)
-from batchata import load_results_from_disk
-results = load_results_from_disk("results", Invoice)
-```
 
 ### BatchJob
 

@@ -791,5 +791,5 @@ class TestBatchManager:
             state_path=self.state_file
         )
         
-        with pytest.raises(BatchManagerError, match="Results are not available in memory"):
+        with pytest.raises(BatchManagerError, match="No results available"):
             manager.results()

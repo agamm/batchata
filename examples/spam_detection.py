@@ -49,7 +49,7 @@ def main():
         # Display results
         for email, batch_result in zip(emails, batch_job.results()):
             result = batch_result['result']  # Extract the SpamResult from BatchResult
-            status = "🚨 SPAM" if result.is_spam else "✅ NOT SPAM"
+            status = "SPAM" if result.is_spam else "NOT SPAM"
             print(f"{status} (confidence: {result.confidence:.1%})")
             print(f"Email: {email}")
             print(f"Reason: {result.reason}")
