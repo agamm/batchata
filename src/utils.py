@@ -68,14 +68,12 @@ def run_jobs_with_conditional_parallel(
         futures = {}
         remaining_jobs = jobs.copy()
         
-        # Start initial batch of jobs (up to max_parallel)
-        # We start jobs without checking condition initially to allow at least some jobs to run
-        initial_batch_size = min(max_parallel, len(remaining_jobs))
-        for _ in range(initial_batch_size):
-            if remaining_jobs:
-                job = remaining_jobs.pop(0)
-                future = executor.submit(job_processor_fn, job)
-                futures[future] = job
+        # Start initial batch of jobs (up to max_parallel) without cost checking
+        # Costs are only known after job completion, so we start optimistically
+        while remaining_jobs and len(futures) < max_parallel:
+            job = remaining_jobs.pop(0)
+            future = executor.submit(job_processor_fn, job)
+            futures[future] = job
         
         # Process completions and start new jobs atomically
         while futures:
