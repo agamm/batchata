@@ -154,6 +154,7 @@ class Job:
     job_cost: float = 0.0
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    results: Optional[List[Dict[str, Any]]] = None
     
     def __post_init__(self):
         if self.items is None:
@@ -168,7 +169,7 @@ class ManagerState:
     model: str
     items_per_job: int
     max_cost: Optional[float]
-    save_results_dir: Optional[str]
+    results_dir: Optional[str]
     batch_kwargs: Dict[str, Any]
     jobs: List[Job]
     total_cost: float = 0.0
@@ -214,7 +215,7 @@ class BatchManager:
         max_cost: Optional[float] = None,
         max_wait_time: int = 360,
         state_path: Optional[str] = None,
-        save_results_dir: Optional[str] = None,
+        results_dir: Optional[str] = None,
         **batch_kwargs
     ):
         """
@@ -230,7 +231,7 @@ class BatchManager:
             max_cost: Maximum total cost before stopping (default: None)
             max_wait_time: Maximum time to wait for batch completion in seconds (default: 360 - 6 minutes)
             state_path: Path to state file for persistence (default: None)
-            save_results_dir: Directory to save results (default: None)
+            results_dir: Directory to save results (processed in ./processed, raw in ./raw subdirs)
             **batch_kwargs: Additional arguments passed to batch()
         """
         # Validate inputs
@@ -256,7 +257,7 @@ class BatchManager:
         self.max_cost = max_cost
         self.max_wait_time = max_wait_time
         self.state_path = state_path
-        self.save_results_dir = save_results_dir
+        self.results_dir = results_dir
         
         # Store response_model separately since it can't be serialized
         self._response_model = batch_kwargs.pop('response_model', None)
@@ -319,7 +320,7 @@ class BatchManager:
             model=self.model,
             items_per_job=self.items_per_job,
             max_cost=self.max_cost,
-            save_results_dir=self.save_results_dir,
+            results_dir=self.results_dir,
             batch_kwargs=self.batch_kwargs,
             jobs=jobs,
             total_cost=0.0,  # Explicitly initialize
@@ -361,7 +362,7 @@ class BatchManager:
         self.model = self.state.model
         self.items_per_job = self.state.items_per_job
         self.max_cost = self.state.max_cost
-        self.save_results_dir = self.state.save_results_dir
+        self.results_dir = self.state.results_dir
         self.batch_kwargs = self.state.batch_kwargs
         
         # response_model is not restored from state - it must be passed again when resuming
@@ -529,7 +530,7 @@ class BatchManager:
                     temperature=self.batch_kwargs.get("temperature", 0.0),
                     verbose=self.batch_kwargs.get("verbose", False),
                     enable_citations=self.batch_kwargs.get("enable_citations", False),
-                    raw_results_dir=os.path.join(self.save_results_dir, "raw") if self.save_results_dir else None
+                    raw_results_dir=os.path.join(self.results_dir, "raw") if self.results_dir else None
                 )
             else:
                 # Files format
@@ -542,7 +543,7 @@ class BatchManager:
                     temperature=self.batch_kwargs.get("temperature", 0.0),
                     verbose=self.batch_kwargs.get("verbose", False),
                     enable_citations=self.batch_kwargs.get("enable_citations", False),
-                    raw_results_dir=os.path.join(self.save_results_dir, "raw") if self.save_results_dir else None
+                    raw_results_dir=os.path.join(self.results_dir, "raw") if self.results_dir else None
                 )
             
             try:
@@ -599,8 +600,11 @@ class BatchManager:
                         self._update_item_status(job_idx, item_idx, ItemStatus.FAILED, 
                                                error="No result returned", cost=0.0)
             
+            # Store results in memory
+            job.results = results
+            
             # Save results if requested
-            if self.save_results_dir and results:
+            if self.results_dir and results:
                 self._save_job_results(job_idx, results)
             
             # Mark job as completed
@@ -621,10 +625,10 @@ class BatchManager:
     
     def _save_job_results(self, job_idx: int, results: List[Any]) -> None:
         """Save job results to disk."""
-        if not self.save_results_dir:
+        if not self.results_dir:
             return
         
-        processed_dir = os.path.join(self.save_results_dir, "processed")
+        processed_dir = os.path.join(self.results_dir, "processed")
         os.makedirs(processed_dir, exist_ok=True)
         
         # Convert results to serializable format
@@ -817,35 +821,6 @@ class BatchManager:
         summary["retry_count"] = len(retry_items)
         return summary
     
-    def get_results_from_disk(self) -> List[Any]:
-        """Load results from saved files."""
-        if not self.save_results_dir:
-            raise BatchManagerError("No save_results_dir configured")
-        
-        processed_dir = os.path.join(self.save_results_dir, "processed")
-        if not os.path.exists(processed_dir):
-            return []
-        
-        # Load all result files
-        all_results = {}
-        for filename in os.listdir(processed_dir):
-            if filename.startswith("job_") and filename.endswith("_results.json"):
-                job_idx = int(filename.split("_")[1])
-                with open(os.path.join(processed_dir, filename), 'r') as f:
-                    data = json.load(f)
-                    
-                # Map results back to original indices
-                job = self.state.jobs[job_idx]
-                succeeded_items = [item for item in job.items if item.status == ItemStatus.SUCCEEDED]
-                
-                for i, item in enumerate(succeeded_items):
-                    if i < len(data):
-                        # Handle unified format: data is now a list of {result: ..., citations: ...}
-                        all_results[item.original_index] = data[i]
-        
-        # Return in original order
-        max_idx = max(all_results.keys()) if all_results else -1
-        return [all_results.get(i) for i in range(max_idx + 1)]
     
     def _get_summary(self) -> Dict[str, Any]:
         """Get processing summary."""
@@ -858,6 +833,29 @@ class BatchManager:
             "jobs_completed": stats["jobs_completed"],
             "cost_limit_reached": stats["cost_limit_reached"]
         }
+    
+    def results(self) -> List[Dict[str, Any]]:
+        """
+        Get all results in unified format.
+        
+        Returns:
+            List of dicts with {"result": ..., "citations": ...} format.
+        """
+        # Try memory first - collect results from all jobs that have results
+        all_results = []
+        for job in self.state.jobs:
+            if job.results:
+                all_results.extend(job.results)
+        
+        if all_results:
+            return all_results
+        
+        # Fall back to disk
+        if self.results_dir:
+            from batchata.utils import load_results_from_disk
+            return load_results_from_disk(self.results_dir, self._response_model)
+        else:
+            raise BatchManagerError("No results available. Run batch processing first.")
     
     
     def _print_final_stats(self) -> None:
@@ -877,6 +875,12 @@ class BatchManager:
             print(f"   Budget used: {cost_pct:.1f}%")
             if stats['cost_limit_reached']:
                 print(f"   ⚠️  Cost limit was reached")
+        
+        # Print results directory information if configured
+        if 'results_dir' in stats:
+            print(f"   Results directory: {stats['results_dir']}")
+            print(f"   Processed results: {stats['processed_results_dir']}")
+            print(f"   Raw results: {stats['raw_results_dir']}")
         
         # Show any jobs that need retry
         retry_needed = sum(1 for job in self.state.jobs 
@@ -905,7 +909,7 @@ class BatchManager:
             if job.status == JobStatus.COMPLETED
         )
         
-        return {
+        stats = {
             "total_items": total_items,
             "completed_items": completed_items,
             "failed_items": failed_items,
@@ -913,3 +917,11 @@ class BatchManager:
             "jobs_completed": jobs_completed,
             "cost_limit_reached": self.max_cost is not None and self.state.total_cost >= self.max_cost
         }
+        
+        # Add results directory information
+        if self.results_dir:
+            stats["results_dir"] = self.results_dir
+            stats["processed_results_dir"] = os.path.join(self.results_dir, "processed")
+            stats["raw_results_dir"] = os.path.join(self.results_dir, "raw")
+        
+        return stats

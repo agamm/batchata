@@ -4,7 +4,9 @@ Citation Example
 Demonstrates how to use citation support with PDF processing.
 """
 
-from src import batch, Citation, BatchJob
+import time
+from batchata import batch
+from batchata.citations import Citation
 from tests.utils.pdf_utils import create_pdf
 
 
@@ -38,30 +40,30 @@ def main():
         
         # Wait for completion and get results
         while not job.is_complete():
-            import time
-            time.sleep(5)
-            job.stats(print_stats=True)
+            print(f"Batch job is running. Batch ID: {job._batch_id}...")
+            time.sleep(30)  # Check every 30 seconds
         
         results = job.results()
         print(f"\nProcessing complete! Got {len(results)} results.")
         
         # Display results with citations
-        for i, result in enumerate(results):
+        for i, result_entry in enumerate(results):
             print(f"\n--- Result {i+1} ---")
             
-            if isinstance(result, CitedText):
-                print(f"Summary: {result.text}")
-                print(f"\nCitations ({len(result.citations)}):")
-                for j, citation in enumerate(result.citations, 1):
+            result_text = result_entry['result']
+            citations = result_entry['citations']
+            
+            print(f"Summary: {result_text}")
+            
+            if citations:
+                print(f"\nCitations ({len(citations)}):")
+                for j, citation in enumerate(citations, 1):
                     print(f"\n  [{j}] {citation.cited_text}")
-                    print(f"      From: {citation.document_title}")
-                    print(f"      Type: {citation.type}")
-                    if citation.start_page_number:
-                        print(f"      Pages: {citation.start_page_number}-{citation.end_page_number}")
-                    elif citation.start_char_index:
-                        print(f"      Characters: {citation.start_char_index}-{citation.end_char_index}")
+                    if hasattr(citation, 'document_title'):
+                        print(f"      From: {citation.document_title}")
+                    if hasattr(citation, 'start_page'):
+                        print(f"      Page: {citation.start_page}")
             else:
-                print(f"Text: {result}")
                 print("No citations found")
                 
     except Exception as e:

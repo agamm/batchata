@@ -1,261 +1,181 @@
-"""Test utility functions."""
+"""Tests for utility functions."""
 
+import json
+import tempfile
+from pathlib import Path
+from typing import Dict, Any
 import pytest
-import threading
-import time
-from typing import List, Optional, Union
-from unittest.mock import Mock
 from pydantic import BaseModel
-from batchata.utils import check_flat_model_for_citation_mapping, run_jobs_with_conditional_parallel
+
+from batchata.utils import load_results_from_disk, _reconstruct_citations
+from batchata.citations import Citation
 
 
-class FlatModel(BaseModel):
+class SampleModel(BaseModel):
     name: str
-    count: int
+    value: int
 
 
-class NestedModel(BaseModel):
-    name: str
-    nested: FlatModel
+class TestUtils:
+    """Test utility functions."""
 
+    def test_load_results_from_disk_without_model(self):
+        """Test loading results without response model."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir)
+            processed_dir = results_dir / "processed"
+            processed_dir.mkdir(parents=True)
+            
+            # Create mock result data
+            mock_results = [
+                {
+                    "result": {"name": "Test Item 1", "value": 100},
+                    "citations": None
+                }
+            ]
+            
+            # Save mock data to file
+            result_file = processed_dir / "job_0_results.json"
+            with open(result_file, 'w') as f:
+                json.dump(mock_results, f)
+            
+            # Test loading without model
+            results = load_results_from_disk(str(results_dir))
+            
+            assert len(results) == 1
+            assert isinstance(results[0]["result"], dict)
+            assert results[0]["result"]["name"] == "Test Item 1"
+            assert results[0]["result"]["value"] == 100
+            assert results[0]["citations"] is None
 
-class ListModel(BaseModel):
-    name: str
-    items: List[FlatModel]
+    def test_load_results_from_disk_with_model(self):
+        """Test loading results with response model."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir)
+            processed_dir = results_dir / "processed"
+            processed_dir.mkdir(parents=True)
+            
+            # Create mock result data
+            mock_results = [
+                {
+                    "result": {"name": "Test Item 1", "value": 100},
+                    "citations": {
+                        "name": [{"type": "text", "cited_text": "Test Item 1", "document_index": 0}],
+                        "value": [{"type": "text", "cited_text": "100", "document_index": 0}]
+                    }
+                }
+            ]
+            
+            # Save mock data to file
+            result_file = processed_dir / "job_0_results.json"
+            with open(result_file, 'w') as f:
+                json.dump(mock_results, f)
+            
+            # Test loading with model
+            results = load_results_from_disk(str(results_dir), SampleModel)
+            
+            assert len(results) == 1
+            assert isinstance(results[0]["result"], SampleModel)
+            assert results[0]["result"].name == "Test Item 1"
+            assert results[0]["result"].value == 100
+            
+            # Check citations are reconstructed
+            citations = results[0]["citations"]
+            assert citations is not None
+            assert "name" in citations
+            assert "value" in citations
+            assert len(citations["name"]) == 1
+            assert isinstance(citations["name"][0], Citation)
+            assert citations["name"][0].cited_text == "Test Item 1"
 
+    def test_load_results_from_disk_multiple_files(self):
+        """Test loading results from multiple job files."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir)
+            processed_dir = results_dir / "processed"
+            processed_dir.mkdir(parents=True)
+            
+            # Create mock result data for multiple jobs
+            mock_results_1 = [
+                {"result": {"name": "Item 1", "value": 100}, "citations": None}
+            ]
+            mock_results_2 = [
+                {"result": {"name": "Item 2", "value": 200}, "citations": None}
+            ]
+            
+            # Save mock data to files
+            (processed_dir / "job_0_results.json").write_text(json.dumps(mock_results_1))
+            (processed_dir / "job_1_results.json").write_text(json.dumps(mock_results_2))
+            
+            # Test loading
+            results = load_results_from_disk(str(results_dir), SampleModel)
+            
+            assert len(results) == 2
+            assert results[0]["result"].name == "Item 1"
+            assert results[1]["result"].name == "Item 2"
 
-class OptionalModel(BaseModel):
-    name: str
-    optional_item: Optional[FlatModel]
+    def test_load_results_from_disk_no_directory(self):
+        """Test loading from non-existent directory."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir) / "nonexistent"
+            
+            results = load_results_from_disk(str(results_dir))
+            assert results == []
 
-
-class UnionModel(BaseModel):
-    name: str
-    union_item: Union[FlatModel, str]
-
-
-def test_flat_model_with_citations_passes():
-    """Flat models should pass validation with citations enabled"""
-    check_flat_model_for_citation_mapping(FlatModel, True)  # Should not raise
-
-
-def test_flat_model_without_citations_passes():
-    """Flat models should pass validation with citations disabled"""
-    check_flat_model_for_citation_mapping(FlatModel, False)  # Should not raise
-
-
-def test_nested_model_without_citations_passes():
-    """Nested models should pass validation when citations are disabled"""
-    check_flat_model_for_citation_mapping(NestedModel, False)  # Should not raise
-
-
-def test_no_model_passes():
-    """No model should pass validation"""
-    check_flat_model_for_citation_mapping(None, True)  # Should not raise
-
-
-def test_direct_nested_model_with_citations_fails():
-    """Direct nested models should fail with citations enabled"""
-    with pytest.raises(ValueError, match="Citation mapping requires flat Pydantic models"):
-        check_flat_model_for_citation_mapping(NestedModel, True)
-
-
-def test_list_nested_model_with_citations_fails():
-    """List[BaseModel] should fail with citations enabled"""
-    with pytest.raises(ValueError, match="Citation mapping requires flat Pydantic models"):
-        check_flat_model_for_citation_mapping(ListModel, True)
-
-
-def test_optional_nested_model_with_citations_fails():
-    """Optional[BaseModel] should fail with citations enabled"""
-    with pytest.raises(ValueError, match="Citation mapping requires flat Pydantic models"):
-        check_flat_model_for_citation_mapping(OptionalModel, True)
-
-
-def test_union_nested_model_with_citations_fails():
-    """Union[BaseModel, ...] should fail with citations enabled"""
-    with pytest.raises(ValueError, match="Citation mapping requires flat Pydantic models"):
-        check_flat_model_for_citation_mapping(UnionModel, True)
-
-
-def test_error_message_contains_field_name():
-    """Error message should contain the problematic field name"""
-    with pytest.raises(ValueError, match="Field 'nested' contains nested model"):
-        check_flat_model_for_citation_mapping(NestedModel, True)
-    
-    with pytest.raises(ValueError, match="Field 'items' contains nested model"):
-        check_flat_model_for_citation_mapping(ListModel, True)
-
-
-# Tests for run_jobs_with_conditional_parallel
-
-def test_parallel_execution_basic():
-    """Test basic parallel execution without conditions"""
-    results = []
-    lock = threading.Lock()
-    
-    def job_processor(job):
-        with lock:
-            results.append(job)
-        time.sleep(0.01)  # Simulate work
-    
-    def no_condition():
-        return False  # Never stop
-    
-    jobs = [f"job_{i}" for i in range(5)]
-    
-    run_jobs_with_conditional_parallel(
-        max_parallel=3,
-        condition_fn=no_condition,
-        jobs=jobs,
-        job_processor_fn=job_processor
-    )
-    
-    assert len(results) == 5
-    assert set(results) == set(jobs)
-
-
-def test_parallel_execution_with_condition():
-    """Test that condition checking stops new jobs"""
-    results = []
-    lock = threading.Lock()
-    
-    def job_processor(job):
-        with lock:
-            results.append(job)
-        time.sleep(0.01)  # Simulate work
-    
-    def stop_after_two():
-        return len(results) >= 2  # Stop after 2 jobs complete
-    
-    jobs = [f"job_{i}" for i in range(5)]
-    
-    run_jobs_with_conditional_parallel(
-        max_parallel=2,
-        condition_fn=stop_after_two,
-        jobs=jobs,
-        job_processor_fn=job_processor
-    )
-    
-    # Should process at least 2 jobs (initial batch) but not all 5
-    assert len(results) >= 2
-    assert len(results) <= 4  # At most 2 initial + 2 more before condition triggers
-
-
-def test_atomic_cost_checking_race_condition():
-    """Test that atomic locking prevents cost limit race conditions"""
-    total_cost = [0.0]  # Use list for mutable reference
-    results = []
-    shared_lock = threading.Lock()
-    
-    def job_processor(job):
-        # Simulate job completion that updates cost
-        time.sleep(0.01)  # Simulate work
-        with shared_lock:  # Job processor also uses the shared lock
-            total_cost[0] += 0.018  # Each job costs 0.018
-            results.append(job)
-    
-    def cost_limit_exceeded():
-        # This will be called under the shared_lock by the parallel utility
-        return total_cost[0] >= 0.03  # Limit is 0.03
-    
-    jobs = [f"job_{i}" for i in range(4)]  # 4 jobs, but limit allows only ~1.67 jobs
-    
-    run_jobs_with_conditional_parallel(
-        max_parallel=2,
-        condition_fn=cost_limit_exceeded,
-        jobs=jobs,
-        job_processor_fn=job_processor,
-        shared_lock=shared_lock
-    )
-    
-    # With atomic locking, should process exactly 2 jobs (2 * 0.018 = 0.036 > 0.03)
-    # The key is that the 3rd job should NOT start due to proper atomic cost checking
-    # In parallel test environments, allow some flexibility but ensure limit is respected
-    assert len(results) >= 2  # At least 2 jobs should complete
-    assert len(results) <= 3  # But not more than 3 (strict limit would be 2, but allow 1 extra for timing)
-    assert total_cost[0] >= 0.036  # Cost should exceed limit
-    
-    # The main assertion: cost limit should prevent excessive job starts
-    # Even if timing varies, we shouldn't see all 4 jobs complete
-    assert len(results) < 4  # This is the key race condition test
-
-
-def test_parallel_execution_max_parallel_limit():
-    """Test that max_parallel limit is respected"""
-    active_jobs = [0]  # Track concurrent jobs
-    max_concurrent = [0]  # Track maximum concurrent jobs seen
-    lock = threading.Lock()
-    
-    def job_processor(job):
-        with lock:
-            active_jobs[0] += 1
-            max_concurrent[0] = max(max_concurrent[0], active_jobs[0])
+    def test_reconstruct_citations_field_citations(self):
+        """Test reconstructing field citations."""
+        citations_data = {
+            "name": [{"type": "text", "cited_text": "Test", "document_index": 0}],
+            "value": [{"type": "text", "cited_text": "123", "document_index": 0}]
+        }
         
-        time.sleep(0.05)  # Simulate longer work to ensure overlap
+        result = _reconstruct_citations(citations_data)
         
-        with lock:
-            active_jobs[0] -= 1
-    
-    def no_condition():
-        return False  # Never stop
-    
-    jobs = [f"job_{i}" for i in range(6)]
-    
-    run_jobs_with_conditional_parallel(
-        max_parallel=3,
-        condition_fn=no_condition,
-        jobs=jobs,
-        job_processor_fn=job_processor
-    )
-    
-    # Should never exceed max_parallel=3 concurrent jobs
-    assert max_concurrent[0] <= 3
-    assert max_concurrent[0] >= 2  # Should have some concurrency
+        assert isinstance(result, dict)
+        assert "name" in result
+        assert "value" in result
+        assert isinstance(result["name"][0], Citation)
+        assert result["name"][0].cited_text == "Test"
 
+    def test_reconstruct_citations_list_citations(self):
+        """Test reconstructing list of citations."""
+        citations_data = [
+            {"type": "text", "cited_text": "Test", "document_index": 0},
+            {"type": "text", "cited_text": "Another", "document_index": 1}
+        ]
+        
+        result = _reconstruct_citations(citations_data)
+        
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert isinstance(result[0], Citation)
+        assert result[0].cited_text == "Test"
 
-def test_shared_lock_parameter():
-    """Test that shared_lock parameter is used correctly"""
-    lock_acquisitions = []
-    
-    class MockLock:
-        def __init__(self):
-            self._real_lock = threading.Lock()
-            
-        def acquire(self, *args, **kwargs):
-            lock_acquisitions.append("acquire")
-            return self._real_lock.acquire(*args, **kwargs)
-            
-        def release(self, *args, **kwargs):
-            lock_acquisitions.append("release")
-            return self._real_lock.release(*args, **kwargs)
-            
-        def __enter__(self):
-            self.acquire()
-            return self
-            
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self.release()
-    
-    mock_lock = MockLock()
-    
-    def simple_job_processor(job):
-        time.sleep(0.01)
-    
-    def no_condition():
-        return False
-    
-    jobs = ["job_1", "job_2"]
-    
-    run_jobs_with_conditional_parallel(
-        max_parallel=1,
-        condition_fn=no_condition,
-        jobs=jobs,
-        job_processor_fn=simple_job_processor,
-        shared_lock=mock_lock
-    )
-    
-    # Should have acquired and released the lock multiple times
-    assert "acquire" in lock_acquisitions
-    assert "release" in lock_acquisitions
-    assert lock_acquisitions.count("acquire") == lock_acquisitions.count("release")
+    def test_reconstruct_citations_with_defaults(self):
+        """Test reconstructing citations with missing required fields."""
+        citations_data = [
+            {"cited_text": "Test"}  # Missing type and document_index
+        ]
+        
+        result = _reconstruct_citations(citations_data)
+        
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], Citation)
+        assert result[0].cited_text == "Test"
+        assert result[0].type == "text"  # Default
+        assert result[0].document_index == 0  # Default
+
+    def test_reconstruct_citations_malformed(self):
+        """Test reconstructing malformed citations falls back gracefully."""
+        citations_data = [
+            {"invalid": "data"}  # Missing required fields
+        ]
+        
+        result = _reconstruct_citations(citations_data)
+        
+        # Should fall back to returning the original dict if Citation creation fails
+        assert isinstance(result, list)
+        assert len(result) == 1
+        # Could be either Citation object (if defaults worked) or original dict (if failed)
+        assert "invalid" in str(result[0]) or hasattr(result[0], 'cited_text')

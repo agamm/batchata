@@ -104,6 +104,10 @@ class BatchJob:
             "has_response_model": self._response_model is not None
         }
         
+        # Add raw results directory information if configured
+        if self._raw_results_dir:
+            stats_data["raw_results_dir"] = self._raw_results_dir
+        
         if is_complete:
             results = self.results()
             stats_data["total_results"] = len(results)
@@ -156,6 +160,10 @@ class BatchJob:
                     print(f"   Total cost: ${stats_data['total_cost']:.4f}")
                     if stats_data.get('service_tier') == 'batch':
                         print(f"   (50% batch discount applied)")
+                
+                # Print raw results directory if configured
+                if 'raw_results_dir' in stats_data:
+                    print(f"   Raw results: {stats_data['raw_results_dir']}")
         
         return stats_data
     

@@ -3,7 +3,12 @@
 Example demonstrating raw text responses without structured output.
 """
 
-from src import batch
+import time
+from dotenv import load_dotenv
+from batchata import batch
+
+# Load environment variables for examples
+load_dotenv()
 
 def main():
     # Example messages for different use cases
@@ -13,14 +18,25 @@ def main():
         [{"role": "user", "content": "What's the capital of France?"}]
     ]
     
+    print("Processing raw text responses...")
+    print("--------------------------------------------------")
+    
     # Process without response_model to get raw text
-    results = batch(
+    job = batch(
         messages=messages,
         model="claude-3-haiku-20240307"
     )
     
+    # Wait for completion
+    while not job.is_complete():
+        print(f"Batch job is running. Batch ID: {job._batch_id}...")
+        time.sleep(30)  # Check every 30 seconds
+    
+    results = job.results()
+    
     print("Raw text responses:")
-    for i, result in enumerate(results):
+    for i, entry in enumerate(results):
+        result = entry["result"]  # Extract the text result
         print(f"\nResponse {i+1}:")
         print(result)
 

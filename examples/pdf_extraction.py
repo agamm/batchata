@@ -4,6 +4,7 @@ PDF Data Extraction Example
 Demonstrates using bachata to extract structured data from multiple PDFs.
 """
 
+import time
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from batchata import batch, pdf_to_document_block
@@ -37,7 +38,7 @@ def main():
     
     try:
         # Method 1: Using batch() with PDF bytes
-        results = batch(
+        job = batch(
             files=pdfs_data,
             prompt="Extract the invoice data from this PDF",
             model="claude-3-5-sonnet-20241022",
@@ -45,8 +46,15 @@ def main():
             verbose=True
         )
         
+        # Wait for completion
+        while not job.is_complete():
+            print(f"Batch job is running. Batch ID: {job._batch_id}...")
+            time.sleep(30)  # Check every 30 seconds
+        
         print("\nMethod 1 - Using batch() with PDF bytes:")
-        for i, invoice in enumerate(results):
+        batch_results = job.results()
+        for i, result_entry in enumerate(batch_results):
+            invoice = result_entry['result']  # Extract the InvoiceData from BatchResult
             print(f"\nPDF {i+1}:")
             print(f"  Invoice #: {invoice.invoice_number}")
             print(f"  Vendor: {invoice.vendor_name}")

@@ -10,7 +10,8 @@ import os
 from typing import List, Optional
 from pydantic import BaseModel
 
-from src.batch_manager import BatchManager
+from batchata import BatchManager
+from batchata import load_results_from_disk
 from tests.utils.pdf_utils import create_pdf
 
 
@@ -78,7 +79,7 @@ def main():
     print(f"Created {len(invoice_files)} realistic invoice PDF files")
         
     # Initialize BatchManager
-    print("\n🚀 Initializing BatchManager...")
+    print("\nInitializing BatchManager...")
     manager = BatchManager(
         files=invoice_files,
         prompt="Extract invoice data from this document",
@@ -90,7 +91,7 @@ def main():
         max_cost=2.0,  # Stop if cost exceeds $2.00
         max_wait_time=600,
         state_path=state_file,
-        save_results_dir=results_dir
+        results_dir=results_dir
     )
         
     print(f"Configured to process {num_invoices} invoices:")
@@ -102,7 +103,7 @@ def main():
     print(f"  - Invoice files location: {invoice_dir}")
         
     # Display initial statistics
-    print(f"\n📊 Initial Statistics:")
+    print(f"\nInitial Statistics:")
     stats = manager.stats
     print(f"  - Total items: {stats['total_items']}")
     
@@ -115,7 +116,7 @@ def main():
         
         # Display final statistics
         final_stats = manager.stats
-        print(f"\n📊 Final Statistics:")
+        print(f"\nFinal Statistics:")
         print(f"  - Total items: {final_stats['total_items']}")
         print(f"  - Completed items: {final_stats['completed_items']}")
         print(f"  - Failed items: {final_stats['failed_items']}")
@@ -123,13 +124,53 @@ def main():
             
         # Show output directories
         if os.path.exists(results_dir):
-            print(f"\n💾 Output directories:")
+            print(f"\nOutput directories:")
             print(f"  Results: {results_dir}")
             print(f"  Invoices: {invoice_dir}")
             print(f"  State: {state_file}")
+            
+            # Demonstrate getting results directly from manager
+            print(f"\nGetting results directly from BatchManager...")
+            try:
+                manager_results = manager.results()
+                print(f"Got {len(manager_results)} results from manager.results()")
+                
+                # Show first result as example
+                if manager_results:
+                    first_result = manager_results[0]
+                    if first_result:
+                        invoice = first_result["result"]
+                        citations = first_result["citations"]
+                        print(f"  First invoice: {invoice.invoice_number}")
+                        print(f"      Company: {invoice.company_name}")
+                        print(f"      Amount: ${invoice.total_amount:.2f}")
+                        if citations:
+                            print(f"      Citations: {len(citations)} field citations")
+                    else:
+                        print("  First result is None (processing may have failed)")
+                        
+            except Exception as e:
+                print(f"❌ Error getting results from manager: {e}")
+                
+            # Also demonstrate loading results from disk
+            print(f"\nAlternative: Loading results from disk...")
+            try:
+                loaded_results = load_results_from_disk(results_dir, Invoice)
+                print(f"Loaded {len(loaded_results)} results from disk")
+                
+                # Show first result as example
+                if loaded_results:
+                    first_result = loaded_results[0]
+                    invoice = first_result["result"]  # This is an Invoice instance
+                    citations = first_result["citations"]  # This contains Citation objects
+                    print(f"   Example result: {invoice.company_name} - ${invoice.total_amount}")
+                    if citations:
+                        print(f"   Citations: {len(citations)} field citations found")
+            except Exception as e:
+                print(f"❌ Error loading results: {e}")
         # Demonstrate retry functionality
         if final_stats['failed_items'] > 0:
-            print(f"\n🔄 Retrying failed items...")
+            print(f"\nRetrying failed items...")
             retry_summary = manager.retry_failed()
             print(f"Retry completed: {retry_summary.get('retry_count', 0)} items processed")
             
@@ -139,7 +180,7 @@ def main():
         
         # Show that state was saved even after failure
         if os.path.exists(state_file):
-            print(f"\n💾 State file was saved: {state_file}")
+            print(f"\nState file was saved: {state_file}")
             import json
             with open(state_file, 'r') as f:
                 state_data = json.load(f)
@@ -147,7 +188,7 @@ def main():
             print(f"  Jobs created: {len(state_data['jobs'])}")
             print(f"  Total cost: ${state_data['total_cost']:.2f}")
     
-    print(f"\n📁 Files created in: {base_dir}")
+    print(f"\nFiles created in: {base_dir}")
     print(f"  To clean up, delete the directory: rm -rf {base_dir}")
 
 
@@ -156,7 +197,7 @@ def demo_resume_functionality():
     Demonstrate resuming from a saved state file.
     This would be used when a batch job is interrupted.
     """
-    print("\n🔄 Resume Functionality Demo")
+    print("\nResume Functionality Demo")
     print("-" * 30)
     
     state_file = "./examples/batch_example_dir/invoice_processing.json"
