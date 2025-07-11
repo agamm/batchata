@@ -64,14 +64,12 @@ def test_missing_api_key():
     """Test that missing API key raises appropriate error."""
     messages = [[{"role": "user", "content": "Test message"}]]
     
-    with pytest.raises(TypeError, match="Could not resolve authentication method"):
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY environment variable is required"):
         job = batch(
             messages=messages,
             model="claude-3-haiku-20240307",
             response_model=SpamResult
         )
-        # Try to get results to trigger API error
-        job.results()
 
 
 @patch('batchata.core.get_provider_for_model')
