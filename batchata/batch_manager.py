@@ -841,10 +841,10 @@ class BatchManager:
         Returns:
             List of dicts with {"result": ..., "citations": ...} format.
         """
-        # Try memory first - collect results from all completed jobs
+        # Try memory first - collect results from all jobs that have results
         all_results = []
         for job in self.state.jobs:
-            if job.status == JobStatus.COMPLETED and job.results:
+            if job.results:
                 all_results.extend(job.results)
         
         if all_results:
