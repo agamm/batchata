@@ -3,7 +3,7 @@
 [![Tests](https://github.com/agamm/batchata/actions/workflows/test.yml/badge.svg)](https://github.com/agamm/batchata/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/batchata)](https://pypi.org/project/batchata/)
 
-Python SDK for **batch processing** with structured output and citation mapping.
+Python SDK for **AI batch processing** with structured output and citation mapping.
 
 - **50% cost savings** via Anthropic's batch API pricing
 - **Automatic cost tracking** with token usage and pricing
@@ -16,7 +16,7 @@ Currently supports Anthropic Claude. OpenAI support coming soon.
 ## Core Functions
 
 - [`batch()`](#batch) - Process message conversations or PDF files
-- [`BatchManager`](#batchmanager) - Manage large-scale batch processing with parallel execution
+- [`BatchManager`](#batchmanager) - Manage large-scale AI batch processing with parallel execution
 
 ## Quick Start
 
