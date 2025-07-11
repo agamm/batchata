@@ -4,6 +4,7 @@ Spam Detection Example
 Demonstrates using bachata to classify multiple emails as spam or not spam.
 """
 
+import time
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from batchata import batch
@@ -43,11 +44,19 @@ def main():
             messages=messages,
             model="claude-3-haiku-20240307",
             response_model=SpamResult,
+
             verbose=True
         )
         
+        # Wait for completion
+        while not batch_job.is_complete():
+            print(f"Batch job is running. Batch ID: {batch_job._batch_id}...")
+            time.sleep(30)  # Check every 30 seconds
+        
+        results = batch_job.results()
+        
         # Display results
-        for email, batch_result in zip(emails, batch_job.results()):
+        for email, batch_result in zip(emails, results):
             result = batch_result['result']  # Extract the SpamResult from BatchResult
             status = "SPAM" if result.is_spam else "NOT SPAM"
             print(f"{status} (confidence: {result.confidence:.1%})")

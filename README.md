@@ -378,11 +378,35 @@ job.stats(print_stats=True)
 
 ## Example Scripts
 
+Run any example with `uv run python -m examples.<script_name>`:
+
+```bash
+# Email classification with structured output
+uv run python -m examples.spam_detection
+
+# PDF data extraction with citations  
+uv run python -m examples.pdf_extraction
+
+# Basic citation usage with text documents
+uv run python -m examples.citation_example
+
+# Structured output with field-level citations
+uv run python -m examples.citation_with_pydantic
+
+# Large-scale batch processing with BatchManager
+uv run python -m examples.batch_manager_example
+
+# Raw text responses without structured output
+uv run python -m examples.raw_text_example
+```
+
+**Example Files:**
 - [`examples/spam_detection.py`](examples/spam_detection.py) - Email classification
-- [`examples/pdf_extraction.py`](examples/pdf_extraction.py) - PDF data extraction
+- [`examples/pdf_extraction.py`](examples/pdf_extraction.py) - PDF data extraction  
 - [`examples/citation_example.py`](examples/citation_example.py) - Basic citation usage
 - [`examples/citation_with_pydantic.py`](examples/citation_with_pydantic.py) - Structured output with citations
 - [`examples/batch_manager_example.py`](examples/batch_manager_example.py) - Large-scale batch processing with BatchManager
+- [`examples/raw_text_example.py`](examples/raw_text_example.py) - Raw text responses
 
 ## Limitations
 

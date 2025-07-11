@@ -4,6 +4,7 @@ Invoice Citation Example
 Demonstrates extracting structured data from invoice PDFs with citations enabled.
 """
 
+import time
 from pydantic import BaseModel
 from typing import Optional
 from batchata import batch
@@ -113,9 +114,8 @@ Thank you for your business!"""
         
         # Wait for completion and get results
         while not job.is_complete():
-            import time
-            time.sleep(5)
-            job.stats(print_stats=True)
+            print(f"Batch job is running. Batch ID: {job._batch_id}...")
+            time.sleep(30)  # Check every 30 seconds
         
         results = job.results()
         print(f"\nProcessing complete! Got {len(results)} results.")
@@ -131,9 +131,9 @@ Thank you for your business!"""
             invoice_data = result_entry['result']
             citations = result_entry['citations']
             
-            print(f"💰 Amount: {invoice_data.amount}")
-            print(f"📅 Date: {invoice_data.date}")
-            print(f"📦 Product: {invoice_data.product_title}")
+            print(f"Amount: {invoice_data.amount}")
+            print(f"Date: {invoice_data.date}")
+            print(f"Product: {invoice_data.product_title}")
             
             if citations:
                 print(f"\n📚 Field Citations:")

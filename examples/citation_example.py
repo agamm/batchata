@@ -4,6 +4,7 @@ Citation Example
 Demonstrates how to use citation support with PDF processing.
 """
 
+import time
 from batchata import batch
 from batchata.citations import Citation
 from tests.utils.pdf_utils import create_pdf
@@ -39,9 +40,8 @@ def main():
         
         # Wait for completion and get results
         while not job.is_complete():
-            import time
-            time.sleep(5)
-            job.stats(print_stats=True)
+            print(f"Batch job is running. Batch ID: {job._batch_id}...")
+            time.sleep(30)  # Check every 30 seconds
         
         results = job.results()
         print(f"\nProcessing complete! Got {len(results)} results.")

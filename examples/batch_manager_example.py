@@ -10,7 +10,7 @@ import os
 from typing import List, Optional
 from pydantic import BaseModel
 
-from batchata.batch_manager import BatchManager
+from batchata import BatchManager
 from batchata import load_results_from_disk
 from tests.utils.pdf_utils import create_pdf
 
