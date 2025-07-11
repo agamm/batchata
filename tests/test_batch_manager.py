@@ -161,7 +161,7 @@ class TestBatchManager:
             "model": "claude-3-haiku-20240307",
             "items_per_job": 2,
             "max_cost": 10.0,
-            "save_results_dir": None,
+            "results_dir": None,
             "batch_kwargs": {},
             "jobs": [
                 {
@@ -372,7 +372,7 @@ class TestBatchManager:
             enable_citations=True,
             items_per_job=2,
             max_parallel_jobs=1,
-            save_results_dir=self.results_dir,
+            results_dir=self.results_dir,
             state_path=self.state_file
         )
         
@@ -515,7 +515,7 @@ class TestBatchManager:
             "model": "claude-3-haiku-20240307",
             "items_per_job": 2,
             "max_cost": None,
-            "save_results_dir": None,
+            "results_dir": None,
             "batch_kwargs": {},
             "jobs": [
                 {
@@ -608,7 +608,7 @@ class TestBatchManager:
             "model": "claude-3-5-haiku-20241022",
             "items_per_job": 1,
             "max_cost": 0.03,
-            "save_results_dir": None,
+            "results_dir": None,
             "batch_kwargs": {"prompt": "Extract invoice data"},
             "jobs": [
                 {
@@ -757,3 +757,39 @@ class TestBatchManager:
         # 1-2 jobs should remain unprocessed depending on timing
         remaining = summary['total_items'] - summary['completed_items']
         assert remaining >= 1 and remaining <= 2
+
+    def test_results_method_with_results_dir(self):
+        """Test BatchManager.results() method with results_dir configured"""
+        # Create BatchManager with results_dir
+        manager = BatchManager(
+            messages=self.test_messages[:2],
+            model="claude-3-haiku-20240307",
+            results_dir=self.results_dir,
+            state_path=self.state_file
+        )
+        
+        # Mock the load_results_from_disk function
+        from unittest.mock import patch
+        with patch('batchata.utils.load_results_from_disk') as mock_load:
+            mock_load.return_value = [
+                {"result": "Result 1", "citations": None},
+                {"result": "Result 2", "citations": None}
+            ]
+            
+            results = manager.results()
+            
+            # Verify it called load_results_from_disk with correct parameters
+            mock_load.assert_called_once_with(self.results_dir, None)
+            assert len(results) == 2
+            assert results[0]["result"] == "Result 1"
+
+    def test_results_method_without_results_dir(self):
+        """Test BatchManager.results() method without results_dir raises error"""
+        manager = BatchManager(
+            messages=self.test_messages[:2],
+            model="claude-3-haiku-20240307",
+            state_path=self.state_file
+        )
+        
+        with pytest.raises(BatchManagerError, match="Results are not available in memory"):
+            manager.results()

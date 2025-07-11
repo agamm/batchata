@@ -55,7 +55,7 @@ class TestStateManagement:
             "model": "claude-3-haiku-20240307",
             "items_per_job": 3,
             "max_cost": 10.0,
-            "save_results_dir": None,
+            "results_dir": None,
             "batch_kwargs": {},
             "jobs": [
                 {

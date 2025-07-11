@@ -46,7 +46,9 @@ def main():
         )
         
         print("\nMethod 1 - Using batch() with PDF bytes:")
-        for i, invoice in enumerate(results):
+        batch_results = results.results()
+        for i, result_entry in enumerate(batch_results):
+            invoice = result_entry['result']  # Extract the InvoiceData from BatchResult
             print(f"\nPDF {i+1}:")
             print(f"  Invoice #: {invoice.invoice_number}")
             print(f"  Vendor: {invoice.vendor_name}")

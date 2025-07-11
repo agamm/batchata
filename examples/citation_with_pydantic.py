@@ -6,7 +6,8 @@ Demonstrates extracting structured data from invoice PDFs with citations enabled
 
 from pydantic import BaseModel
 from typing import Optional
-from src import batch, Citation, BatchJob
+from batchata import batch
+from batchata.citations import Citation
 from tests.utils.pdf_utils import create_pdf
 
 
@@ -122,34 +123,32 @@ Thank you for your business!"""
         # Display structured results
         company_names = ["TechCorp Solutions", "Design Studio LLC", "Equipment Rental Co"]
         
-        for i, result in enumerate(results):
+        for i, result_entry in enumerate(results):
             print(f"\n{'='*60}")
             print(f"INVOICE {i+1}: {company_names[i]}")
             print('='*60)
             
-            if isinstance(result, InvoiceData):
-                print(f"💰 Amount: {result.amount}")
-                print(f"📅 Date: {result.date}")
-                print(f"📦 Product: {result.product_title}")
-                
-                print(f"\n📚 This response was extracted WITHOUT citation data")
-                print("   (Pydantic models don't automatically include citations)")
-                
-            elif isinstance(result, CitedText):
-                print(f"📄 Raw Response: {result.text}")
-                print(f"\n📚 Citations ({len(result.citations)}):")
-                for j, citation in enumerate(result.citations, 1):
-                    print(f"\n  [{j}] \"{citation.cited_text[:100]}...\"")
-                    print(f"      Type: {citation.type}")
-                    if citation.start_page_number:
-                        print(f"      Pages: {citation.start_page_number}-{citation.end_page_number}")
+            invoice_data = result_entry['result']
+            citations = result_entry['citations']
+            
+            print(f"💰 Amount: {invoice_data.amount}")
+            print(f"📅 Date: {invoice_data.date}")
+            print(f"📦 Product: {invoice_data.product_title}")
+            
+            if citations:
+                print(f"\n📚 Field Citations:")
+                for field_name, field_citations in citations.items():
+                    print(f"  {field_name}: {len(field_citations)} citation(s)")
+                    for j, citation in enumerate(field_citations, 1):
+                        print(f"    [{j}] \"{citation.cited_text}\"")
+                        if hasattr(citation, 'start_page'):
+                            print(f"        Page: {citation.start_page}")
             else:
-                print(f"📄 Response: {result}")
+                print(f"\n📚 No citations found")
         
         print(f"\n{'='*60}")
-        print("💡 NOTE: When using response_model with Pydantic, you get structured")
-        print("   data but lose citation information. For citations, use raw text")
-        print("   responses (no response_model) with enable_citations=True.")
+        print("💡 NOTE: With response_model + enable_citations=True, you get")
+        print("   structured data AND field-level citations mapping!")
         print('='*60)
                 
     except Exception as e:

@@ -32,17 +32,28 @@ Batchata is a Python library that provides a simple interface for batch processi
 
 **⭐ For best performance, use Claude Sonnet 4 or Opus 4 models for complex tasks, PDF processing, and structured output. These models offer the highest accuracy and capability.**
 
+**Two-Step Process:**
+1. **Create and run the batch job** - Use `.run()` method or wait for completion with `.is_complete()`
+2. **Get results** - Use `.results()` method to get unified format: `List[{"result": ..., "citations": ...}]`
+
+**Unified Result Format:**
+- `BatchJob.results()` returns `List[{"result": ..., "citations": ...}]`
+- `BatchManager.results()` returns `List[{"result": ..., "citations": ...}]`
+- `load_results_from_disk()` returns `List[{"result": ..., "citations": ...}]`
+- `result` field: Pydantic model instance, dict, or string
+- `citations` field: Dict (field citations), List (text citations), or None
+
 All models support batch processing with 50% cost savings. PDF/file processing requires file-capable models (all models except claude-3-haiku-20240307 support file input).
 
 ## Core API Documentation
 
 - [Main README](README.md): Complete documentation with installation, usage examples, and API reference
-- [Core Implementation](src/core.py): Lower-level batch() function implementation and PDF processing utilities
+- [Core Implementation](src/core.py): Lower-level batch() function implementation and PDF processing utilities  
 - [Batch Manager](src/batch_manager.py): **Recommended approach** - Large-scale batch processing with parallel execution, state persistence, and cost management
-- [Batch Job](src/batch_job.py): Individual batch job handling and status management
+- [Batch Job](src/batch_job.py): Individual batch job handling and status management (used by both batch() and BatchManager)
+- [Utilities](src/utils.py): Helper functions including `load_results_from_disk()` for loading saved results
 - [Citations](src/citations.py): Citation data structures and field-level citation mapping
 - [Types](src/types.py): Type definitions and data structures used throughout the library
-- [Utilities](src/utils.py): Helper functions for batch processing operations
 
 ## Examples and Usage Patterns
 
@@ -69,6 +80,7 @@ All models support batch processing with 50% cost savings. PDF/file processing r
 - **Progress Monitoring**: Real-time progress updates with statistics and cost tracking
 - **Retry Mechanism**: Built-in retry for failed items with exponential backoff
 - **Result Management**: Organized directory structure for saving and loading results
+- **Results Access**: Direct access via `.results()` method returning unified format `{"result": ..., "citations": ...}`
 
 ### Batch Processing Features
 - **Cost Optimization**: 50% cost savings through Anthropic's batch API pricing
@@ -86,7 +98,8 @@ All models support batch processing with 50% cost savings. PDF/file processing r
 ### Response Formats
 - **Unified Format**: Consistent `{"result": ..., "citations": ...}` structure across all modes
 - **BatchManager Summary**: Processing summary with `total_items`, `completed_items`, `failed_items`, `total_cost`, `jobs_completed`, `cost_limit_reached`
-- **Results Loading**: `get_results_from_disk()` for retrieving individual results from saved files
+- **Results Loading**: Automatic saving to `results_dir/processed/` and `results_dir/raw/` directories
+- **Directory Information**: `.stats()` method shows `results_dir`, `processed_results_dir`, and `raw_results_dir` paths
 
 ## Installation and Setup
 
@@ -116,7 +129,7 @@ All models support batch processing with 50% cost savings. PDF/file processing r
 - `max_cost`: Budget limit to stop processing (default: None)
 - `max_wait_time`: Maximum wait time for job completion (default: 3600 seconds)
 - `state_path`: Path to JSON state file for persistence
-- `save_results_dir`: Directory to save processed results
+- `results_dir`: Directory to save results (processed + raw subdirectories created automatically)
 
 ### Batch Function Parameters (Lower-level)
 - `messages`: List of message conversations for chat-based processing

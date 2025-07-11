@@ -5,18 +5,18 @@
 
 Python SDK for **AI batch processing** with structured output and citation mapping.
 
-- **50% cost savings** via Anthropic's batch API pricing
+- **50% cost savings** via Anthropic's batch API pricing (OpenAI coming soon)
 - **Automatic cost tracking** with token usage and pricing
 - **Structured output** with Pydantic models  
 - **Field-level citations** map results to source documents
 - **Type safety** with full validation
 
-Currently supports Anthropic Claude. OpenAI support coming soon.
 
 ## Core Functions
 
-- [`batch()`](#batch) - Process message conversations or PDF files
+- [`batch()`](#batch) - Process message conversations or PDF files  
 - [`BatchManager`](#batchmanager) - Manage large-scale AI batch processing with parallel execution
+- [`BatchJob`](#batchjob) - Job object returned by both functions above
 
 ## Quick Start
 
@@ -51,6 +51,10 @@ results = job.results()
 
 ```bash
 pip install batchata
+```
+or:
+```batch
+uv add batchata
 ```
 
 ## Setup
@@ -87,8 +91,12 @@ job = batch(
     response_model=SpamResult
 )
 
-# Get results
+# Wait for completion, then get results
+while not job.is_complete():
+    time.sleep(30)  # Check every 30 seconds
+    
 results = job.results()
+# Results format: [{"result": SpamResult(...), "citations": None}, ...]
 ```
 
 **Response:**
@@ -126,59 +134,19 @@ results = job.results()
 # Results now contain both data and citations together
 ```
 
-**Response:**
+**Result Format:**
+
 ```python
-# Results now contain both data and citations together
+# All results use this unified format
 [
     {
-        "result": Invoice(company_name="TechCorp Solutions", total_amount="$12,500.00", date="March 15, 2024"),
+        "result": Invoice(company_name="TechCorp", total_amount=12500.00),
         "citations": {
-            "company_name": [Citation(cited_text="TechCorp Solutions", start_page=1)],
-            "total_amount": [Citation(cited_text="TOTAL: $12,500.00", start_page=2)],
-            "date": [Citation(cited_text="Date: March 15, 2024", start_page=1)]
-        }
-    },
-    {
-        "result": Invoice(company_name="DataFlow Systems", total_amount="$8,750.00", date="March 18, 2024"),
-        "citations": {
-            "company_name": [Citation(cited_text="DataFlow Systems", start_page=1)],
-            "total_amount": [Citation(cited_text="Total Due: $8,750.00", start_page=3)],
-            "date": [Citation(cited_text="Invoice Date: March 18, 2024", start_page=1)]
+            "company_name": [Citation(...)],
+            "total_amount": [Citation(...)]
         }
     }
 ]
-```
-
-### BatchJob
-
-The job object returned by `batch()`.
-
-```python
-# Check completion status
-if job.is_complete():
-    results = job.results()
-
-# Get processing statistics with cost tracking
-stats = job.stats(print_stats=True)
-# Output:
-# 📊 Batch Statistics
-#    ID: msgbatch_01BPtdnmEwxtaDcdJ2eUsq4T
-#    Status: ended
-#    Complete: ✅
-#    Elapsed: 41.8s
-#    Mode: Text + Citations
-#    Results: 0
-#    Citations: 0
-#    Input tokens: 2,117
-#    Output tokens: 81
-#    Total cost: $0.0038
-#    (50% batch discount applied)
-
-# Citations are now included in results (if enabled)
-# Access via: results[0]["citations"]
-
-# Save raw API responses
-job = batch(..., raw_results_dir="./raw_responses")
 ```
 
 ### BatchManager
@@ -205,7 +173,7 @@ manager = BatchManager(
     max_parallel_jobs=5,   # 5 jobs in parallel
     max_cost=50.0,         # Stop if cost exceeds $50
     state_path="batch_state.json",  # Auto-resume capability
-    save_results_dir="results/"     # Save results to disk
+    results_dir="results/"          # Save results (processed + raw)
 )
 
 # Run processing (auto-resumes if interrupted)
@@ -219,9 +187,18 @@ if summary['failed_items'] > 0:
 stats = manager.stats
 print(f"Completed: {stats['completed_items']}/{stats['total_items']}")
 print(f"Total cost: ${stats['total_cost']:.2f}")
+print(f"Results saved to: {stats['results_dir']}")
 
-# Load results from disk
-results = manager.get_results_from_disk()
+# Get results directly from BatchManager
+results = manager.results()
+for entry in results:
+    invoice = entry["result"]  # This is an Invoice instance  
+    citations = entry["citations"]  # Citation objects
+    print(f"Company: {invoice.company_name}")
+
+# Or later: Load results from disk if program exited
+from batchata import load_results_from_disk
+results = load_results_from_disk("results", Invoice)
 ```
 
 <details>
@@ -253,11 +230,10 @@ The `manager.retry_failed()` method returns the same format with an additional f
 }
 ```
 
-**Getting Individual Results:**
-- Use `manager.get_results_from_disk()` to load all individual results
-- Results are saved in the same format as `batch()` function results
-- With citations enabled: `[{"result": Model(...), "citations": {...}}, ...]`
-- Without citations: `[Model(...), Model(...), ...]`
+**Result Storage:**
+- Results saved to `results_dir/processed/` as JSON files
+- Raw API responses saved to `results_dir/raw/` for debugging
+- Use `load_results_from_disk()` to reload results with full Pydantic model reconstruction
 
 </details>
 
@@ -269,6 +245,61 @@ The `manager.retry_failed()` method returns the same format with an additional f
 - **Progress monitoring**: Real-time progress updates with statistics
 - **Retry mechanism**: Easily retry failed items
 - **Result saving**: Organized directory structure for results
+
+**Getting Results:**
+
+BatchManager provides two ways to access results:
+
+```python
+# Method 1: Direct access (requires results_dir)
+results = manager.results()  # Returns unified format
+for entry in results:
+    invoice = entry["result"]  # Pydantic model instance
+    citations = entry["citations"]  # Citation objects
+    print(f"Company: {invoice.company_name}")
+
+# Method 2: Load from disk (if program exited)
+from batchata import load_results_from_disk
+results = load_results_from_disk("results", Invoice)
+```
+
+### BatchJob
+
+The job object returned by both `batch()` and used internally by `BatchManager`.
+
+```python
+# Check completion status
+if job.is_complete():
+    results = job.results()
+
+# Get processing statistics with cost tracking
+stats = job.stats(print_stats=True)
+# Output:
+# 📊 Batch Statistics
+#    ID: msgbatch_01BPtdnmEwxtaDcdJ2eUsq4T
+#    Status: ended
+#    Complete: ✅
+#    Elapsed: 41.8s
+#    Mode: Text + Citations
+#    Results: 2
+#    Citations: 6
+#    Input tokens: 2,117
+#    Output tokens: 81
+#    Total cost: $0.0038
+#    (50% batch discount applied)
+#    Raw results: ./raw_responses
+
+# BatchJob.results() returns unified format: List[{"result": ..., "citations": ...}]
+for entry in results:
+    result = entry["result"]  # Pydantic model instance, dict, or string
+    citations = entry["citations"]  # Dict, list, or None
+    print(f"Result: {result}")
+    if citations:
+        print(f"Citations: {len(citations) if isinstance(citations, (dict, list)) else 'Available'}")
+
+# Save raw API responses (optional)
+job = batch(..., raw_results_dir="./raw_responses")
+```
 
 ## Citations
 

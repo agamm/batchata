@@ -111,7 +111,7 @@ def test_batch_manager_e2e_invoice_processing():
             max_cost=20.0,  # High enough limit for testing
             max_wait_time=600,  # 10 minutes timeout
             state_path=state_file,
-            save_results_dir=results_dir
+            results_dir=results_dir
         )
         
         # Verify initial state
