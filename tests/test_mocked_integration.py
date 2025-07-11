@@ -142,27 +142,22 @@ class TestMockedIntegration:
         assert isinstance(job_results[0]["result"], IntegrationTestModel)
         
     @patch('src.utils.check_flat_model_for_citation_mapping')
-    @patch('src.providers.get_provider_for_model')
-    def test_state_persistence_integration(self, mock_get_provider, mock_check_flat_model):
+    @patch('src.batch_manager.batch')
+    def test_state_persistence_integration(self, mock_batch, mock_check_flat_model):
         """Test state persistence through the full flow."""
-        # Set up provider and utility functions
+        # Set up utility functions
         mock_check_flat_model.return_value = None  # Mock utility function
-        mock_provider = MagicMock()
-        mock_get_provider.return_value = mock_provider
         
-        mock_provider.validate_batch.return_value = None
-        mock_provider.validate_model_capabilities.return_value = None
-        mock_provider.has_citations_enabled.return_value = False
-        mock_provider.prepare_batch_requests.return_value = [
-            {'custom_id': 'request_0', 'params': {}}
-        ]
-        mock_provider.create_batch.return_value = "persistence_batch_101"
-        mock_provider._is_batch_completed.return_value = True
-        mock_provider.get_results.return_value = []
-        mock_provider.parse_results.return_value = [
+        # Setup mock batch job that returns immediately
+        mock_batch_job = MagicMock()
+        mock_batch_job.is_complete.return_value = True  # Complete immediately
+        mock_batch_job.results.return_value = [
             {"result": IntegrationTestModel(content="test_content", score=1.0), "citations": None}
         ]
-        mock_provider.get_batch_usage_costs.return_value = {"total_cost": 0.01}
+        mock_batch_job.stats.return_value = {"total_cost": 0.01}
+        mock_batch_job._batch_id = "persistence_batch_101"
+        
+        mock_batch.return_value = mock_batch_job
         
         messages = [
             [{"role": "user", "content": "Message 1"}]
