@@ -35,50 +35,69 @@ def check_flat_model_for_citation_mapping(response_model: Optional[Type[BaseMode
             )
 
 
-def run_jobs_with_conditional_parallel(max_parallel: int, condition_fn: Callable[[], bool], jobs: list, job_processor_fn: Callable) -> None:
+def run_jobs_with_conditional_parallel(
+    max_parallel: int, 
+    condition_fn: Callable[[], bool], 
+    jobs: list, 
+    job_processor_fn: Callable,
+    shared_lock: Optional[threading.Lock] = None
+) -> None:
     """
-    Execute jobs in parallel, checking condition before starting each new job.
+    Execute jobs in parallel with atomic cost checking to prevent race conditions.
+    
+    This implements the following logic:
+    1. Start initial batch of jobs (up to max_parallel)
+    2. Jobs run in parallel  
+    3. When one finishes, atomically check condition and start new job if allowed
+    4. Continue until all jobs complete or condition prevents new jobs
     
     Args:
         max_parallel: Maximum number of concurrent jobs
-        condition_fn: Function that returns True if no more jobs should start
+        condition_fn: Function that returns True if no more jobs should start (called under lock)
         jobs: List of jobs to process
         job_processor_fn: Function to process each job
+        shared_lock: Optional shared lock for atomic condition checking (creates one if None)
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+    
+    # Use provided lock or create a new one for atomic operations
+    atomic_lock = shared_lock if shared_lock is not None else threading.Lock()
     
     with ThreadPoolExecutor(max_workers=max_parallel) as executor:
         futures = {}
         remaining_jobs = jobs.copy()
         
-        # Submit initial batch of jobs
+        # Start initial batch of jobs (up to max_parallel) without cost checking
+        # Costs are only known after job completion, so we start optimistically
         while remaining_jobs and len(futures) < max_parallel:
-            if condition_fn():
-                break
             job = remaining_jobs.pop(0)
             future = executor.submit(job_processor_fn, job)
             futures[future] = job
         
-        # Process completed jobs and submit new ones
+        # Process completions and start new jobs atomically
         while futures:
-            # Get the next completed future
+            # Wait for next job completion
             completed_future = None
             for future in as_completed(futures):
                 completed_future = future
                 break
             
             if completed_future:
-                try:
-                    completed_future.result()
-                except Exception:
-                    pass  # Let caller handle errors
-                
-                # Remove completed job
-                del futures[completed_future]
-                
-                # Check condition after job completion before submitting new jobs
-                # This prevents race conditions where costs are updated after job completion
-                if remaining_jobs and not condition_fn():
-                    job = remaining_jobs.pop(0)
-                    new_future = executor.submit(job_processor_fn, job)
-                    futures[new_future] = job
+                # CRITICAL SECTION: Atomic job completion → condition check → new job decision
+                with atomic_lock:
+                    # Process the completed job (this updates costs)
+                    try:
+                        completed_future.result()
+                    except Exception:
+                        pass  # Let caller handle errors
+                    
+                    # Remove completed job from active set
+                    del futures[completed_future]
+                    
+                    # Check if we can start a new job (condition is checked AFTER job completes)
+                    # This ensures the condition sees the most up-to-date cost
+                    if remaining_jobs and not condition_fn():
+                        job = remaining_jobs.pop(0)
+                        new_future = executor.submit(job_processor_fn, job)
+                        futures[new_future] = job

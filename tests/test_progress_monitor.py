@@ -33,7 +33,8 @@ class TestProgressMonitor:
         assert monitor.thread is None
         assert monitor.is_retry == False
         
-    def test_progress_monitor_start_stop(self):
+    @patch('src.batch_manager.time.sleep')
+    def test_progress_monitor_start_stop(self, mock_sleep):
         """Test starting and stopping the progress monitor."""
         monitor = ProgressMonitor(self.mock_manager)
         
@@ -44,13 +45,14 @@ class TestProgressMonitor:
         assert monitor.thread.daemon == True
         
         # Let it run briefly
-        time.sleep(0.1)
+        time.sleep(0.01)  # Minimal sleep time
         
         # Stop monitoring
         monitor.stop()
         assert monitor.running == False
         
-    def test_progress_monitor_retry_mode(self):
+    @patch('src.batch_manager.time.sleep')
+    def test_progress_monitor_retry_mode(self, mock_sleep):
         """Test progress monitor in retry mode."""
         monitor = ProgressMonitor(self.mock_manager)
         
@@ -91,7 +93,8 @@ class TestProgressMonitor:
         # Monitor should still be functional
         assert monitor.batch_manager == broken_manager
         
-    def test_progress_monitor_thread_termination(self):
+    @patch('src.batch_manager.time.sleep')
+    def test_progress_monitor_thread_termination(self, mock_sleep):
         """Test that progress monitor thread terminates properly."""
         monitor = ProgressMonitor(self.mock_manager)
         
@@ -105,7 +108,7 @@ class TestProgressMonitor:
         monitor.stop()
         
         # Thread should terminate within reasonable time
-        thread.join(timeout=2)
+        thread.join(timeout=0.5)  # Reasonable timeout
         assert not thread.is_alive()
         
     def test_progress_timing(self):
@@ -118,10 +121,11 @@ class TestProgressMonitor:
         # Check that start_time is set reasonably
         assert abs(monitor.start_time - start_time) < 0.1
         
-        time.sleep(0.1)
+        time.sleep(0.01)  # Minimal sleep time
         monitor.stop()
         
-    def test_multiple_start_stop_cycles(self):
+    @patch('src.batch_manager.time.sleep')
+    def test_multiple_start_stop_cycles(self, mock_sleep):
         """Test multiple start/stop cycles work correctly."""
         monitor = ProgressMonitor(self.mock_manager)
         
@@ -129,7 +133,7 @@ class TestProgressMonitor:
             monitor.start()
             assert monitor.running == True
             
-            time.sleep(0.05)
+            time.sleep(0.01)  # Minimal sleep time
             
             monitor.stop()
             assert monitor.running == False

@@ -13,10 +13,9 @@ Python SDK for **batch processing** with structured output and citation mapping.
 
 Currently supports Anthropic Claude. OpenAI support coming soon.
 
-## API Reference
+## Core Functions
 
 - [`batch()`](#batch) - Process message conversations or PDF files
-- [`BatchJob`](#batchjob) - Job status and results
 - [`BatchManager`](#batchmanager) - Manage large-scale batch processing with parallel execution
 
 ## Quick Start
@@ -54,7 +53,7 @@ results = job.results()
 pip install batchata
 ```
 
-## Usage
+## Setup
 
 Create a `.env` file in your project root:
 
@@ -62,7 +61,7 @@ Create a `.env` file in your project root:
 ANTHROPIC_API_KEY=your-api-key
 ```
 
-## API Functions
+## API Reference
 
 ### batch()
 
@@ -335,12 +334,13 @@ job.stats(print_stats=True)
 
 ## Limitations
 
-- Citationm mapping only work with flat Pydantic models (no nested models)
-- No support for OpenAI.
+- Citation mapping only works with flat Pydantic models (no nested models)
+- OpenAI support coming soon
 - PDFs require Opus/Sonnet models for best results
 - Batch jobs can take up to 24 hours to process
 - Use `job.is_complete()` to check status before getting results
 - Citations may not be available in all batch API responses
+- **Cost limits**: Best effort enforcement - costs are only known after job completion, so final costs may slightly exceed `max_cost` due to jobs already in progress
 
 ## Comparison with Alternatives
 
