@@ -3,7 +3,7 @@
 Example demonstrating raw text responses without structured output.
 """
 
-from src.ai_batch import batch
+from src import batch
 
 def main():
     # Example messages for different use cases

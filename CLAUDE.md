@@ -29,7 +29,7 @@
 ## Project structure
 (Update when it changes)
 ```
-ai-batch/
+bachata/
 ├── CLAUDE.md          # This file
 ├── SPEC.md            # Current feature specification
 ├── pyproject.toml     # Project configuration
@@ -55,7 +55,7 @@ ai-batch/
 │       └── base.py
 └── tests/             # Test files
     ├── __init__.py
-    ├── test_ai_batch.py
+    ├── test_bachata.py
     ├── test_batch_validation.py
     ├── test_citation_modes.py
     ├── test_pdf_processing.py
@@ -70,6 +70,8 @@ ai-batch/
 - `uv add <package>` - Add dependency
 - `uv run pytest -v -n auto ` - Run tests
 - `uv run python -m examples.spam_detection` - Run example
+- `bachata-example` - Run spam detection example
+- `bachata-pdf-example` - Run PDF extraction example
 
 
 ## Version and releaseing

@@ -1,5 +1,5 @@
 """
-Test fixtures for ai-batch tests.
+Test fixtures for bachata tests.
 
 Provides realistic mock implementations that match the real API behavior.
 """

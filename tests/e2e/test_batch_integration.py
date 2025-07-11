@@ -1,5 +1,5 @@
 """
-End-to-end integration tests for ai_batch.
+End-to-end integration tests for bachata.
 
 These tests require a real API key and make actual calls to Anthropic's API.
 They test the happy path scenarios with real data.

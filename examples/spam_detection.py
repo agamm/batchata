@@ -1,7 +1,7 @@
 """
 Spam Detection Example
 
-Demonstrates using ai_batch to classify multiple emails as spam or not spam.
+Demonstrates using bachata to classify multiple emails as spam or not spam.
 """
 
 from pydantic import BaseModel

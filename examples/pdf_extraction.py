@@ -1,7 +1,7 @@
 """
 PDF Data Extraction Example
 
-Demonstrates using ai_batch to extract structured data from multiple PDFs.
+Demonstrates using bachata to extract structured data from multiple PDFs.
 """
 
 from pydantic import BaseModel

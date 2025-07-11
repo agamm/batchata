@@ -1,4 +1,4 @@
-# AI Batch
+# Batchata
 
 Python SDK for **batch processing** with structured output and citation mapping.
 
@@ -19,7 +19,7 @@ Currently supports Anthropic Claude. OpenAI support coming soon.
 ## Quick Start
 
 ```python
-from ai_batch import batch
+from batchata import batch
 from pydantic import BaseModel
 
 class Invoice(BaseModel):
@@ -48,7 +48,7 @@ results = job.results()
 ## Installation
 
 ```bash
-pip install ai-batch
+pip install batchata
 ```
 
 ## Usage
@@ -66,7 +66,7 @@ ANTHROPIC_API_KEY=your-api-key
 Process multiple message conversations with optional structured output.
 
 ```python
-from ai_batch import batch
+from batchata import batch
 from pydantic import BaseModel
 
 class SpamResult(BaseModel):
@@ -103,7 +103,7 @@ results = job.results()
 Process PDF files with optional structured output and citations.
 
 ```python
-from ai_batch import batch
+from batchata import batch
 from pydantic import BaseModel
 
 class Invoice(BaseModel):
@@ -184,7 +184,7 @@ job = batch(..., raw_results_dir="./raw_responses")
 Manage large-scale batch processing with automatic job splitting, parallel execution, state persistence, and cost management.
 
 ```python
-from ai_batch import BatchManager
+from batchata import BatchManager
 from pydantic import BaseModel
 
 class Invoice(BaseModel):
@@ -291,7 +291,7 @@ The field mapping allows you to trace exactly which part of the source document 
 
 ### Robust Citation Parsing
 
-AI Batch uses proper JSON parsing for citation field mapping, ensuring reliability with complex JSON structures:
+Batchata uses proper JSON parsing for citation field mapping, ensuring reliability with complex JSON structures:
 
 **Handles Complex Scenarios:**
 - ✅ Escaped quotes in JSON values: `"name": "John \"The Great\" Doe"`
@@ -300,15 +300,12 @@ AI Batch uses proper JSON parsing for citation field mapping, ensuring reliabili
 - ✅ Multi-line strings and special characters
 - ✅ Fields with numbers/underscores: `user_name`, `age_2`
 
-**Previous Limitations (Fixed):**
-The old regex-based approach would fail on complex JSON patterns. The new JSON parser reliably handles any valid JSON structure that Claude produces, making citation mapping robust for production use.
-
 ## Cost Tracking
 
-AI Batch automatically tracks token usage and costs for all batch operations:
+Batchata automatically tracks token usage and costs for all batch operations:
 
 ```python
-from ai_batch import batch
+from batchata import batch
 
 job = batch(
     messages=[...],
@@ -344,7 +341,7 @@ job.stats(print_stats=True)
 
 ## Comparison with Alternatives
 
-| Feature | ai-batch | LangChain | Instructor | PydanticAI |
+| Feature | batchata | LangChain | Instructor | PydanticAI |
 |---------|----------|-----------|------------|------------|
 | **Batch Requests** | ✅ Native (50% cost savings) | ❌ No native batch API | ✅ Via OpenAI Batch API ([#1092](https://github.com/instructor-ai/instructor/issues/1092)) | ⚠️ Planned ([#1771](https://github.com/pydantic/pydantic-ai/issues/1771)) |
 | **Structured Output** | ✅ Full support | ✅ Via parsers | ✅ Core feature | ✅ Native |

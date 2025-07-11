@@ -1,4 +1,4 @@
-"""Utility functions for ai-batch."""
+"""Utility functions for bachata."""
 
 import threading
 from typing import Type, Optional, get_origin, get_args, Callable
