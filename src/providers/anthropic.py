@@ -21,22 +21,43 @@ class AnthropicBatchProvider(BaseBatchProvider):
     
     # Supported models for this provider  
     SUPPORTED_MODELS = {
+        # Claude 4 models
+        "claude-opus-4-20250514",
+        "claude-sonnet-4-20250514",
+        # Claude 3.7 models
+        "claude-3-7-sonnet-20250219",
+        "claude-3-7-sonnet-latest",
+        # Claude 3.5 models
         "claude-3-5-sonnet-20241022",
-        "claude-3-5-haiku-20241022", 
+        "claude-3-5-sonnet-latest",
+        "claude-3-5-sonnet-20240620",
+        "claude-3-5-haiku-20241022",
+        "claude-3-5-haiku-latest",
+        # Claude 3 models
+        "claude-3-haiku-20240307",
+        # Legacy models (deprecated)
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
-        "claude-3-haiku-20240307",
-        "claude-3-5-sonnet-20240620",
         "claude-3-5-haiku-20240307",
     }
     
     # Models that support file/document input (PDFs, images, etc.)
     FILE_CAPABLE_MODELS = {
+        # Claude 4 models
+        "claude-opus-4-20250514",
+        "claude-sonnet-4-20250514",
+        # Claude 3.7 models
+        "claude-3-7-sonnet-20250219",
+        "claude-3-7-sonnet-latest",
+        # Claude 3.5 models
         "claude-3-5-sonnet-20241022",
-        "claude-3-5-haiku-20241022", 
+        "claude-3-5-sonnet-latest",
+        "claude-3-5-sonnet-20240620",
+        "claude-3-5-haiku-20241022",
+        "claude-3-5-haiku-latest",
+        # Legacy models (deprecated)
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
-        "claude-3-5-sonnet-20240620",
         "claude-3-5-haiku-20240307",
     }
     

@@ -1,0 +1,164 @@
+# Batchata
+
+> Python SDK for AI batch processing with structured output and citation mapping. 50% cost savings via Anthropic's batch API with automatic cost tracking, structured output using Pydantic models, and field-level citations.
+
+Batchata is a Python library that provides a simple interface for batch processing with AI models (currently supports Anthropic Claude, OpenAI support coming soon). **The preferred way to use Batchata is through `BatchManager`** as it abstracts most of the work of the lower-level `batch()` function and provides advanced features like parallel processing, state persistence, and cost management.
+
+## Recommended Usage Pattern
+
+**Use `BatchManager` for production workloads** - it handles job splitting, parallel execution, state persistence, cost limits, and retry logic automatically. Only use the lower-level `batch()` function for simple one-off tasks or when you need direct control over the batch processing.
+
+## Supported Models
+
+**Claude 4 Models (Latest & Best Performance):**
+- `claude-opus-4-20250514` ⭐ **Best overall performance**
+- `claude-sonnet-4-20250514` ⭐ **Best performance for most tasks**
+
+**Claude 3.7 Models:**
+- `claude-3-7-sonnet-20250219` (also available as `claude-3-7-sonnet-latest`)
+
+**Claude 3.5 Models:**
+- `claude-3-5-sonnet-20241022` (also available as `claude-3-5-sonnet-latest`)
+- `claude-3-5-sonnet-20240620`
+- `claude-3-5-haiku-20241022` (also available as `claude-3-5-haiku-latest`) - Fast, cost-effective
+
+**Claude 3 Models:**
+- `claude-3-haiku-20240307` - Most cost-effective option
+
+**Legacy Models (Deprecated):**
+- `claude-3-opus-20240229`
+- `claude-3-sonnet-20240229`
+- `claude-3-5-haiku-20240307`
+
+**⭐ For best performance, use Claude Sonnet 4 or Opus 4 models for complex tasks, PDF processing, and structured output. These models offer the highest accuracy and capability.**
+
+All models support batch processing with 50% cost savings. PDF/file processing requires file-capable models (all models except claude-3-haiku-20240307 support file input).
+
+## Core API Documentation
+
+- [Main README](README.md): Complete documentation with installation, usage examples, and API reference
+- [Core Implementation](src/core.py): Lower-level batch() function implementation and PDF processing utilities
+- [Batch Manager](src/batch_manager.py): **Recommended approach** - Large-scale batch processing with parallel execution, state persistence, and cost management
+- [Batch Job](src/batch_job.py): Individual batch job handling and status management
+- [Citations](src/citations.py): Citation data structures and field-level citation mapping
+- [Types](src/types.py): Type definitions and data structures used throughout the library
+- [Utilities](src/utils.py): Helper functions for batch processing operations
+
+## Examples and Usage Patterns
+
+- [Batch Manager Example](examples/batch_manager_example.py): **Recommended** - Large-scale processing with parallel execution and state management
+- [Spam Detection Example](examples/spam_detection.py): Email classification using structured output with confidence scores
+- [PDF Extraction Example](examples/pdf_extraction.py): Extract structured data from PDF invoices with citations
+- [Citation Example](examples/citation_example.py): Basic citation usage for text analysis
+- [Citation with Pydantic](examples/citation_with_pydantic.py): Field-level citations with structured output models
+- [Raw Text Example](examples/raw_text_example.py): Simple text processing without structured output
+
+## Provider Architecture
+
+- [Base Provider](src/providers/base.py): Abstract base class for AI providers with batch processing interface
+- [Anthropic Provider](src/providers/anthropic.py): Anthropic Claude implementation with batch API support and model definitions
+- [Provider Registry](src/providers/__init__.py): Provider selection and initialization utilities
+
+## Key Features and Implementation Details
+
+### BatchManager (Recommended Approach)
+- **Automatic Job Splitting**: Breaks large batches into configurable chunks (items_per_job)
+- **Parallel Processing**: Concurrent job execution with ThreadPoolExecutor (max_parallel_jobs)
+- **State Persistence**: JSON-based state files for resume capability after interruptions
+- **Cost Management**: Stop processing when budget limits are reached (max_cost parameter)
+- **Progress Monitoring**: Real-time progress updates with statistics and cost tracking
+- **Retry Mechanism**: Built-in retry for failed items with exponential backoff
+- **Result Management**: Organized directory structure for saving and loading results
+
+### Batch Processing Features
+- **Cost Optimization**: 50% cost savings through Anthropic's batch API pricing
+- **Structured Output**: Full Pydantic model support with automatic validation
+- **Citation Mapping**: Field-level citations that map results to source documents
+- **Cost Tracking**: Automatic token usage and cost calculation using tokencost library
+- **Type Safety**: Full TypeScript-style type annotations and validation
+
+### Citation System
+- **Text + Citations Mode**: Flat list of citations for unstructured text responses
+- **Structured + Field Citations**: Citations mapped to specific Pydantic model fields
+- **Robust JSON Parsing**: Handles complex JSON structures with escaped quotes, nested objects, and special characters
+- **Page-Level Citations**: Precise document location tracking with page numbers and text spans
+
+### Response Formats
+- **Unified Format**: Consistent `{"result": ..., "citations": ...}` structure across all modes
+- **BatchManager Summary**: Processing summary with `total_items`, `completed_items`, `failed_items`, `total_cost`, `jobs_completed`, `cost_limit_reached`
+- **Results Loading**: `get_results_from_disk()` for retrieving individual results from saved files
+
+## Installation and Setup
+
+**Installation**: `pip install batchata`
+
+**Environment Setup**: Requires `ANTHROPIC_API_KEY` environment variable
+
+**Python Version**: Requires Python 3.12+
+
+**Dependencies**: 
+- `anthropic>=0.57.1` for Claude API access
+- `python-dotenv>=1.1.1` for environment management
+- `tokencost>=0.1.24` for cost tracking
+
+## Testing and Development
+
+- [Test Suite](tests/): Comprehensive test coverage including unit, integration, and e2e tests
+- [Test Fixtures](tests/fixtures.py): Reusable test utilities and mock data
+- [PDF Test Utils](tests/utils/pdf_utils.py): PDF generation utilities for testing
+- [E2E Tests](tests/e2e/): End-to-end integration tests with real API calls
+
+## Configuration and Customization
+
+### BatchManager Parameters (Recommended)
+- `items_per_job`: Number of items to process per batch job (default: 50)
+- `max_parallel_jobs`: Maximum concurrent jobs (default: 10)
+- `max_cost`: Budget limit to stop processing (default: None)
+- `max_wait_time`: Maximum wait time for job completion (default: 3600 seconds)
+- `state_path`: Path to JSON state file for persistence
+- `save_results_dir`: Directory to save processed results
+
+### Batch Function Parameters (Lower-level)
+- `messages`: List of message conversations for chat-based processing
+- `files`: List of PDF file paths or bytes for document processing
+- `prompt`: Processing instruction (required for file processing)
+- `model`: AI model identifier (recommend: "claude-sonnet-4-20250514")
+- `response_model`: Optional Pydantic model for structured output
+- `enable_citations`: Boolean to enable citation extraction
+- `raw_results_dir`: Directory to save raw API responses
+
+## Error Handling and Limitations
+
+- **Citation Limitations**: Only works with flat Pydantic models (no nested models)
+- **Model Requirements**: PDFs require file-capable models (use Sonnet 4/Opus 4 for best results)
+- **Batch Timing**: Jobs can take up to 24 hours to process
+- **Cost Limits**: Best effort enforcement - final costs may slightly exceed max_cost
+- **Provider Support**: Currently Anthropic only, OpenAI support planned
+
+## CLI Commands
+
+- `batchata-example`: Run spam detection example
+- `batchata-pdf-example`: Run PDF extraction example
+
+## Project Structure
+
+```
+batchata/
+├── src/                    # Source code
+│   ├── core.py            # Lower-level batch() function
+│   ├── batch_manager.py   # Recommended BatchManager class
+│   ├── batch_job.py       # Individual job handling
+│   ├── citations.py       # Citation data structures
+│   └── providers/         # AI provider implementations
+├── examples/              # Usage examples
+├── tests/                 # Test suite
+└── specs/                 # Feature specifications
+```
+
+## Development Status
+
+- **Version**: 0.2.2 (Alpha)
+- **License**: MIT
+- **Repository**: https://github.com/agamm/batchata
+- **PyPI**: https://pypi.org/project/batchata/
+- **Status**: Active development with regular updates

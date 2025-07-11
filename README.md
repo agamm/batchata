@@ -396,6 +396,10 @@ job.stats(print_stats=True)
 
 MIT
 
+## AI Documentation
+
+📋 **For AI systems**: See [llms.txt](llms.txt) for comprehensive documentation optimized for AI consumption.
+
 ## Todos
 
 - [x] ~~Add pricing metadata and max_spend controls~~ (Cost tracking implemented)
