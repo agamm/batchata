@@ -1,5 +1,8 @@
 # Batchata
 
+[![Tests](https://github.com/agamm/batchata/actions/workflows/test.yml/badge.svg)](https://github.com/agamm/batchata/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/batchata)](https://pypi.org/project/batchata/)
+
 Python SDK for **batch processing** with structured output and citation mapping.
 
 - **50% cost savings** via Anthropic's batch API pricing
