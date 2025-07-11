@@ -46,11 +46,10 @@ def run_jobs_with_conditional_parallel(
     Execute jobs in parallel with atomic cost checking to prevent race conditions.
     
     This implements the following logic:
-    1. Start with [pending jobs]
-    2. Consume jobs one by one (atomic) and check cost limit with lock - stop when max_parallel_jobs reached
-    3. Jobs run in parallel  
-    4. When one finishes, lock and update cost
-    5. When new job can start, acquire lock again to check if we can start it
+    1. Start initial batch of jobs (up to max_parallel)
+    2. Jobs run in parallel  
+    3. When one finishes, atomically check condition and start new job if allowed
+    4. Continue until all jobs complete or condition prevents new jobs
     
     Args:
         max_parallel: Maximum number of concurrent jobs
@@ -69,18 +68,16 @@ def run_jobs_with_conditional_parallel(
         futures = {}
         remaining_jobs = jobs.copy()
         
-        # STEP 2: Start consuming jobs one by one (atomic) until max_parallel_jobs reached
-        with atomic_lock:
-            while remaining_jobs and len(futures) < max_parallel:
-                # Check condition under lock - atomic cost limit check
-                if condition_fn():
-                    break
+        # Start initial batch of jobs (up to max_parallel)
+        # We start jobs without checking condition initially to allow at least some jobs to run
+        initial_batch_size = min(max_parallel, len(remaining_jobs))
+        for _ in range(initial_batch_size):
+            if remaining_jobs:
                 job = remaining_jobs.pop(0)
                 future = executor.submit(job_processor_fn, job)
                 futures[future] = job
         
-        # STEP 3: Jobs run in parallel
-        # STEPS 4-5: When one finishes, lock and update, then check for new jobs
+        # Process completions and start new jobs atomically
         while futures:
             # Wait for next job completion
             completed_future = None
@@ -89,7 +86,7 @@ def run_jobs_with_conditional_parallel(
                 break
             
             if completed_future:
-                # CRITICAL SECTION: Atomic job completion → cost update → new job decision
+                # CRITICAL SECTION: Atomic job completion → condition check → new job decision
                 with atomic_lock:
                     # Process the completed job (this updates costs)
                     try:
@@ -100,7 +97,8 @@ def run_jobs_with_conditional_parallel(
                     # Remove completed job from active set
                     del futures[completed_future]
                     
-                    # STEP 5: Check if we can start a new job (atomic cost check)
+                    # Check if we can start a new job (condition is checked AFTER job completes)
+                    # This ensures the condition sees the most up-to-date cost
                     if remaining_jobs and not condition_fn():
                         job = remaining_jobs.pop(0)
                         new_future = executor.submit(job_processor_fn, job)
