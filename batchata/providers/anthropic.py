@@ -65,6 +65,7 @@ class AnthropicBatchProvider(BaseBatchProvider):
     # Batch limitations from https://docs.anthropic.com/en/docs/build-with-claude/batch-processing#batch-limitations
     MAX_REQUESTS = 100_000      # Max requests per batch
     MAX_TOTAL_SIZE_MB = 256     # Max total batch size in MB
+    MAX_FILE_SIZE_MB = 32       # Max individual file size in MB
     
     # Batch API offers 50% discount on all usage
     BATCH_DISCOUNT = 0.5
@@ -670,3 +671,7 @@ class AnthropicBatchProvider(BaseBatchProvider):
                 "service_tier": "batch",
                 "request_count": 0
             }
+    
+    def get_max_file_size_mb(self) -> float:
+        """Get maximum file size in MB for Anthropic provider."""
+        return self.MAX_FILE_SIZE_MB

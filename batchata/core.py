@@ -10,6 +10,7 @@ from typing import List, Type, TypeVar, Optional, Union, Dict, Any
 from pydantic import BaseModel
 from .providers import get_provider_for_model
 from .batch_job import BatchJob
+from .exceptions import FileTooLargeError
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -17,6 +18,22 @@ T = TypeVar('T', bound=BaseModel)
 MessageConversations = List[List[dict]]  # List of conversations, each conversation is a list of message dicts
 FileInputs = Union[List[str], List[Path], List[bytes]]  # List of file paths (str/Path) or file content (bytes)
 
+
+
+def _detect_file_type(file_bytes: bytes) -> str:
+    """Detect file type from bytes content."""
+    if file_bytes.startswith(b'%PDF'):
+        return 'application/pdf'
+    elif file_bytes.startswith(b'\x89PNG'):
+        return 'image/png'
+    elif file_bytes.startswith(b'\xff\xd8\xff'):
+        return 'image/jpeg'
+    elif file_bytes.startswith(b'GIF8'):
+        return 'image/gif'
+    elif file_bytes.startswith(b'RIFF') and b'WEBP' in file_bytes[:12]:
+        return 'image/webp'
+    else:
+        return 'application/octet-stream'
 
 
 def pdf_to_document_block(pdf_bytes: bytes, enable_citations: bool = False) -> Dict[str, Any]:
@@ -28,12 +45,27 @@ def pdf_to_document_block(pdf_bytes: bytes, enable_citations: bool = False) -> D
         
     Returns:
         Document content block dict
+        
+    Raises:
+        UnsupportedContentError: If citations are requested for non-PDF content
     """
+    from .exceptions import UnsupportedContentError
+    
+    # Detect file type
+    detected_type = _detect_file_type(pdf_bytes)
+    
+    # Check if citations are requested for image files
+    if enable_citations and detected_type.startswith('image/'):
+        raise UnsupportedContentError(
+            f"Citations are not supported for image files (detected: {detected_type}). "
+            "Citations are only available for PDF documents."
+        )
+    
     doc_block = {
         "type": "document",
         "source": {
             "type": "base64",
-            "media_type": "application/pdf",
+            "media_type": detected_type,
             "data": base64.b64encode(pdf_bytes).decode('utf-8')
         }
     }
@@ -142,6 +174,15 @@ def batch(
             else:
                 pdf_path = Path(file)
                 pdf_bytes = pdf_path.read_bytes()
+            
+            # Check for empty files
+            if len(pdf_bytes) == 0:
+                file_name = file if isinstance(file, (str, Path)) else "bytes input"
+                raise ValueError(f"File is empty: {file_name}")
+            
+            # Validate file size against provider limits
+            file_name = file if isinstance(file, (str, Path)) else "bytes input"
+            provider_instance.validate_file_size(pdf_bytes, str(file_name))
             
             doc_block = pdf_to_document_block(pdf_bytes, enable_citations=enable_citations)
             

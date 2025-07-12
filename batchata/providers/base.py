@@ -7,6 +7,7 @@ Abstract base class for all batch processing providers.
 from abc import ABC, abstractmethod
 from typing import List, Dict, Type, Any, Optional, Union, Tuple
 from pydantic import BaseModel
+from ..exceptions import FileTooLargeError
 
 
 class BaseBatchProvider(ABC):
@@ -43,6 +44,36 @@ class BaseBatchProvider(ABC):
             
         Raises:
             ValueError: If batch exceeds provider limits
+            FileTooLargeError: If individual messages exceed size limits
+        """
+        pass
+    
+    def validate_file_size(self, file_bytes: bytes, filename: str = "file") -> None:
+        """
+        Validate file size against provider limits.
+        
+        Args:
+            file_bytes: File content as bytes
+            filename: Name of the file for error messages
+            
+        Raises:
+            FileTooLargeError: If file exceeds provider limits
+        """
+        max_size_mb = self.get_max_file_size_mb()
+        file_size_mb = len(file_bytes) / (1024 * 1024)
+        
+        if file_size_mb > max_size_mb:
+            raise FileTooLargeError(
+                f"File '{filename}' is {file_size_mb:.1f}MB, exceeds {max_size_mb}MB limit"
+            )
+    
+    @abstractmethod
+    def get_max_file_size_mb(self) -> float:
+        """
+        Get maximum file size in MB for this provider.
+        
+        Returns:
+            Maximum file size in MB
         """
         pass
     
