@@ -73,6 +73,49 @@ class TestBatchManager:
         with pytest.raises(BatchManagerError, match="prompt is required when using files"):
             BatchManager(files=self.test_files[:5], model="claude-3-haiku-20240307")
 
+    def test_init_with_missing_files(self):
+        """Test BatchManager initialization with missing files"""
+        # Test single missing file
+        with pytest.raises(BatchManagerError, match="File not found: nonexistent.pdf"):
+            BatchManager(
+                files=["nonexistent.pdf"],
+                prompt="Extract data",
+                model="claude-3-5-sonnet-20241022"
+            )
+        
+        # Test multiple files with one missing
+        import tempfile
+        
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+            temp_file.write(b"fake pdf content")
+            existing_file = temp_file.name
+        
+        try:
+            with pytest.raises(BatchManagerError, match="File not found: nonexistent.pdf"):
+                BatchManager(
+                    files=[existing_file, "nonexistent.pdf"],
+                    prompt="Extract data",
+                    model="claude-3-5-sonnet-20241022"
+                )
+        finally:
+            # Clean up temp file
+            os.unlink(existing_file)
+
+    def test_init_with_bytes_files(self):
+        """Test BatchManager initialization with bytes content (no file validation)"""
+        pdf_bytes = b"fake pdf content"
+        
+        # Should succeed without file validation errors
+        manager = BatchManager(
+            files=[pdf_bytes],
+            prompt="Extract data",
+            model="claude-3-5-sonnet-20241022"
+        )
+        
+        assert len(manager.state.jobs) == 1
+        assert len(manager.state.jobs[0].items) == 1
+
     def test_init_with_messages(self):
         """Test successful initialization with messages"""
         manager = BatchManager(

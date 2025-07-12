@@ -250,6 +250,7 @@ class BatchManager:
         if max_cost is not None and max_cost <= 0:
             raise BatchManagerError("max_cost must be positive")
         
+        
         # Store configuration
         self.model = model
         self.items_per_job = items_per_job
@@ -282,6 +283,15 @@ class BatchManager:
     
     def _initialize_state(self, messages: Optional[List[List[dict]]], files: Optional[List]) -> None:
         """Initialize new state from input data."""
+        # Validate files early if provided
+        if files is not None:
+            from pathlib import Path
+            for file in files:
+                if not isinstance(file, bytes):
+                    pdf_path = Path(file)
+                    if not pdf_path.exists():
+                        raise BatchManagerError(f"File not found: {pdf_path}")
+        
         input_data = messages if messages is not None else files
         is_messages = messages is not None
         

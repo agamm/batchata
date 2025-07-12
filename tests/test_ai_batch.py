@@ -187,3 +187,56 @@ def test_batch_without_response_model(mock_provider_func):
     assert len(results) == 1
     assert results[0]["result"] == "This is a raw text response"
     assert isinstance(results[0]["result"], str)
+
+
+def test_batch_with_missing_file():
+    """Test that batch raises FileNotFoundError for missing files."""
+    with pytest.raises(FileNotFoundError, match="File not found: nonexistent.pdf"):
+        batch(
+            files=["nonexistent.pdf"],
+            prompt="Test prompt",
+            model="claude-3-5-sonnet-20241022"
+        )
+
+
+def test_batch_with_multiple_files_one_missing():
+    """Test that batch fails when any file in list is missing."""
+    import tempfile
+    
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+        temp_file.write(b"fake pdf content")
+        existing_file = temp_file.name
+    
+    try:
+        with pytest.raises(FileNotFoundError, match="File not found: nonexistent.pdf"):
+            batch(
+                files=[existing_file, "nonexistent.pdf"],
+                prompt="Test prompt", 
+                model="claude-3-5-sonnet-20241022"
+            )
+    finally:
+        # Clean up temp file
+        os.unlink(existing_file)
+
+
+def test_batch_with_bytes_content():
+    """Test that batch works with bytes content (no file validation needed)."""
+    pdf_bytes = b"fake pdf content"
+    
+    with patch('batchata.core.get_provider_for_model') as mock_provider_func:
+        mock_provider = MagicMock()
+        mock_provider_func.return_value = mock_provider
+        mock_provider.validate_model_capabilities.return_value = None
+        mock_provider.validate_batch.return_value = None
+        mock_provider.prepare_batch_requests.return_value = [{'custom_id': 'request_0'}]
+        mock_provider.create_batch.return_value = "batch_123"
+        
+        job = batch(
+            files=[pdf_bytes],
+            prompt="Test prompt",
+            model="claude-3-5-sonnet-20241022"
+        )
+        
+        # Should succeed without FileNotFoundError
+        assert job._batch_id == "batch_123"

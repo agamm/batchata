@@ -90,6 +90,11 @@ gh release create v$VERSION --title "v$VERSION" --generate-notes
 
 Always add release notes that add value, and only call release with vx.x.x no description in the relese name.
 
+Release notes should be:
+- Concise, no marketing fluff
+- List actual changes made
+- Include "No breaking changes" if applicable
+
 ## Code Style
 - **Typing**: Strict type annotations, use `BaseModel` for structured outputs
 - **Imports**: Standard lib → third-party → local

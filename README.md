@@ -65,6 +65,24 @@ Create a `.env` file in your project root:
 ANTHROPIC_API_KEY=your-api-key
 ```
 
+## Supported Models
+
+| Model | File Support | Notes |
+|-------|--------------|-------|
+| `claude-opus-4-20250514` | ✅ | Latest Claude 4 Opus |
+| `claude-sonnet-4-20250514` | ✅ | Latest Claude 4 Sonnet |
+| `claude-3-7-sonnet-20250219` | ✅ | Claude 3.7 Sonnet |
+| `claude-3-7-sonnet-latest` | ✅ | Claude 3.7 Sonnet (latest) |
+| `claude-3-5-sonnet-20241022` | ✅ | Recommended for most tasks |
+| `claude-3-5-sonnet-latest` | ✅ | Latest Claude 3.5 Sonnet |
+| `claude-3-5-sonnet-20240620` | ✅ | Legacy Claude 3.5 Sonnet |
+| `claude-3-5-haiku-20241022` | ✅ | Fast, cost-effective |
+| `claude-3-5-haiku-latest` | ✅ | Latest Claude 3.5 Haiku |
+| `claude-3-haiku-20240307` | ❌ | Messages only, no files |
+| `claude-3-opus-20240229` | ✅ | Legacy (deprecated) |
+| `claude-3-sonnet-20240229` | ✅ | Legacy (deprecated) |
+| `claude-3-5-haiku-20240307` | ✅ | Legacy (deprecated) |
+
 ## API Reference
 
 ### batch()

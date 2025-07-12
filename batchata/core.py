@@ -126,16 +126,21 @@ def batch(
         has_messages=original_has_messages
     )
     
-    # If using files, convert to messages format
+    # If using files, validate existence first, then convert to messages format
     if files is not None:
+        # Validate all files exist before processing any
+        for file in files:
+            if not isinstance(file, bytes):
+                pdf_path = Path(file)
+                if not pdf_path.exists():
+                    raise FileNotFoundError(f"File not found: {pdf_path}")
+        
         messages = []
         for file in files:
             if isinstance(file, bytes):
                 pdf_bytes = file
             else:
                 pdf_path = Path(file)
-                if not pdf_path.exists():
-                    raise FileNotFoundError(f"File not found: {pdf_path}")
                 pdf_bytes = pdf_path.read_bytes()
             
             doc_block = pdf_to_document_block(pdf_bytes, enable_citations=enable_citations)
