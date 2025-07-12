@@ -12,7 +12,8 @@ from typing import List, Optional
 import pytest
 from pydantic import BaseModel
 
-from batchata.batch_manager import BatchManager, BatchManagerError
+from batchata.batch_manager import BatchManager
+from batchata.exceptions import BatchManagerError
 from batchata.batch_job import BatchJob
 from tests.fixtures import (
     create_mock_batch_job, 
@@ -73,6 +74,49 @@ class TestBatchManager:
         with pytest.raises(BatchManagerError, match="prompt is required when using files"):
             BatchManager(files=self.test_files[:5], model="claude-3-haiku-20240307")
 
+    def test_init_with_missing_files(self):
+        """Test BatchManager initialization with missing files"""
+        # Test single missing file
+        with pytest.raises(BatchManagerError, match="File not found: nonexistent.pdf"):
+            BatchManager(
+                files=["nonexistent.pdf"],
+                prompt="Extract data",
+                model="claude-3-5-sonnet-20241022"
+            )
+        
+        # Test multiple files with one missing
+        import tempfile
+        
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+            temp_file.write(b"fake pdf content")
+            existing_file = temp_file.name
+        
+        try:
+            with pytest.raises(BatchManagerError, match="File not found: nonexistent.pdf"):
+                BatchManager(
+                    files=[existing_file, "nonexistent.pdf"],
+                    prompt="Extract data",
+                    model="claude-3-5-sonnet-20241022"
+                )
+        finally:
+            # Clean up temp file
+            os.unlink(existing_file)
+
+    def test_init_with_bytes_files(self):
+        """Test BatchManager initialization with bytes content (no file validation)"""
+        pdf_bytes = b"fake pdf content"
+        
+        # Should succeed without file validation errors
+        manager = BatchManager(
+            files=[pdf_bytes],
+            prompt="Extract data",
+            model="claude-3-5-sonnet-20241022"
+        )
+        
+        assert len(manager.state.jobs) == 1
+        assert len(manager.state.jobs[0].items) == 1
+
     def test_init_with_messages(self):
         """Test successful initialization with messages"""
         manager = BatchManager(
@@ -93,8 +137,15 @@ class TestBatchManager:
         
     def test_init_with_files(self):
         """Test successful initialization with files"""
+        # Create actual temporary files for this test
+        temp_files = []
+        for i in range(5):
+            temp_file = Path(self.temp_dir) / f"test_file_{i:03d}.pdf"
+            temp_file.write_bytes(b'%PDF-1.4\ntest content')
+            temp_files.append(str(temp_file))
+        
         manager = BatchManager(
-            files=self.test_files[:5],
+            files=temp_files,
             prompt="Extract data from this document",
             model="claude-3-haiku-20240307",
             items_per_job=2,
@@ -493,17 +544,20 @@ class TestBatchManager:
         assert isinstance(item.content, list)
         assert item.content == [{"role": "user", "content": "Message 1"}]
         
-        # Test with files (using mock file paths) - use different state file
+        # Test with files (create a real test file) - use different state file
         file_state_path = self.state_file + "_files"
+        test_file = Path(self.temp_dir) / "test_file.pdf"
+        test_file.write_bytes(b'%PDF-1.4\ntest content')
+        
         manager_files = BatchManager(
-            files=["test_file.pdf"],
+            files=[str(test_file)],
             prompt="Extract data",
             model="claude-3-5-sonnet-20241022",  # Use file-capable model
             state_path=file_state_path
         )
         
         item = manager_files.state.jobs[0].items[0]
-        assert item.content == "test_file.pdf"
+        assert item.content == str(test_file)
 
     @patch('batchata.batch_manager.batch')
     def test_resume_from_partial_completion(self, mock_batch):

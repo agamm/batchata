@@ -29,30 +29,14 @@ from .utils import check_flat_model_for_citation_mapping, run_jobs_with_conditio
 BatchInputData = Union[MessageConversations, FileInputs]  # Either message conversations OR file inputs
 
 
-# Custom exceptions
-class BatchManagerError(Exception):
-    """Base exception for BatchManager errors"""
-    pass
-
-
-class StateFileError(BatchManagerError):
-    """Error related to state file operations"""
-    pass
-
-
-class InvalidStateError(StateFileError):
-    """State file is invalid or corrupted"""
-    pass
-
-
-class CostLimitExceededError(BatchManagerError):
-    """Processing stopped due to cost limit"""
-    pass
-
-
-class JobProcessingError(BatchManagerError):
-    """Error during job processing"""
-    pass
+# Import custom exceptions
+from .exceptions import (
+    BatchManagerError,
+    StateFileError,
+    InvalidStateError,
+    CostLimitExceededError,
+    JobProcessingError,
+)
 
 
 class ProgressMonitor:
@@ -250,6 +234,7 @@ class BatchManager:
         if max_cost is not None and max_cost <= 0:
             raise BatchManagerError("max_cost must be positive")
         
+        
         # Store configuration
         self.model = model
         self.items_per_job = items_per_job
@@ -282,6 +267,24 @@ class BatchManager:
     
     def _initialize_state(self, messages: Optional[List[List[dict]]], files: Optional[List]) -> None:
         """Initialize new state from input data."""
+        # Validate files early if provided
+        if files is not None:
+            from pathlib import Path
+            for file in files:
+                if not isinstance(file, bytes):
+                    pdf_path = Path(file)
+                    if not pdf_path.exists():
+                        raise BatchManagerError(f"File not found: {pdf_path}")
+                    
+                    # Check for empty files
+                    file_size = pdf_path.stat().st_size
+                    if file_size == 0:
+                        raise ValueError(f"File is empty: {pdf_path}")
+                else:
+                    # Check for empty bytes input
+                    if len(file) == 0:
+                        raise ValueError("File is empty: bytes input")
+        
         input_data = messages if messages is not None else files
         is_messages = messages is not None
         

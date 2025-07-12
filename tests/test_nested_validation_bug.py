@@ -81,7 +81,7 @@ def test_union_nested_model_validation():
 def test_flat_model_passes_validation():
     """Flat models should pass validation"""
     manager = BatchManager(
-        files=["test.txt"],
+        files=[b'%PDF-1.4\ntest content'],
         prompt="test",
         model="claude-3-5-sonnet-20241022",
         response_model=SimpleModel,
@@ -94,7 +94,7 @@ def test_flat_model_passes_validation():
 def test_no_citations_allows_nested_models():
     """Nested models should be allowed when citations are disabled"""
     manager = BatchManager(
-        files=["test.txt"],
+        files=[b'%PDF-1.4\ntest content'],
         prompt="test",
         model="claude-3-5-sonnet-20241022",
         response_model=ListNestedModel,

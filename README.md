@@ -65,6 +65,24 @@ Create a `.env` file in your project root:
 ANTHROPIC_API_KEY=your-api-key
 ```
 
+## Supported Models
+
+| Model | File Support | Notes |
+|-------|--------------|-------|
+| `claude-opus-4-20250514` | ✅ | Latest Claude 4 Opus |
+| `claude-sonnet-4-20250514` | ✅ | Latest Claude 4 Sonnet |
+| `claude-3-7-sonnet-20250219` | ✅ | Claude 3.7 Sonnet |
+| `claude-3-7-sonnet-latest` | ✅ | Claude 3.7 Sonnet (latest) |
+| `claude-3-5-sonnet-20241022` | ✅ | Recommended for most tasks |
+| `claude-3-5-sonnet-latest` | ✅ | Latest Claude 3.5 Sonnet |
+| `claude-3-5-sonnet-20240620` | ✅ | Legacy Claude 3.5 Sonnet |
+| `claude-3-5-haiku-20241022` | ✅ | Fast, cost-effective |
+| `claude-3-5-haiku-latest` | ✅ | Latest Claude 3.5 Haiku |
+| `claude-3-haiku-20240307` | ❌ | Messages only, no files |
+| `claude-3-opus-20240229` | ✅ | Legacy (deprecated) |
+| `claude-3-sonnet-20240229` | ✅ | Legacy (deprecated) |
+| `claude-3-5-haiku-20240307` | ✅ | Legacy (deprecated) |
+
 ## API Reference
 
 ### batch()
@@ -407,6 +425,23 @@ uv run python -m examples.raw_text_example
 - [`examples/citation_with_pydantic.py`](examples/citation_with_pydantic.py) - Structured output with citations
 - [`examples/batch_manager_example.py`](examples/batch_manager_example.py) - Large-scale batch processing with BatchManager
 - [`examples/raw_text_example.py`](examples/raw_text_example.py) - Raw text responses
+
+## Error Handling
+
+Batchata provides comprehensive error handling with specific exceptions and early validation:
+
+### File Validation
+- **File Size Limits**: Provider-specific limits (32MB for Anthropic) with early validation
+- **Empty Files**: Clear `ValueError` messages for empty files or bytes content  
+- **File Type Detection**: Automatic detection of PDF, PNG, JPEG, GIF, WebP files
+- **Missing Files**: `FileNotFoundError` for non-existent file paths
+
+### Content-Specific Errors
+- **Image Citations**: `UnsupportedContentError` when requesting citations on images
+- **Invalid Formats**: `UnsupportedFileFormatError` for unsupported file types
+- **Large Files**: `FileTooLargeError` when files exceed provider limits
+
+All validation happens early to save time and costs before expensive API operations.
 
 ## Limitations
 
