@@ -1,7 +1,7 @@
 # Enhanced Error Handling
 
 **Status**: Completed  
-**Version**: Next (pending release)
+**Version**: v0.2.7
 
 ## Problem
 

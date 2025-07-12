@@ -142,7 +142,7 @@ All models support batch processing with 50% cost savings. PDF/file processing r
 
 ## Error Handling and Limitations
 
-### Comprehensive Error Handling (v0.2.8+)
+### Comprehensive Error Handling (v0.2.7+)
 - **File Size Validation**: Provider-specific limits (32MB for Anthropic) with early validation
 - **Empty File Detection**: Clear error messages for empty files or bytes content
 - **Image Citation Protection**: UnsupportedContentError when requesting citations on images (PNG, JPEG, GIF, WebP)
@@ -186,7 +186,7 @@ batchata/
 
 ## Recent Updates
 
-### Version 0.2.8 (Enhanced Error Handling)
+### Version 0.2.7 (Enhanced Error Handling)
 - **Centralized Exception System**: New hierarchical exception classes in `batchata/exceptions.py`
 - **Provider-Specific Validation**: File size limits (32MB for Anthropic) with early validation
 - **Content Type Detection**: Automatic detection of PDF, PNG, JPEG, GIF, WebP files
@@ -194,19 +194,19 @@ batchata/
 - **Empty File Handling**: Native ValueError with descriptive messages
 - **Comprehensive Test Coverage**: 19 new tests for error scenarios
 
-### Version 0.2.7 (File Validation Improvements)
+### Version 0.2.6 (File Validation Improvements)
 - **Early File Validation**: Upfront validation in both `batch()` and `BatchManager`
 - **Clear Error Messages**: Specific file names in error messages
 - **Bytes Content Support**: Proper handling of bytes input without validation
 
-### Version 0.2.6 (BatchManager Memory-First API)
+### Version 0.2.5 (BatchManager Memory-First API)
 - **Memory-First Results**: `BatchManager.results()` checks memory before disk
 - **Unified Result Format**: Consistent `{"result": ..., "citations": ...}` across all methods
 - **Example Standardization**: All examples use unified patterns and waiting loops
 
 ## Development Status
 
-- **Version**: 0.2.8 (Beta)
+- **Version**: 0.2.7 (Beta)
 - **License**: MIT
 - **Repository**: https://github.com/agamm/batchata
 - **PyPI**: https://pypi.org/project/batchata/
