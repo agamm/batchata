@@ -426,6 +426,23 @@ uv run python -m examples.raw_text_example
 - [`examples/batch_manager_example.py`](examples/batch_manager_example.py) - Large-scale batch processing with BatchManager
 - [`examples/raw_text_example.py`](examples/raw_text_example.py) - Raw text responses
 
+## Error Handling
+
+Batchata provides comprehensive error handling with specific exceptions and early validation:
+
+### File Validation
+- **File Size Limits**: Provider-specific limits (32MB for Anthropic) with early validation
+- **Empty Files**: Clear `ValueError` messages for empty files or bytes content  
+- **File Type Detection**: Automatic detection of PDF, PNG, JPEG, GIF, WebP files
+- **Missing Files**: `FileNotFoundError` for non-existent file paths
+
+### Content-Specific Errors
+- **Image Citations**: `UnsupportedContentError` when requesting citations on images
+- **Invalid Formats**: `UnsupportedFileFormatError` for unsupported file types
+- **Large Files**: `FileTooLargeError` when files exceed provider limits
+
+All validation happens early to save time and costs before expensive API operations.
+
 ## Limitations
 
 - Citation mapping only works with flat Pydantic models (no nested models)
