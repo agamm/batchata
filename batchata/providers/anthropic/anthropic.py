@@ -159,12 +159,14 @@ class AnthropicProvider(Provider):
         - Dynamic pricing changes
         - Additional fees or discounts not captured here
         
-        For Anthropic models, we use the o200k_base tokenizer for estimation.
+        Uses conservative token estimation for Claude models.
         """
         try:
-            from tokencost import calculate_prompt_cost, calculate_cost_by_tokens
+            from tokencost import calculate_cost_by_tokens
+            from ...utils.llm import token_count_simple
         except ImportError:
-            return 0.0  # Return 0 if tokencost not available
+            logger.warning("tokencost not available, returning 0 cost estimate")
+            return 0.0
         
         total_cost = 0.0
         
@@ -173,35 +175,47 @@ class AnthropicProvider(Provider):
                 # Prepare messages to get actual input
                 messages, system_prompt = prepare_messages(job)
                 
-                # Add system prompt to messages for cost calculation
+                # Build full text for token estimation
+                full_text = ""
                 if system_prompt:
-                    messages = [{"role": "system", "content": system_prompt}] + messages
+                    full_text += system_prompt + "\n\n"
                 
-                # Calculate input cost using o200k_base tokenizer
-                # Note: This is an estimation - actual token counts may vary
-                model_name = "cl100k_base"
-                print("[WARNING] Claude model token counting is just an estimation.")
-                input_cost = float(calculate_prompt_cost(messages, model_name))
-                logger.info(f"Job {job.id}: estimated input cost ${input_cost:.4f}")
+                for msg in messages:
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                    full_text += f"{role}: {content}\n\n"
                 
-                # Calculate output cost
+                # Estimate tokens using Claude-specific estimator
+                input_tokens = token_count_simple(full_text)
+                
+                # Calculate costs using tokencost with actual Claude model
+                input_cost = float(calculate_cost_by_tokens(
+                    input_tokens,
+                    job.model,
+                    token_type="input"
+                ))
+                
                 output_cost = float(calculate_cost_by_tokens(
-                    job.max_tokens, 
-                    model_name, 
+                    job.max_tokens,
+                    job.model,
                     token_type="output"
                 ))
-                logger.info(f"Job {job.id}: estimated output cost ${output_cost:.4f}")
                 
                 # Apply batch discount
                 model_config = self.get_model_config(job.model)
                 discount = model_config.batch_discount if model_config else 0.5
                 job_cost = (input_cost + output_cost) * discount
-                logger.info(f"Job {job.id}: total estimated cost ${job_cost:.4f} (discount: {discount})")
+                
+                logger.debug(
+                    f"Job {job.id}: ~{input_tokens} input tokens, "
+                    f"{job.max_tokens} max output tokens, "
+                    f"cost: ${job_cost:.6f} (with {int(discount*100)}% batch discount)"
+                )
                 
                 total_cost += job_cost
                 
-            except Exception:
-                # Skip job if estimation fails
+            except Exception as e:
+                logger.warning(f"Failed to estimate cost for job {job.id}: {e}")
                 continue
         
         return total_cost

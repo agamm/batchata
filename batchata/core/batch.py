@@ -28,7 +28,7 @@ class Batch:
         >>> run = batch.run(wait=True)
     """
     
-    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10):
+    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10, reuse_state: bool = True):
         """Initialize batch configuration.
         
         Args:
@@ -36,12 +36,14 @@ class Batch:
             results_dir: Directory to store results
             max_concurrent: Maximum concurrent batch requests
             items_per_batch: Number of jobs per provider batch
+            reuse_state: Whether to resume from existing state file (default: True)
         """
         self.config = BatchParams(
             state_file=state_file,
             results_dir=results_dir,
             max_concurrent=max_concurrent,
-            items_per_batch=items_per_batch
+            items_per_batch=items_per_batch,
+            reuse_state=reuse_state
         )
         self.jobs: List[Job] = []
     

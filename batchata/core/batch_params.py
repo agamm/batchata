@@ -18,6 +18,7 @@ class BatchParams:
         items_per_batch: Number of jobs per provider batch
         cost_limit_usd: Optional cost limit in USD
         default_params: Default parameters for all jobs
+        reuse_state: Whether to resume from existing state file
     """
     
     state_file: str
@@ -26,6 +27,7 @@ class BatchParams:
     items_per_batch: int = 10
     cost_limit_usd: Optional[float] = None
     default_params: Dict[str, Any] = field(default_factory=dict)
+    reuse_state: bool = True
     
     def validate_default_params(self, model: str) -> None:
         """Validate default parameters for a model."""

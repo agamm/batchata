@@ -52,6 +52,12 @@ class BatchRun:
         self.completed_results: Dict[str, JobResult] = {}  # job_id -> result
         self.failed_jobs: Dict[str, str] = {}  # job_id -> error
         
+        # Batch tracking
+        self.total_batches = 0
+        self.completed_batches = 0
+        self.current_batch_index = 0
+        self.current_batch_size = 0
+        
         # Execution control
         self._started = False
         self._start_time: Optional[datetime] = None
@@ -77,6 +83,13 @@ class BatchRun:
     
     def _resume_from_state(self):
         """Resume from saved state if available."""
+        # Check if we should reuse state
+        if not self.config.reuse_state:
+            # Clear any existing state and start fresh
+            self.state_manager.clear()
+            self.pending_jobs = list(self.jobs)
+            return
+            
         state = self.state_manager.load()
         if state is None:
             # No saved state, use jobs passed to constructor
@@ -174,6 +187,12 @@ class BatchRun:
         # Group jobs by provider
         jobs_by_provider = self._group_jobs_by_provider()
         
+        # Calculate total batches
+        self.total_batches = 0
+        for provider_jobs in jobs_by_provider.values():
+            batches = self._split_into_batches(provider_jobs)
+            self.total_batches += len(batches)
+        
         for provider_name, provider_jobs in jobs_by_provider.items():
             logger.info(f"Processing {len(provider_jobs)} jobs for {provider_name}")
             
@@ -181,6 +200,8 @@ class BatchRun:
             batches = self._split_into_batches(provider_jobs)
             
             for i, batch_jobs in enumerate(batches):
+                self.current_batch_index += 1
+                self.current_batch_size = len(batch_jobs)
                 logger.info(f"Processing batch {i+1}/{len(batches)} with {len(batch_jobs)} jobs")
                 self._process_batch(batch_jobs)
                 
@@ -306,11 +327,12 @@ class BatchRun:
                         self.pending_jobs.remove(job)
                         break
             
+            self.completed_batches += 1
             logger.info(
                 f"✓ Batch {batch_id} completed: "
                 f"{len([r for r in results if r.is_success])} success, "
                 f"{len([r for r in results if not r.is_success])} failed, "
-                f"cost: ${actual_cost:.2f}"
+                f"cost: ${actual_cost:.6f}"
             )
             
         except Exception as e:
@@ -358,7 +380,13 @@ class BatchRun:
             "failed": len(self.failed_jobs),
             "cost_usd": self.cost_tracker.used_usd,
             "cost_limit_usd": self.cost_tracker.limit_usd,
-            "is_complete": self._is_complete()
+            "is_complete": self._is_complete(),
+            "batches_total": self.total_batches,
+            "batches_completed": self.completed_batches,
+            "batches_pending": self.total_batches - self.completed_batches,
+            "current_batch_index": self.current_batch_index,
+            "current_batch_size": self.current_batch_size,
+            "items_per_batch": self.config.items_per_batch
         }
         
         if print_status:
@@ -368,7 +396,7 @@ class BatchRun:
             print(f"  Active: {stats['active']}")
             print(f"  Completed: {stats['completed']}")
             print(f"  Failed: {stats['failed']}")
-            print(f"  Cost: ${stats['cost_usd']:.2f}")
+            print(f"  Cost: ${stats['cost_usd']:.6f}")
             if stats['cost_limit_usd']:
                 print(f"  Cost limit: ${stats['cost_limit_usd']:.2f}")
             print(f"  Complete: {stats['is_complete']}")

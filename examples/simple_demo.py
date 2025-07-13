@@ -18,7 +18,7 @@ def main():
     """Run a simple batch processing demo."""
     # Create batch configuration
     batch = (
-        Batch(state_file="./examples/demo_state.json", results_dir="./examples/output", max_concurrent=1, items_per_batch=3)
+        Batch(state_file="./examples/demo_state.json", results_dir="./examples/output", max_concurrent=1, items_per_batch=1, reuse_state=False)
         .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
         .add_cost_limit(usd=5.0)
     )
@@ -38,7 +38,7 @@ def main():
     
     # Execute batch
     print("Starting batch processing...")
-    run = batch.run(wait=True, on_progress=lambda s, t: print(f"\rProgress: {s['completed']}/{s['total']}, {round(t, 2)}s"))
+    run = batch.run(wait=True, on_progress=lambda s, t: print(f"\rProgress: {s['completed']}/{s['total']} jobs | Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | Items per batch: {s['items_per_batch']} | Time: {round(t, 2)}s", end=""))
     
     # Get results
     run.status(print_status=True)
