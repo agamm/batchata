@@ -13,8 +13,7 @@ from .batch_params import BatchParams
 from .job import Job
 from .job_result import JobResult
 from ..providers.provider_registry import get_provider
-from ..utils import CostTracker, StateManager, get_logger
-from ..utils.state import BatchState
+from ..utils import CostTracker, StateManager, get_logger, set_log_level
 
 
 logger = get_logger(__name__)
@@ -43,6 +42,9 @@ class BatchRun:
         self.config = config
         self.jobs = jobs
         
+        # Set logging level based on config
+        set_log_level(level=config.verbosity.upper())
+        
         # Initialize components
         self.cost_tracker = CostTracker(limit_usd=config.cost_limit_usd)
         self.state_manager = StateManager(config.state_file)
@@ -66,6 +68,12 @@ class BatchRun:
         
         # Results directory
         self.results_dir = Path(config.results_dir)
+        
+        # If not reusing state, clear the results directory
+        if not config.reuse_state and self.results_dir.exists():
+            import shutil
+            shutil.rmtree(self.results_dir)
+        
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
         # Raw responses directory (if enabled)
@@ -284,24 +292,22 @@ class BatchRun:
             logger.info(f"Initial batch status: {status}")
             poll_count = 0
             
-            last_progress_time = time.time()
-            
             while status not in ["complete", "failed"]:
                 poll_count += 1
                 logger.debug(f"Polling attempt {poll_count}, current status: {status}")
-                time.sleep(1.0)  # Poll every second
+                
+                # Sleep for the progress interval duration
+                time.sleep(self._progress_interval)
                 status = provider.get_batch_status(batch_id)
                 
-                # Call progress callback at specified interval
-                current_time = time.time()
-                if self._progress_callback and (current_time - last_progress_time) >= self._progress_interval:
+                # Call progress callback after each interval
+                if self._progress_callback:
                     stats = self.status()
                     elapsed_time = round((datetime.now() - self._start_time).total_seconds())
                     self._progress_callback(stats, elapsed_time)
-                    last_progress_time = current_time
                 
-                if poll_count % 10 == 0:  # Log every 10 seconds
-                    logger.info(f"Batch {batch_id} status: {status} (polling for {poll_count}s)")
+                elapsed_seconds = poll_count * self._progress_interval
+                logger.info(f"Batch {batch_id} status: {status} (polling for {elapsed_seconds:.1f}s)")
             
             if status == "failed":
                 logger.error(f"Batch {batch_id} failed")
@@ -398,16 +404,16 @@ class BatchRun:
         }
         
         if print_status:
-            print("\nBatch Run Status:")
-            print(f"  Total jobs: {stats['total']}")
-            print(f"  Pending: {stats['pending']}")
-            print(f"  Active: {stats['active']}")
-            print(f"  Completed: {stats['completed']}")
-            print(f"  Failed: {stats['failed']}")
-            print(f"  Cost: ${stats['cost_usd']:.6f}")
+            logger.info("\nBatch Run Status:")
+            logger.info(f"  Total jobs: {stats['total']}")
+            logger.info(f"  Pending: {stats['pending']}")
+            logger.info(f"  Active: {stats['active']}")
+            logger.info(f"  Completed: {stats['completed']}")
+            logger.info(f"  Failed: {stats['failed']}")
+            logger.info(f"  Cost: ${stats['cost_usd']:.6f}")
             if stats['cost_limit_usd']:
-                print(f"  Cost limit: ${stats['cost_limit_usd']:.2f}")
-            print(f"  Complete: {stats['is_complete']}")
+                logger.info(f"  Cost limit: ${stats['cost_limit_usd']:.2f}")
+            logger.info(f"  Complete: {stats['is_complete']}")
         
         return stats
     

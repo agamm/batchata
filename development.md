@@ -5,135 +5,134 @@
 ```mermaid
 classDiagram
     class Batch {
+        +BatchParams config
         +List~Job~ jobs
-        +BatchConfig config
-        +run() BatchRun
+        +defaults(**kwargs) Batch
+        +add_cost_limit(usd) Batch
+        +save_raw_responses(enabled) Batch
+        +add_job(...) Batch
+        +run(wait, on_progress) BatchRun
     }
     
-    class BatchConfig {
+    class BatchParams {
         +str state_file
         +str results_dir
         +int max_concurrent
-        +float cost_limit_usd
+        +int items_per_batch
+        +Optional~float~ cost_limit_usd
         +Dict default_params
+        +bool reuse_state
+        +bool save_raw_responses
     }
     
     class Job {
         +str id
         +str model
-        +List messages
-        +Path file
-        +str prompt
+        +Optional~List~ messages
+        +Optional~Path~ file
+        +Optional~str~ prompt
         +float temperature
+        +int max_tokens
+        +Optional~Type~ response_model
+        +bool enable_citations
         +to_dict() Dict
         +from_dict() Job
     }
     
     class BatchRun {
+        +BatchParams config
+        +List~Job~ jobs
         +start()
-        +wait()
-        +shutdown()
-        +on_progress(callback) BatchRun
+        +set_on_progress(callback, interval)
         +status() Dict
         +results() Dict~str,JobResult~
-    }
-    
-    class ConcurrentExecutor {
-        +submit_if_allowed(provider, jobs) Future
-        +get_completed() List~Tuple~
-        +get_active_count() int
-        +get_stats() Dict
     }
     
     class JobResult {
         +str job_id
         +str response
-        +Any parsed_response
-        +List~Citation~ citations
+        +Optional~Union~ parsed_response
+        +Optional~List~ citations
         +int input_tokens
         +int output_tokens
         +float cost_usd
-        +bool is_success
-        +str error
+        +Optional~str~ error
+        +is_success() bool
         +to_dict() Dict
         +from_dict() JobResult
     }
     
     class Provider {
-        <<interface>>
-        +create_batch(jobs) BatchRequest
+        <<abstract>>
+        +validate_job(job)
+        +create_batch(jobs) str
         +get_batch_status(batch_id) str
         +get_batch_results(batch_id) List~JobResult~
+        +cancel_batch(batch_id) bool
         +estimate_cost(jobs) float
     }
     
     class AnthropicProvider {
-        +create_batch(jobs) BatchRequest
+        +validate_job(job)
+        +create_batch(jobs) str
         +get_batch_status(batch_id) str
         +get_batch_results(batch_id) List~JobResult~
+        +cancel_batch(batch_id) bool
         +estimate_cost(jobs) float
     }
     
-    class BatchRequest {
-        +str provider_batch_id
-        +Provider provider
-        +List~Job~ jobs
-        +datetime submitted_at
-    }
-    
     class CostTracker {
+        +Optional~float~ limit_usd
         +can_afford(cost_usd) bool
         +track_spend(cost_usd)
-        +remaining() float
+        +remaining() Optional~float~
+        +get_stats() Dict
     }
     
     class StateManager {
         +save(state)
-        +load() BatchState
+        +load() Optional~BatchState~
         +clear()
     }
     
     class BatchState {
         +str batch_id
         +str created_at
-        +List pending_jobs
-        +List completed_results
-        +List failed_jobs
+        +List~Job~ pending_jobs
+        +Dict~str,JobResult~ completed_results
+        +Dict~str,str~ failed_jobs
         +float total_cost_usd
         +to_dict() Dict
         +from_dict() BatchState
     }
     
-    Batch --> BatchConfig : has
+    Batch --> BatchParams : has
     Batch --> Job : contains *
     Batch --> BatchRun : creates
     
-    BatchRun --> BatchConfig : uses
+    BatchRun --> BatchParams : uses
     BatchRun --> Job : processes *
-    BatchRun --> ConcurrentExecutor : uses
+    BatchRun --> Provider : uses directly
     BatchRun --> StateManager : uses
     BatchRun --> CostTracker : uses
     BatchRun --> JobResult : produces *
     
-    ConcurrentExecutor --> Provider : uses
-    ConcurrentExecutor --> BatchRequest : manages *
-    ConcurrentExecutor --> CostTracker : uses
-    
     AnthropicProvider ..|> Provider : implements
     
-    Provider --> BatchRequest : creates
     Provider --> JobResult : returns *
     
     StateManager --> BatchState : saves/loads
+    
+    CostTracker --> BatchRun : used by
 ```
 
 ### Key Design Patterns
 
-- **Builder Pattern**: `Batch` → `BatchConfig` + `jobs` → `BatchRun`
+- **Builder Pattern**: `Batch` provides fluent interface for configuration
 - **Provider Pattern**: Abstract provider interface for different AI services  
-- **Separation of Concerns**: Configuration, data, and execution are separate
-- **Self-contained Serialization**: Data classes handle their own to_dict/from_dict
-- **YAGNI Principle**: Removed checkpointing, complex stats, reservation patterns
+- **Synchronous Processing**: `BatchRun` processes jobs in batches synchronously
+- **State Persistence**: Automatic saving/resuming via `StateManager`
+- **Cost Control**: Built-in cost tracking and limits via `CostTracker`
 
 ## Running Tests
 

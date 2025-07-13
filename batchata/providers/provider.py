@@ -1,7 +1,7 @@
 """Base Provider class."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Type, Optional
 
 from pydantic import BaseModel, field_validator
 

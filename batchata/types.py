@@ -1,7 +1,7 @@
 """Type definitions for the batch processing library."""
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Any, Optional, Union
 
 
 @dataclass

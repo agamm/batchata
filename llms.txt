@@ -11,14 +11,14 @@ from batchata import Batch
 batch = Batch(state_file="./state.json", results_dir="./output", max_concurrent=10)
     .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
     .add_cost_limit(usd=50.0)
-    .on_progress(lambda stats: print(f"Progress: {stats['completed']}/{stats['total']}"))
+    .set_verbosity("info")  # Options: debug, info, warning, error
 
 # Add jobs
 batch.add_job(messages=[{"role": "user", "content": "Text"}])
 batch.add_job(file="doc.pdf", prompt="Summarize", response_model=MyModel)
 
-# Execute
-run = batch.run(wait=True)
+# Execute with progress callback
+run = batch.run(wait=True, on_progress=lambda stats, t: print(f"{stats['completed']}/{stats['total']}"))
 results = run.results()  # Dict[job_id, JobResult]
 ```
 
@@ -30,6 +30,7 @@ results = run.results()  # Dict[job_id, JobResult]
 - Parallel execution
 - Structured output with Pydantic
 - Citation extraction
+- Configurable logging verbosity for production
 
 ## Classes
 

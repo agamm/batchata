@@ -2,7 +2,7 @@
 
 import uuid
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Type, Union
+from typing import Callable, Dict, List, Type, Optional, Union
 
 from pydantic import BaseModel
 
@@ -112,6 +112,25 @@ class Batch:
             >>> batch.save_raw_responses(True)
         """
         self.config.save_raw_responses = enabled
+        return self
+    
+    def set_verbosity(self, level: str) -> 'Batch':
+        """Set logging verbosity level.
+        
+        Args:
+            level: Verbosity level ("debug", "info", "warning", "error")
+            
+        Returns:
+            Self for chaining
+            
+        Example:
+            >>> batch.set_verbosity("error")  # For production
+            >>> batch.set_verbosity("debug")  # For debugging
+        """
+        valid_levels = {"debug", "info", "warning", "error"}
+        if level.lower() not in valid_levels:
+            raise ValueError(f"Invalid verbosity level: {level}. Must be one of {valid_levels}")
+        self.config.verbosity = level.lower()
         return self
     
     def add_job(

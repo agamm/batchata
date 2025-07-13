@@ -20,6 +20,7 @@ class BatchParams:
         default_params: Default parameters for all jobs
         reuse_state: Whether to resume from existing state file
         save_raw_responses: Whether to save raw API responses from providers
+        verbosity: Logging verbosity level ("debug", "info", "warning", "error")
     """
     
     state_file: str
@@ -30,6 +31,7 @@ class BatchParams:
     default_params: Dict[str, Any] = field(default_factory=dict)
     reuse_state: bool = True
     save_raw_responses: bool = True
+    verbosity: str = "info"
     
     def validate_default_params(self, model: str) -> None:
         """Validate default parameters for a model."""

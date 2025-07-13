@@ -3,7 +3,7 @@
 import json
 import base64
 from textwrap import dedent
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Type, Optional
 from pathlib import Path
 from pydantic import BaseModel
 

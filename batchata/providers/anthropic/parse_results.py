@@ -1,20 +1,19 @@
 """Result parsing for Anthropic API responses."""
 
 import json
-import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Type, Tuple
+from typing import List, Dict, Any, Type, Tuple, Optional
 from pydantic import BaseModel
 
 from ...core.job_result import JobResult
 from ...types import Citation
-from ...utils import to_dict
+from ...utils import to_dict, get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_responses_dir: str | None = None) -> List[JobResult]:
     """Parse Anthropic batch results into JobResult objects.
     
     Args:
@@ -123,7 +122,7 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Citati
     return "".join(text_parts), citations
 
 
-def _extract_json_model(text: str, response_model: Type[BaseModel]) -> Optional[BaseModel]:
+def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel | None:
     """Extract JSON from text and parse into Pydantic model."""
     try:
         # Find JSON in text

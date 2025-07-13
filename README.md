@@ -76,6 +76,10 @@ Set default parameters for all jobs. Common parameters:
 #### `.add_cost_limit(usd: float)`
 Set maximum spend limit. Batch will stop accepting new jobs when limit is reached.
 
+#### `.set_verbosity(level: str)`
+Set logging verbosity level. Useful for production environments.
+- Levels: "debug", "info" (default), "warning", "error"
+- Example: `batch.set_verbosity("error")` for production
 
 #### `.add_job(...)`
 Add a job to the batch. Parameters:

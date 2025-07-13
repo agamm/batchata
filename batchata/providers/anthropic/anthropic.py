@@ -1,6 +1,5 @@
 """Anthropic provider implementation."""
 
-import logging
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -10,13 +9,14 @@ from anthropic import Anthropic
 from ...core.job import Job
 from ...core.job_result import JobResult
 from ...exceptions import BatchSubmissionError, ValidationError
+from ...utils import get_logger
 from ..provider import Provider
 from .models import ANTHROPIC_MODELS
 from .message_prepare import prepare_messages
 from .parse_results import parse_results
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AnthropicProvider(Provider):
