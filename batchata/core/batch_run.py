@@ -68,6 +68,12 @@ class BatchRun:
         self.results_dir = Path(config.results_dir)
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
+        # Raw responses directory (if enabled)
+        self.raw_responses_dir = None
+        if config.save_raw_responses:
+            self.raw_responses_dir = self.results_dir / "raw_responses"
+            self.raw_responses_dir.mkdir(parents=True, exist_ok=True)
+        
         # Try to resume from saved state
         self._resume_from_state()
     
@@ -136,7 +142,8 @@ class BatchRun:
                 "max_concurrent": self.config.max_concurrent,
                 "items_per_batch": self.config.items_per_batch,
                 "cost_limit_usd": self.config.cost_limit_usd,
-                "default_params": self.config.default_params
+                "default_params": self.config.default_params,
+                "save_raw_responses": self.config.save_raw_responses
             }
         }
     
@@ -208,7 +215,7 @@ class BatchRun:
                 # Call progress callback after each batch
                 if self._progress_callback:
                     stats = self.status()
-                    elapsed_time = (datetime.now() - self._start_time).total_seconds()
+                    elapsed_time = round((datetime.now() - self._start_time).total_seconds())
                     self._progress_callback(stats, elapsed_time)
                 
                 # Save state after each batch
@@ -289,7 +296,7 @@ class BatchRun:
                 current_time = time.time()
                 if self._progress_callback and (current_time - last_progress_time) >= self._progress_interval:
                     stats = self.status()
-                    elapsed_time = (datetime.now() - self._start_time).total_seconds()
+                    elapsed_time = round((datetime.now() - self._start_time).total_seconds())
                     self._progress_callback(stats, elapsed_time)
                     last_progress_time = current_time
                 
@@ -305,7 +312,8 @@ class BatchRun:
             
             # Get results
             logger.info(f"Getting results for batch {batch_id}")
-            results = provider.get_batch_results(batch_id)
+            raw_responses_path = str(self.raw_responses_dir) if self.raw_responses_dir else None
+            results = provider.get_batch_results(batch_id, raw_responses_path)
             
             # Track actual cost
             actual_cost = sum(r.cost_usd for r in results)

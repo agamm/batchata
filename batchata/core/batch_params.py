@@ -19,6 +19,7 @@ class BatchParams:
         cost_limit_usd: Optional cost limit in USD
         default_params: Default parameters for all jobs
         reuse_state: Whether to resume from existing state file
+        save_raw_responses: Whether to save raw API responses from providers
     """
     
     state_file: str
@@ -28,6 +29,7 @@ class BatchParams:
     cost_limit_usd: Optional[float] = None
     default_params: Dict[str, Any] = field(default_factory=dict)
     reuse_state: bool = True
+    save_raw_responses: bool = True
     
     def validate_default_params(self, model: str) -> None:
         """Validate default parameters for a model."""

@@ -3,7 +3,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from anthropic import Anthropic
 
@@ -143,11 +143,11 @@ class AnthropicProvider(Provider):
             logger.error(f"✗ Failed to cancel Anthropic batch {batch_id}: {e}")
             return False
     
-    def get_batch_results(self, batch_id: str) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch."""
         try:
             results = list(self.client.messages.batches.results(batch_id))
-            return parse_results(results, self._job_mapping)
+            return parse_results(results, self._job_mapping, raw_responses_dir)
         except Exception as e:
             raise ValidationError(f"Failed to get batch results: {e}")
     
@@ -206,7 +206,7 @@ class AnthropicProvider(Provider):
                 discount = model_config.batch_discount if model_config else 0.5
                 job_cost = (input_cost + output_cost) * discount
                 
-                logger.debug(
+                logger.info(
                     f"Job {job.id}: ~{input_tokens} input tokens, "
                     f"{job.max_tokens} max output tokens, "
                     f"cost: ${job_cost:.6f} (with {int(discount*100)}% batch discount)"

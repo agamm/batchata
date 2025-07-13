@@ -28,7 +28,7 @@ class Batch:
         >>> run = batch.run(wait=True)
     """
     
-    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10, reuse_state: bool = True):
+    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10, reuse_state: bool = True, save_raw_responses: Optional[bool] = None):
         """Initialize batch configuration.
         
         Args:
@@ -37,13 +37,19 @@ class Batch:
             max_concurrent: Maximum concurrent batch requests
             items_per_batch: Number of jobs per provider batch
             reuse_state: Whether to resume from existing state file (default: True)
+            save_raw_responses: Whether to save raw API responses from providers (default: True if results_dir is set, False otherwise)
         """
+        # Auto-determine save_raw_responses based on results_dir if not explicitly set
+        if save_raw_responses is None:
+            save_raw_responses = bool(results_dir and results_dir.strip())
+        
         self.config = BatchParams(
             state_file=state_file,
             results_dir=results_dir,
             max_concurrent=max_concurrent,
             items_per_batch=items_per_batch,
-            reuse_state=reuse_state
+            reuse_state=reuse_state,
+            save_raw_responses=save_raw_responses
         )
         self.jobs: List[Job] = []
     
@@ -87,6 +93,25 @@ class Batch:
         if usd <= 0:
             raise ValueError("Cost limit must be positive")
         self.config.cost_limit_usd = usd
+        return self
+    
+    def save_raw_responses(self, enabled: bool = True) -> 'Batch':
+        """Enable or disable saving raw API responses from providers.
+        
+        When enabled, the raw API responses will be saved alongside the parsed results
+        in a 'raw_responses' subdirectory within the results directory.
+        This is useful for debugging, auditing, or accessing provider-specific metadata.
+        
+        Args:
+            enabled: Whether to save raw responses (default: True)
+            
+        Returns:
+            Self for chaining
+            
+        Example:
+            >>> batch.save_raw_responses(True)
+        """
+        self.config.save_raw_responses = enabled
         return self
     
     def add_job(

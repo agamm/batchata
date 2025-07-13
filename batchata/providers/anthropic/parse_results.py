@@ -1,19 +1,26 @@
 """Result parsing for Anthropic API responses."""
 
 import json
+import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Type, Tuple
 from pydantic import BaseModel
 
 from ...core.job_result import JobResult
 from ...types import Citation
+from ...utils import to_dict
 
 
-def parse_results(results: List[Any], job_mapping: Dict[str, 'Job']) -> List[JobResult]:
+logger = logging.getLogger(__name__)
+
+
+def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_responses_dir: Optional[str] = None) -> List[JobResult]:
     """Parse Anthropic batch results into JobResult objects.
     
     Args:
         results: Raw results from Anthropic API
         job_mapping: Mapping of job ID to Job object
+        raw_responses_dir: Optional directory to save raw API responses
         
     Returns:
         List of JobResult objects
@@ -27,6 +34,10 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job']) -> List[Job
         # Job must exist in mapping
         if not job:
             raise ValueError(f"Job {job_id} not found in mapping")
+        
+        # Save raw response to disk if directory is provided
+        if raw_responses_dir:
+            _save_raw_response(result, job_id, raw_responses_dir)
         
         # Handle failed results
         if result.result.type != "succeeded":
@@ -127,6 +138,24 @@ def _extract_json_model(text: str, response_model: Type[BaseModel]) -> Optional[
         return response_model(**json_data)
     except:
         return None
+
+
+def _save_raw_response(result: Any, job_id: str, raw_responses_dir: str) -> None:
+    """Save raw API response to disk."""
+    try:
+        raw_responses_path = Path(raw_responses_dir)
+        raw_response_file = raw_responses_path / f"{job_id}_raw.json"
+        
+        # Convert to dict using utility function
+        raw_data = to_dict(result)
+        
+        with open(raw_response_file, 'w') as f:
+            json.dump(raw_data, f, indent=2)
+        
+        logger.debug(f"Saved raw response for job {job_id} to {raw_response_file}")
+        
+    except Exception as e:
+        logger.warning(f"Failed to save raw response for job {job_id}: {e}")
 
 
 def _calculate_cost(input_tokens: int, output_tokens: int, model: str, batch_discount: float = 0.5) -> float:
