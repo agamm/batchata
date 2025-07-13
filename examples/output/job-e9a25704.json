@@ -1,0 +1,10 @@
+{
+  "job_id": "job-e9a25704",
+  "response": "```json\n{\n  \"summary\": \"Market research indicates an increasing consumer demand for environmentally sustainable products, suggesting a positive market opportunity for businesses focusing on eco-friendly offerings.\",\n  \"sentiment\": \"positive\",\n  \"key_points\": [\n    \"Market research validates growing consumer interest in sustainability\",\n    \"Demand trend favors environmentally conscious products\",\n    \"Potential business opportunity in the sustainable products sector\",\n    \"Consumer behavior is shifting toward eco-friendly purchasing decisions\"\n  ]\n}\n```",
+  "parsed_response": null,
+  "citations": null,
+  "input_tokens": 231,
+  "output_tokens": 115,
+  "cost_usd": 0.001209,
+  "error": null
+}

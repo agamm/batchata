@@ -1,0 +1,49 @@
+{
+  "created_at": "2025-07-13T14:31:15.902504",
+  "pending_jobs": [],
+  "completed_results": [
+    {
+      "job_id": "job-d4156876",
+      "response": "```json\n{\n  \"summary\": \"The new product launch exceeded expectations and achieved record-breaking sales performance.\",\n  \"sentiment\": \"positive\",\n  \"key_points\": [\n    \"New product launch was highly successful\",\n    \"Record sales were achieved\",\n    \"Performance exceeded expectations\"\n  ]\n}\n```",
+      "parsed_response": null,
+      "citations": null,
+      "input_tokens": 233,
+      "output_tokens": 75,
+      "cost_usd": 0.0009119999999999999,
+      "error": null
+    },
+    {
+      "job_id": "job-ac3fb63c",
+      "response": "```json\n{\n  \"summary\": \"The business is experiencing a notable rise in customer complaints during the current quarter, indicating potential issues with product quality, service delivery, or customer satisfaction that require immediate attention and remediation.\",\n  \"sentiment\": \"negative\",\n  \"key_points\": [\n    \"Customer complaints have risen significantly compared to previous periods\",\n    \"The issue is occurring within the current quarter timeframe\",\n    \"This trend suggests underlying problems with customer experience or product/service quality\",\n    \"The situation requires investigation to identify root causes\",\n    \"Immediate action may be needed to prevent further customer dissatisfaction and potential revenue impact\"\n  ]\n}\n```",
+      "parsed_response": null,
+      "citations": null,
+      "input_tokens": 230,
+      "output_tokens": 149,
+      "cost_usd": 0.0014625,
+      "error": null
+    },
+    {
+      "job_id": "job-e9a25704",
+      "response": "```json\n{\n  \"summary\": \"Market research indicates an increasing consumer demand for environmentally sustainable products, suggesting a positive market opportunity for businesses focusing on eco-friendly offerings.\",\n  \"sentiment\": \"positive\",\n  \"key_points\": [\n    \"Market research validates growing consumer interest in sustainability\",\n    \"Demand trend favors environmentally conscious products\",\n    \"Potential business opportunity in the sustainable products sector\",\n    \"Consumer behavior is shifting toward eco-friendly purchasing decisions\"\n  ]\n}\n```",
+      "parsed_response": null,
+      "citations": null,
+      "input_tokens": 231,
+      "output_tokens": 115,
+      "cost_usd": 0.001209,
+      "error": null
+    }
+  ],
+  "failed_jobs": [],
+  "total_cost_usd": 0.0035835,
+  "config": {
+    "state_file": "./examples/demo_state.json",
+    "results_dir": "./examples/output",
+    "max_concurrent": 5,
+    "items_per_batch": 10,
+    "cost_limit_usd": 5.0,
+    "default_params": {
+      "model": "claude-sonnet-4-20250514",
+      "temperature": 0.7
+    }
+  }
+}

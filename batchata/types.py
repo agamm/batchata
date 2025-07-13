@@ -10,6 +10,7 @@ class Citation:
     
     text: str  # The cited text
     source: str  # Source identifier (e.g., page number, section)
+    page: Optional[int] = None  # Page number if applicable
     metadata: Optional[Dict[str, Any]] = None  # Additional metadata
 
 

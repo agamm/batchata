@@ -9,7 +9,7 @@ class ModelConfig:
     """Configuration for a specific model.
     
     Attributes:
-        name: Model identifier (e.g., "claude-3-sonnet")
+        name: Model identifier (e.g., "claude-sonnet-4-20250514")
         max_input_tokens: Maximum input context length
         max_output_tokens: Maximum tokens that can be generated
         batch_discount: Discount factor for batch processing (e.g., 0.5 for 50% off)
@@ -20,7 +20,7 @@ class ModelConfig:
         file_types: List of supported file extensions
     """
     
-    name: str  # e.g., "claude-3-sonnet"
+    name: str  # e.g., "claude-sonnet-4-20250514"
     max_input_tokens: int
     max_output_tokens: int
     batch_discount: float  # e.g., 0.5 for 50% off

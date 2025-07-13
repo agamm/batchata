@@ -33,12 +33,12 @@ class TestBatchConfig:
             results_dir="./results",
             max_concurrent=10,
             cost_limit_usd=50.0,
-            default_params={"model": "claude-3-sonnet"},
+            default_params={"model": "claude-sonnet-4-20250514"},
             progress_callback=callback,
-            jobs=[Job(id="test", model="claude-3-sonnet", messages=[{"role": "user", "content": "Hi"}])]
+            jobs=[Job(id="test", model="claude-sonnet-4-20250514", messages=[{"role": "user", "content": "Hi"}])]
         )
         
         assert config.cost_limit_usd == 50.0
-        assert config.default_params == {"model": "claude-3-sonnet"}
+        assert config.default_params == {"model": "claude-sonnet-4-20250514"}
         assert config.progress_callback is callback
         assert len(config.jobs) == 1

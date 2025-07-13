@@ -20,11 +20,11 @@ class TestJob:
         """Test creating a job with messages."""
         job = Job(
             id="test-1",
-            model="claude-3-sonnet",
+            model="claude-sonnet-4-20250514",
             messages=[{"role": "user", "content": "Hello"}]
         )
         assert job.id == "test-1"
-        assert job.model == "claude-3-sonnet"
+        assert job.model == "claude-sonnet-4-20250514"
         assert job.messages == [{"role": "user", "content": "Hello"}]
         assert job.temperature == 0.7
         assert job.max_tokens == 1000
@@ -44,7 +44,7 @@ class TestJob:
         """Test job with response model."""
         job = Job(
             id="test-3",
-            model="claude-3-sonnet",
+            model="claude-sonnet-4-20250514",
             messages=[{"role": "user", "content": "Extract data"}],
             response_model=SampleModel,
             enable_citations=True
@@ -58,7 +58,7 @@ class TestJob:
         with pytest.raises(ValueError, match="Provide either messages OR file\\+prompt"):
             Job(
                 id="test-4",
-                model="claude-3-sonnet",
+                model="claude-sonnet-4-20250514",
                 messages=[{"role": "user", "content": "Hello"}],
                 file=Path("test.pdf"),
                 prompt="Summarize"
@@ -66,12 +66,12 @@ class TestJob:
         
         # Neither messages nor file
         with pytest.raises(ValueError, match="Must provide either messages or file\\+prompt"):
-            Job(id="test-5", model="claude-3-sonnet")
+            Job(id="test-5", model="claude-sonnet-4-20250514")
         
         # File without prompt
         with pytest.raises(ValueError, match="File input requires a prompt"):
             Job(
                 id="test-6",
-                model="claude-3-sonnet",
+                model="claude-sonnet-4-20250514",
                 file=Path("test.pdf")
             )

@@ -2,6 +2,9 @@
 
 from batchata import Batch
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class Analysis(BaseModel):
@@ -15,10 +18,9 @@ def main():
     """Run a simple batch processing demo."""
     # Create batch configuration
     batch = (
-        Batch(state_file="./demo_state.json", results_dir="./demo_results", max_concurrent=5)
+        Batch(state_file="./examples/demo_state.json", results_dir="./examples/output", max_concurrent=1, items_per_batch=3)
         .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
         .add_cost_limit(usd=5.0)
-        .on_progress(lambda s, t: print(f"Progress: {s['completed']}/{s['total']}, {t}s"))
     )
     
     # Add some jobs
@@ -36,10 +38,10 @@ def main():
     
     # Execute batch
     print("Starting batch processing...")
-    run = batch.run(wait=True)
+    run = batch.run(wait=True, on_progress=lambda s, t: print(f"\rProgress: {s['completed']}/{s['total']}, {round(t, 2)}s"))
     
     # Get results
-    run.status(print=True)
+    run.status(print_status=True)
     results = run.results()
     
     # Display results

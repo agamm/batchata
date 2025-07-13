@@ -30,9 +30,9 @@ class TestBatch:
     def test_batch_defaults(self):
         """Test setting default parameters."""
         batch = Batch("./state", "./results")
-        batch.defaults(model="claude-3-sonnet", temperature=0.5, max_tokens=500)
+        batch.defaults(model="claude-sonnet-4-20250514", temperature=0.5, max_tokens=500)
         
-        assert batch.config.default_params["model"] == "claude-3-sonnet"
+        assert batch.config.default_params["model"] == "claude-sonnet-4-20250514"
         assert batch.config.default_params["temperature"] == 0.5
         assert batch.config.default_params["max_tokens"] == 500
     
@@ -76,14 +76,14 @@ class TestBatch:
         """Test adding job with messages."""
         batch = (
             Batch("./state", "./results")
-            .defaults(model="claude-3-sonnet")
+            .defaults(model="claude-sonnet-4-20250514")
             .add_job(messages=[{"role": "user", "content": "Hello"}])
         )
         
         assert len(batch) == 1
         job = batch.config.jobs[0]
         assert job.id.startswith("job-")
-        assert job.model == "claude-3-sonnet"
+        assert job.model == "claude-sonnet-4-20250514"
         assert job.messages == [{"role": "user", "content": "Hello"}]
     
     def test_add_job_with_file(self):
@@ -105,7 +105,7 @@ class TestBatch:
         """Test adding job with overridden defaults."""
         batch = (
             Batch("./state", "./results")
-            .defaults(model="claude-3-sonnet", temperature=0.7, max_tokens=1000)
+            .defaults(model="claude-sonnet-4-20250514", temperature=0.7, max_tokens=1000)
             .add_job(
                 messages=[{"role": "user", "content": "Hi"}],
                 model="gpt-4",
@@ -122,7 +122,7 @@ class TestBatch:
         """Test adding job with structured output."""
         batch = (
             Batch("./state", "./results")
-            .defaults(model="claude-3-sonnet")
+            .defaults(model="claude-sonnet-4-20250514")
             .add_job(
                 messages=[{"role": "user", "content": "Extract data"}],
                 response_model=SampleModel,
@@ -145,7 +145,7 @@ class TestBatch:
         """Test adding multiple jobs."""
         batch = (
             Batch("./state", "./results")
-            .defaults(model="claude-3-sonnet")
+            .defaults(model="claude-sonnet-4-20250514")
             .add_job(messages=[{"role": "user", "content": "Job 1"}])
             .add_job(messages=[{"role": "user", "content": "Job 2"}])
             .add_job(file="doc.pdf", prompt="Summarize")
@@ -161,7 +161,7 @@ class TestBatch:
         batch = (
             Batch("./state", "./results", max_concurrent=5)
             .add_cost_limit(usd=50.0)
-            .defaults(model="claude-3-sonnet")
+            .defaults(model="claude-sonnet-4-20250514")
             .add_job(messages=[{"role": "user", "content": "Test"}])
         )
         
@@ -190,7 +190,7 @@ class TestBatch:
         
         batch = (
             Batch("./state", "./results", max_concurrent=10)
-            .defaults(model="claude-3-sonnet", temperature=0.7)
+            .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=100.0)
             .on_progress(callback)
             .add_job(messages=[{"role": "user", "content": "Job 1"}])
@@ -217,7 +217,7 @@ class TestBatch:
         job1, job2, job3 = batch.config.jobs
         
         # Job 1: uses defaults
-        assert job1.model == "claude-3-sonnet"
+        assert job1.model == "claude-sonnet-4-20250514"
         assert job1.temperature == 0.7
         assert job1.messages == [{"role": "user", "content": "Job 1"}]
         
@@ -229,7 +229,7 @@ class TestBatch:
         assert job2.temperature == 0.7  # From defaults
         
         # Job 3: structured output with citations
-        assert job3.model == "claude-3-sonnet"
+        assert job3.model == "claude-sonnet-4-20250514"
         assert len(job3.messages) == 2
         assert job3.response_model == SampleModel
         assert job3.enable_citations is True

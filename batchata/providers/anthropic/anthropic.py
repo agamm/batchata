@@ -1,5 +1,6 @@
 """Anthropic provider implementation."""
 
+import logging
 import os
 from datetime import datetime
 from typing import Dict, List
@@ -9,11 +10,13 @@ from anthropic import Anthropic
 from ...core.job import Job
 from ...core.job_result import JobResult
 from ...exceptions import BatchSubmissionError, ValidationError
-from ..batch_request import BatchRequest
 from ..provider import Provider
 from .models import ANTHROPIC_MODELS
 from .message_prepare import prepare_messages
 from .parse_results import parse_results
+
+
+logger = logging.getLogger(__name__)
 
 
 class AnthropicProvider(Provider):
@@ -57,7 +60,7 @@ class AnthropicProvider(Provider):
             except Exception as e:
                 raise ValidationError(f"Invalid message format: {e}")
     
-    def create_batch(self, jobs: List[Job]) -> BatchRequest:
+    def create_batch(self, jobs: List[Job]) -> str:
         """Create and submit a batch of jobs."""
         if not jobs:
             raise BatchSubmissionError("Cannot create empty batch")
@@ -94,17 +97,15 @@ class AnthropicProvider(Provider):
         
         # Submit to Anthropic
         try:
+            logger.info(f"Submitting batch with {len(batch_requests)} requests to Anthropic API")
             batch_response = self.client.messages.batches.create(requests=batch_requests)
             provider_batch_id = batch_response.id
+            logger.info(f"✓ Anthropic batch created successfully: {provider_batch_id}")
         except Exception as e:
+            logger.error(f"✗ Failed to create Anthropic batch: {e}")
             raise BatchSubmissionError(f"Failed to create batch: {e}")
         
-        return BatchRequest(
-            id=provider_batch_id,
-            provider_batch_id=provider_batch_id,
-            submitted_at=datetime.now(),
-            job_ids=[job.id for job in jobs]
-        )
+        return provider_batch_id
     
     def get_batch_status(self, batch_id: str) -> str:
         """Get current status of a batch."""
@@ -124,6 +125,24 @@ class AnthropicProvider(Provider):
         except Exception as e:
             raise ValidationError(f"Failed to get batch status: {e}")
     
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel a batch request.
+        
+        Args:
+            batch_id: The batch ID to cancel
+            
+        Returns:
+            True if cancellation was successful, False otherwise
+        """
+        try:
+            logger.info(f"Cancelling Anthropic batch: {batch_id}")
+            self.client.messages.batches.cancel(batch_id)
+            logger.info(f"✓ Successfully cancelled Anthropic batch: {batch_id}")
+            return True
+        except Exception as e:
+            logger.error(f"✗ Failed to cancel Anthropic batch {batch_id}: {e}")
+            return False
+    
     def get_batch_results(self, batch_id: str) -> List[JobResult]:
         """Retrieve results for a completed batch."""
         try:
@@ -133,7 +152,15 @@ class AnthropicProvider(Provider):
             raise ValidationError(f"Failed to get batch results: {e}")
     
     def estimate_cost(self, jobs: List[Job]) -> float:
-        """Estimate cost for a list of jobs using tokencost."""
+        """Estimate cost for a list of jobs using tokencost.
+        
+        WARNING: This is an estimation. Actual costs may vary due to:
+        - Token counting differences between the estimator and Anthropic's tokenizer
+        - Dynamic pricing changes
+        - Additional fees or discounts not captured here
+        
+        For Anthropic models, we use the o200k_base tokenizer for estimation.
+        """
         try:
             from tokencost import calculate_prompt_cost, calculate_cost_by_tokens
         except ImportError:
@@ -150,20 +177,26 @@ class AnthropicProvider(Provider):
                 if system_prompt:
                     messages = [{"role": "system", "content": system_prompt}] + messages
                 
-                # Calculate input cost
-                input_cost = float(calculate_prompt_cost(messages, job.model))
+                # Calculate input cost using o200k_base tokenizer
+                # Note: This is an estimation - actual token counts may vary
+                model_name = "cl100k_base"
+                print("[WARNING] Claude model token counting is just an estimation.")
+                input_cost = float(calculate_prompt_cost(messages, model_name))
+                logger.info(f"Job {job.id}: estimated input cost ${input_cost:.4f}")
                 
                 # Calculate output cost
                 output_cost = float(calculate_cost_by_tokens(
                     job.max_tokens, 
-                    job.model, 
+                    model_name, 
                     token_type="output"
                 ))
+                logger.info(f"Job {job.id}: estimated output cost ${output_cost:.4f}")
                 
                 # Apply batch discount
                 model_config = self.get_model_config(job.model)
                 discount = model_config.batch_discount if model_config else 0.5
                 job_cost = (input_cost + output_cost) * discount
+                logger.info(f"Job {job.id}: total estimated cost ${job_cost:.4f} (discount: {discount})")
                 
                 total_cost += job_cost
                 

@@ -32,14 +32,23 @@ from batchata import Batch
 
 # Simple batch processing
 batch = Batch(state_file="./state.json", results_dir="./output", max_concurrent=10)
-    .defaults(model="claude-3-sonnet")
+    .defaults(model="claude-sonnet-4-20250514")
     .add_cost_limit(usd=15)
 
 for file in files:
     batch.add_job(file=file, prompt="Summarize")
 
-run = batch.run(wait=True)
-print(run.status())  # Shows progress and costs
+# Option 1: Progress callback during run
+run = batch.run(
+    wait=True, 
+    on_progress=lambda stats, time: print(f"Progress: {stats['completed']}/{stats['total']}")
+)
+
+# Option 2: Set progress callback on BatchRun
+run = batch.run()
+run.on_progress(lambda stats, time: print(f"Progress: {stats['completed']}/{stats['total']}, {time:.1f}s"))
+run.wait()
+
 results = run.results()  # Dict[job_id, JobResult]
 ```
 
@@ -60,24 +69,13 @@ Batch(state_file: str, results_dir: str, max_concurrent: int = 10)
 
 #### `.defaults(**kwargs)`
 Set default parameters for all jobs. Common parameters:
-- `model`: Model name (e.g., "claude-3-sonnet", "gpt-4")
+- `model`: Model name (e.g., "claude-sonnet-4-20250514", "gpt-4")
 - `temperature`: Sampling temperature 0.0-1.0 (default: 0.7)
 - `max_tokens`: Maximum tokens to generate (default: 1000)
 
 #### `.add_cost_limit(usd: float)`
 Set maximum spend limit. Batch will stop accepting new jobs when limit is reached.
 
-#### `.on_progress(callback: Callable[[Dict], None])`
-Set progress callback function. Callback receives a dict with:
-- `batch_id`: Current batch identifier
-- `total`: Total number of jobs
-- `pending`: Jobs waiting to start
-- `active`: Jobs currently processing
-- `completed`: Successfully completed jobs
-- `failed`: Failed jobs
-- `cost_usd`: Current total cost
-- `cost_limit_usd`: Cost limit (if set)
-- `is_complete`: Whether batch is finished
 
 #### `.add_job(...)`
 Add a job to the batch. Parameters:
@@ -92,10 +90,11 @@ Add a job to the batch. Parameters:
 
 Note: Provide either `messages` OR `file`+`prompt`, not both.
 
-#### `.run(wait: bool = False)`
+#### `.run(wait: bool = False, on_progress: Callable = None)`
 Execute the batch. Returns a `BatchRun` object.
 - `wait=True`: Block until all jobs complete
 - `wait=False`: Return immediately, process in background
+- `on_progress`: Optional progress callback function
 
 ### BatchRun
 
@@ -104,7 +103,19 @@ Object returned by `batch.run()`:
 - `.status(print: bool = False)` - Get current batch status
 - `.results()` - Get completed results as Dict[str, JobResult]
 - `.wait(timeout: float = None)` - Wait for batch completion
+- `.on_progress(callback, interval=3.0)` - Set progress monitoring callback
 - `.shutdown(wait_for_active: bool = True)` - Gracefully shutdown
+
+The progress callback receives a dict with:
+- `batch_id`: Current batch identifier
+- `total`: Total number of jobs
+- `pending`: Jobs waiting to start
+- `active`: Jobs currently processing
+- `completed`: Successfully completed jobs
+- `failed`: Failed jobs
+- `cost_usd`: Current total cost
+- `cost_limit_usd`: Cost limit (if set)
+- `is_complete`: Whether batch is finished
 
 ### JobResult
 

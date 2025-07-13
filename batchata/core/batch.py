@@ -6,7 +6,7 @@ from typing import Callable, Dict, List, Optional, Type, Union
 
 from pydantic import BaseModel
 
-from .batch_config import BatchConfig
+from .batch_params import BatchParams
 from .job import Job
 from ..providers import get_provider
 from ..types import Message
@@ -20,7 +20,7 @@ class Batch:
     and progress callbacks.
     
     Example:
-        >>> batch = Batch("./state", "./results", max_concurrent=10)
+        >>> batch = Batch("./state", "./results", max_concurrent=10, items_per_batch=10)
         ...     .defaults(model="claude-3-sonnet", temperature=0.7)
         ...     .add_cost_limit(usd=15.0)
         ...     .add_job(messages=[{"role": "user", "content": "Hello"}])
@@ -28,19 +28,22 @@ class Batch:
         >>> run = batch.run(wait=True)
     """
     
-    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10):
+    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10):
         """Initialize batch configuration.
         
         Args:
             state_file: Path to state file for persistence
             results_dir: Directory to store results
             max_concurrent: Maximum concurrent batch requests
+            items_per_batch: Number of jobs per provider batch
         """
-        self.config = BatchConfig(
+        self.config = BatchParams(
             state_file=state_file,
             results_dir=results_dir,
-            max_concurrent=max_concurrent
+            max_concurrent=max_concurrent,
+            items_per_batch=items_per_batch
         )
+        self.jobs: List[Job] = []
     
     def defaults(self, **kwargs) -> 'Batch':
         """Set default parameters for all jobs.
@@ -82,26 +85,6 @@ class Batch:
         if usd <= 0:
             raise ValueError("Cost limit must be positive")
         self.config.cost_limit_usd = usd
-        return self
-    
-    def on_progress(self, callback: Callable[[Dict, float], None], interval: float = 3.0) -> 'Batch':
-        """Set progress callback.
-        
-        The callback will be called periodically with progress statistics
-        including completed jobs, total jobs, current cost, etc.
-        
-        Args:
-            callback: Function that receives progress statistics and elapsed time
-            interval: Interval in seconds between progress updates (default: 3.0)
-            
-        Returns:
-            Self for chaining
-            
-        Example:
-            >>> batch.on_progress(lambda stats, time: print(f"Progress: {stats['completed']}/{stats['total']}, {time}s"))
-        """
-        self.config.progress_callback = callback
-        self.config.progress_interval = interval
         return self
     
     def add_job(
@@ -183,16 +166,19 @@ class Batch:
             **params
         )
         
-        self.config.jobs.append(job)
+        self.jobs.append(job)
         return self
     
-    def run(self, wait: bool = False) -> 'BatchRun':
+    def run(self, wait: bool = False, on_progress: Optional[Callable[[Dict, float], None]] = None, progress_interval: float = 1.0) -> 'BatchRun':
         """Execute the batch.
         
         Creates a BatchRun instance and starts processing the jobs.
         
         Args:
             wait: If True, block until all jobs complete
+            on_progress: Optional progress callback function that receives
+                        (stats_dict, elapsed_time_seconds)
+            progress_interval: Interval in seconds between progress updates (default: 1.0)
             
         Returns:
             BatchRun instance for monitoring progress
@@ -200,14 +186,19 @@ class Batch:
         Raises:
             ValueError: If no jobs have been added
         """
-        if not self.config.jobs:
+        if not self.jobs:
             raise ValueError("No jobs added to batch")
         
         # Import here to avoid circular dependency
         from .batch_run import BatchRun
         
         # Create and start the run
-        run = BatchRun(self.config)
+        run = BatchRun(self.config, self.jobs)
+        
+        # Set progress callback if provided
+        if on_progress:
+            run.set_on_progress(on_progress, interval=progress_interval)
+        
         run.start()
         
         if wait:
@@ -217,12 +208,12 @@ class Batch:
     
     def __len__(self) -> int:
         """Get the number of jobs in the batch."""
-        return len(self.config.jobs)
+        return len(self.jobs)
     
     def __repr__(self) -> str:
         """String representation of the batch."""
         return (
-            f"Batch(jobs={len(self.config.jobs)}, "
+            f"Batch(jobs={len(self.jobs)}, "
             f"max_concurrent={self.config.max_concurrent}, "
             f"cost_limit=${self.config.cost_limit_usd or 'None'})"
         )

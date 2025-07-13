@@ -8,7 +8,6 @@ from pydantic import BaseModel, field_validator
 from ..core.job import Job
 from ..core.job_result import JobResult
 from ..exceptions import ValidationError
-from .batch_request import BatchRequest
 from .model_config import ModelConfig
 
 
@@ -73,14 +72,14 @@ class Provider(ABC):
         pass
     
     @abstractmethod
-    def create_batch(self, jobs: List[Job]) -> BatchRequest:
+    def create_batch(self, jobs: List[Job]) -> str:
         """Create and submit a batch of jobs.
         
         Args:
             jobs: List of jobs to include in the batch
             
         Returns:
-            BatchRequest with provider's batch ID
+            Provider's batch ID
             
         Raises:
             BatchSubmissionError: If batch submission fails
@@ -111,6 +110,18 @@ class Provider(ABC):
             
         Raises:
             ProviderError: If results cannot be retrieved
+        """
+        pass
+    
+    @abstractmethod
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel a batch request.
+        
+        Args:
+            batch_id: Provider's batch identifier
+            
+        Returns:
+            True if cancellation was successful, False otherwise
         """
         pass
     

@@ -9,7 +9,7 @@ from batchata import Batch
 
 # Create batch with state persistence
 batch = Batch(state_file="./state.json", results_dir="./output", max_concurrent=10)
-    .defaults(model="claude-3-sonnet", temperature=0.7)
+    .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
     .add_cost_limit(usd=50.0)
     .on_progress(lambda stats: print(f"Progress: {stats['completed']}/{stats['total']}"))
 
