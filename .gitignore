@@ -45,3 +45,4 @@ raw_responses/
 debug/
 .qodo/
 examples/output
+examples/*.json
