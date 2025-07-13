@@ -1,13 +1,26 @@
-"""
-AI Batch Processing Library
+"""Batchata - A batch processing library for AI models."""
 
-A wrapper around Anthropic's batch API for structured output.
-"""
+from .core import Batch, BatchRun, Job, JobResult
+from .exceptions import (
+    BatchataError,
+    CostLimitExceededError,
+    ProviderError,
+    ProviderNotFoundError,
+    ValidationError,
+)
+from .types import Citation
 
-from .core import batch, pdf_to_document_block
-from .citations import Citation
-from .batch_job import BatchJob
-from .batch_manager import BatchManager
-from .utils import load_results_from_disk
+__version__ = "0.3.0"
 
-__all__ = ["batch", "pdf_to_document_block", "Citation", "BatchJob", "BatchManager", "load_results_from_disk"]
+__all__ = [
+    "Batch",
+    "BatchRun", 
+    "Job",
+    "JobResult",
+    "Citation",
+    "BatchataError",
+    "CostLimitExceededError",
+    "ProviderError",
+    "ProviderNotFoundError",
+    "ValidationError",
+]

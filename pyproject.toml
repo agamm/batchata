@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "batchata"
-version = "0.2.7"
-description = "Batch processing for Anthropic's Claude API with structured output"
+version = "0.3.0"
+description = "Batch processing for AI models with cost tracking and state persistence"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "anthropic>=0.57.1",
     "tokencost>=0.1.24",
+    "pydantic>=2.0",
 ]
 
 [project.scripts]

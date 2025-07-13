@@ -16,6 +16,7 @@
 - Prefer early exists, instead of indented code mayhem.
 - Don't create functions for code that can be understandable inline (like one simple conditional)
 - Always update README.md and llms.txt after changes to the library that affect end users.
+- Usually classes should be in separate classes.
 
 ## Spec rules
 - When creating a new SPEC.md or modifying it, ask the user before making changes to the SPEC.md
