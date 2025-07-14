@@ -8,6 +8,9 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from ...core.job import Job
+from ...utils import get_logger
+
+logger = get_logger(__name__)
 
 
 def prepare_messages(job: Job) -> tuple[List[Dict], Optional[str]]:
@@ -27,6 +30,13 @@ def prepare_messages(job: Job) -> tuple[List[Dict], Optional[str]]:
                 system_parts.append(msg["content"])
             else:
                 messages.append(msg)
+        
+        # Log warning if citations are enabled with messages
+        if job.enable_citations:
+            logger.warning(
+                f"Job {job.id}: Citations are enabled but using message format. "
+                "Citations only work with file-based inputs (file + prompt)."
+            )
     
     # Case 2: File + prompt provided
     elif job.file and job.prompt:

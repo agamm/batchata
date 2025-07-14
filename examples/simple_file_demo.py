@@ -18,10 +18,10 @@ def main():
     """Run a simple batch processing demo."""
     # Create batch configuration
     batch = (
-        Batch(state_file="./examples/demo_state.json", results_dir="./examples/output", max_concurrent=1, items_per_batch=1, reuse_state=False)
+        Batch(state_file="./examples/demo_file_state.json", results_dir="./examples/file_output", max_concurrent=1, items_per_batch=1, reuse_state=False)
         .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
         .add_cost_limit(usd=5.0)
-        .set_verbosity("warning")
+        .set_verbosity("error")
     )
     
     # Add some jobs
