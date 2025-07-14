@@ -135,12 +135,15 @@ class AnthropicProvider(Provider):
             if status == "ended":
                 # Check if there were any errors
                 if hasattr(batch_status, 'request_counts') and batch_status.request_counts.errored > 0:
+                    # Calculate total from succeeded + errored
+                    total_count = getattr(batch_status.request_counts, 'succeeded', 0) + batch_status.request_counts.errored
                     error_details = {
                         "batch_id": batch_id,
                         "errored_count": batch_status.request_counts.errored,
-                        "total_count": batch_status.request_counts.total
+                        "succeeded_count": getattr(batch_status.request_counts, 'succeeded', 0),
+                        "total_count": total_count
                     }
-                    logger.error(f"Batch {batch_id} completed with {batch_status.request_counts.errored} errors")
+                    logger.error(f"Batch {batch_id} completed with {batch_status.request_counts.errored} errors out of {total_count} total")
                     return "failed", error_details
                 return "complete", None
             elif status in ["canceled", "expired"]:

@@ -42,18 +42,33 @@ def prepare_messages(job: Job) -> tuple[List[Dict], Optional[str]]:
     elif job.file and job.prompt:
         content_parts = []
         
-        # Add document
-        file_data = _read_file_as_base64(job.file)
+        # Get media type to determine how to handle file
         media_type = _get_media_type(job.file)
         
-        document_part = {
-            "type": "document",
-            "source": {
-                "type": "base64",
-                "media_type": media_type,
-                "data": file_data
+        # For text files, use "text" source type
+        if media_type == 'text/plain':
+            with open(job.file, 'r', encoding='utf-8') as f:
+                text_data = f.read()
+            
+            document_part = {
+                "type": "document",
+                "source": {
+                    "type": "text",
+                    "media_type": media_type,
+                    "data": text_data
+                }
             }
-        }
+        else:
+            # For PDFs and other binary files, use base64
+            file_data = _read_file_as_base64(job.file)
+            document_part = {
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": file_data
+                }
+            }
         
         # Add citations if enabled
         if job.enable_citations:

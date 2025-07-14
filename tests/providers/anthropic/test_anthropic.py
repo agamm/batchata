@@ -155,6 +155,7 @@ class TestAnthropicProvider:
         assert status == "failed"
         assert error_details is not None
         assert error_details["errored_count"] == 5
+        assert error_details["succeeded_count"] == 5
         assert error_details["total_count"] == 10
     
     def test_batch_results_retrieval(self, provider, mock_anthropic_client):
