@@ -76,10 +76,15 @@ class CostTracker:
             Dictionary with current statistics
         """
         with self._lock:
+            # Calculate remaining budget without calling self.remaining() to avoid deadlock
+            remaining_usd = None
+            if self.limit_usd is not None:
+                remaining_usd = max(0.0, self.limit_usd - self.used_usd)
+            
             return {
                 "total_cost_usd": self.used_usd,
                 "limit_usd": self.limit_usd,
-                "remaining_usd": self.remaining(),
+                "remaining_usd": remaining_usd,
                 "last_updated": self._last_updated
             }
     

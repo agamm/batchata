@@ -1,259 +1,234 @@
-"""Mock provider for testing."""
+"""Mock provider for testing without API calls."""
 
+from typing import Dict, List, Optional, Any
 import time
 import uuid
-from datetime import datetime
-from typing import Dict, List, Optional, Set
 
+from batchata.providers import Provider
+from batchata.providers.model_config import ModelConfig
 from batchata.core.job import Job
 from batchata.core.job_result import JobResult
-from batchata.exceptions import BatchSubmissionError, ValidationError
-from batchata.providers.provider_registry import ProviderRegistry
-from batchata.providers.batch_request import BatchRequest
-from batchata.providers.model_config import ModelConfig
-from batchata.providers.provider import Provider
+from batchata.exceptions import ValidationError, ProviderError
 
 
 class MockProvider(Provider):
-    """Mock provider for testing.
+    """Mock provider that simulates API behavior without real calls."""
     
-    Allows configuration of responses, delays, and failures for testing
-    various scenarios without making real API calls.
-    """
-    
-    def __init__(self, auto_register: bool = True):
+    def __init__(self, delay: float = 0.1, auto_register: bool = True):
         """Initialize mock provider.
         
         Args:
-            auto_register: Whether to automatically register with ProviderRegistry
+            delay: Simulated processing delay in seconds
+            auto_register: Whether to register in provider registry
         """
         super().__init__()
+        self.delay = delay
+        self.batches: Dict[str, Dict[str, Any]] = {}
+        self.call_history: List[Dict[str, Any]] = []
         
-        # Mock configuration
-        self.mock_responses: Dict[str, JobResult] = {}
-        self.mock_delays: Dict[str, float] = {}
-        self.mock_failures: Dict[str, Exception] = {}
-        self.batch_failures: Set[str] = set()
-        
-        # Track batches
-        self.batches: Dict[str, Dict] = {}
-        
-        if auto_register:
-            ProviderRegistry.register(self)
-    
-    def _setup_models(self):
-        """Setup mock model configurations."""
+        # Define mock models
         self.models = {
             "mock-model-basic": ModelConfig(
                 name="mock-model-basic",
                 max_input_tokens=100000,
                 max_output_tokens=4096,
                 batch_discount=0.5,
-                supports_structured_output=True
+                supports_citations=False,
+                supports_images=False,
+                supports_files=False
             ),
             "mock-model-advanced": ModelConfig(
                 name="mock-model-advanced",
                 max_input_tokens=200000,
                 max_output_tokens=8192,
                 batch_discount=0.5,
+                supports_citations=True,
                 supports_images=True,
                 supports_files=True,
-                supports_citations=True,
-                supports_structured_output=True,
                 file_types=[".pdf", ".txt", ".docx"]
-            ),
-            "mock-model-simple": ModelConfig(
-                name="mock-model-simple",
-                max_input_tokens=50000,
-                max_output_tokens=2048,
-                batch_discount=0.3,
-                supports_structured_output=False
             )
         }
-    
-    def set_mock_response(self, job_id: str, result: JobResult):
-        """Configure mock response for a job.
         
-        Args:
-            job_id: Job ID to mock
-            result: Result to return for this job
-        """
-        self.mock_responses[job_id] = result
+        # Configure responses
+        self.responses: Dict[str, str] = {}
+        self.should_fail = False
+        self.failure_message = "Mock failure"
     
-    def set_mock_delay(self, job_id: str, delay_seconds: float):
-        """Configure delay for a job.
-        
-        Args:
-            job_id: Job ID to delay
-            delay_seconds: Seconds to delay before returning result
-        """
-        self.mock_delays[job_id] = delay_seconds
+    def set_response(self, job_id: str, response: str) -> None:
+        """Set a specific response for a job ID."""
+        self.responses[job_id] = response
     
-    def set_mock_failure(self, job_id: str, exception: Exception):
-        """Configure failure for a job.
-        
-        Args:
-            job_id: Job ID to fail
-            exception: Exception to raise
-        """
-        self.mock_failures[job_id] = exception
-    
-    def set_batch_failure(self, batch_id: str):
-        """Configure a batch to fail.
-        
-        Args:
-            batch_id: Batch ID that should fail
-        """
-        self.batch_failures.add(batch_id)
+    def set_failure(self, should_fail: bool = True, message: str = "Mock failure") -> None:
+        """Configure the provider to fail."""
+        self.should_fail = should_fail
+        self.failure_message = message
     
     def validate_job(self, job: Job) -> None:
-        """Validate job against mock constraints.
+        """Validate job constraints."""
+        self.call_history.append({"method": "validate_job", "job_id": job.id})
         
-        Args:
-            job: Job to validate
-            
-        Raises:
-            ValidationError: If job is invalid
-        """
-        if job.model not in self.models:
-            raise ValidationError(f"Model {job.model} not supported by MockProvider")
+        if self.should_fail:
+            raise ValidationError(self.failure_message)
         
-        model = self.models[job.model]
+        # Get model from job attributes
+        model = job.model
+        if not model:
+            raise ValidationError("Model parameter is required")
         
-        # Check file support
-        if job.file and not model.supports_files:
-            raise ValidationError(f"Model {job.model} does not support file inputs")
+        if model not in self.models:
+            raise ValidationError(f"Unknown model: {model}")
         
-        # Check structured output support
-        if job.response_model and not model.supports_structured_output:
-            raise ValidationError(f"Model {job.model} does not support structured output")
-        
-        # Check citation support
-        if job.enable_citations and not model.supports_citations:
-            raise ValidationError(f"Model {job.model} does not support citations")
+        # Validate message format
+        if job.messages:
+            for msg in job.messages:
+                if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
+                    raise ValidationError("Invalid message format")
     
-    def create_batch(self, jobs: List[Job]) -> BatchRequest:
-        """Create a mock batch.
+    def create_batch(self, jobs: List[Job]) -> str:
+        """Create a mock batch."""
+        self.call_history.append({"method": "create_batch", "job_count": len(jobs)})
         
-        Args:
-            jobs: Jobs to include in batch
-            
-        Returns:
-            BatchRequest with mock batch ID
-            
-        Raises:
-            BatchSubmissionError: If configured to fail
-        """
-        # Validate all jobs
-        for job in jobs:
-            self.validate_job(job)
+        if self.should_fail:
+            raise ProviderError(self.failure_message)
         
-        # Generate batch ID
         batch_id = f"mock-batch-{uuid.uuid4().hex[:8]}"
-        
-        # Check if batch should fail
-        if batch_id in self.batch_failures:
-            raise BatchSubmissionError(f"Mock batch submission failed: {batch_id}")
         
         # Store batch info
         self.batches[batch_id] = {
             "jobs": jobs,
             "status": "pending",
-            "created_at": datetime.now(),
-            "completed_at": None
+            "created_at": time.time(),
+            "results": []
         }
         
-        # Create batch request
-        batch_request = BatchRequest(
-            id=batch_id,
-            provider=self,
-            jobs=jobs,
-            status="pending"
-        )
-        
-        return batch_request
+        return batch_id
     
     def get_batch_status(self, batch_id: str) -> str:
-        """Get mock batch status.
+        """Get mock batch status."""
+        self.call_history.append({"method": "get_batch_status", "batch_id": batch_id})
         
-        Args:
-            batch_id: Batch to check
-            
-        Returns:
-            Mock status string
-        """
         if batch_id not in self.batches:
-            return "failed"
+            raise ProviderError(f"Batch not found: {batch_id}")
         
-        batch_info = self.batches[batch_id]
+        batch = self.batches[batch_id]
         
-        # Simulate processing time
-        elapsed = (datetime.now() - batch_info["created_at"]).total_seconds()
+        # Simulate processing delay
+        elapsed = time.time() - batch["created_at"]
+        if elapsed < self.delay:
+            return "running"
         
-        # Check for configured delays
-        max_delay = 0.0
-        for job in batch_info["jobs"]:
-            if job.id in self.mock_delays:
-                max_delay = max(max_delay, self.mock_delays[job.id])
+        # Mark as complete and generate results if needed
+        if batch["status"] == "pending":
+            batch["status"] = "complete"
+            self._generate_results(batch_id)
         
-        # Update status based on elapsed time
-        if elapsed < max_delay:
-            batch_info["status"] = "running"
-        else:
-            batch_info["status"] = "complete"
-            batch_info["completed_at"] = datetime.now()
-        
-        return batch_info["status"]
+        return batch["status"]
     
-    def get_batch_results(self, batch_id: str) -> List[JobResult]:
-        """Get mock batch results.
+    def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+        """Get mock batch results."""
+        self.call_history.append({"method": "get_batch_results", "batch_id": batch_id})
         
-        Args:
-            batch_id: Batch to get results for
-            
-        Returns:
-            List of mock JobResult objects
-        """
         if batch_id not in self.batches:
-            raise ValueError(f"Batch not found: {batch_id}")
+            raise ProviderError(f"Batch not found: {batch_id}")
         
-        batch_info = self.batches[batch_id]
-        results = []
+        batch = self.batches[batch_id]
         
-        for job in batch_info["jobs"]:
-            # Check for configured response
-            if job.id in self.mock_responses:
-                results.append(self.mock_responses[job.id])
-            else:
-                # Generate default response
-                result = JobResult(
-                    job_id=job.id,
-                    response=f"Mock response for job {job.id}",
-                    input_tokens=100,
-                    output_tokens=50,
-                    cost_usd=0.005
-                )
-                
-                # Add structured output if requested
-                if job.response_model:
-                    try:
-                        # Create a simple instance
-                        result.parsed_response = {"mocked": True, "job_id": job.id}
-                    except Exception:
-                        result.parsed_response = {"error": "Mock parsing failed"}
-                
-                results.append(result)
+        # Ensure batch is complete
+        if self.get_batch_status(batch_id) != "complete":
+            raise ProviderError("Batch not complete")
         
-        return results
+        return batch["results"]
+    
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel a mock batch."""
+        self.call_history.append({"method": "cancel_batch", "batch_id": batch_id})
+        
+        if batch_id not in self.batches:
+            return False
+        
+        batch = self.batches[batch_id]
+        if batch["status"] in ["complete", "failed"]:
+            return False
+        
+        batch["status"] = "cancelled"
+        return True
     
     def estimate_cost(self, jobs: List[Job]) -> float:
-        """Estimate cost for jobs.
+        """Estimate cost for jobs."""
+        self.call_history.append({"method": "estimate_cost", "job_count": len(jobs)})
         
-        Args:
-            jobs: Jobs to estimate
+        total_cost = 0.0
+        for job in jobs:
+            model = job.model
+            config = self.models.get(model)
+            if not config:
+                continue
             
-        Returns:
-            Mock cost estimate
-        """
-        # Simple mock pricing: $0.01 per job
-        return len(jobs) * 0.01
+            # Simple estimation based on message length
+            input_tokens = sum(len(msg.get("content", "").split()) * 1.5 
+                             for msg in job.messages or [])
+            output_tokens = job.max_tokens * 0.5
+            
+            # Mock cost calculation (since ModelConfig doesn't have cost fields)
+            # Using arbitrary costs for testing
+            input_cost_per_1k = 0.003 if model == "mock-model-basic" else 0.01
+            output_cost_per_1k = 0.015 if model == "mock-model-basic" else 0.03
+            
+            cost = (input_tokens / 1000 * input_cost_per_1k +
+                   output_tokens / 1000 * output_cost_per_1k)
+            
+            # Apply batch discount
+            total_cost += cost * config.batch_discount
+        
+        return total_cost
+    
+    def _generate_results(self, batch_id: str) -> None:
+        """Generate mock results for a batch."""
+        batch = self.batches[batch_id]
+        jobs = batch["jobs"]
+        
+        results = []
+        for job in jobs:
+            # Use configured response or generate default
+            content = self.responses.get(job.id, f"Mock response for job {job.id}")
+            
+            # Calculate mock token counts
+            input_tokens = sum(len(msg.get("content", "").split()) * 1.5 
+                             for msg in job.messages or [])
+            output_tokens = len(content.split()) * 1.5
+            
+            # Calculate cost
+            model = job.model
+            config = self.models[model]
+            
+            # Mock cost calculation
+            input_cost_per_1k = 0.003 if model == "mock-model-basic" else 0.01
+            output_cost_per_1k = 0.015 if model == "mock-model-basic" else 0.03
+            
+            cost = (input_tokens / 1000 * input_cost_per_1k +
+                   output_tokens / 1000 * output_cost_per_1k) * config.batch_discount
+            
+            result = JobResult(
+                job_id=job.id,
+                response=content,
+                cost_usd=cost,
+                input_tokens=int(input_tokens),
+                output_tokens=int(output_tokens),
+                error=None
+            )
+            
+            # Add citations if supported and requested
+            if config.supports_citations and job.enable_citations:
+                from batchata.types import Citation
+                result.citations = [Citation(text="Mock citation", source="test", page=1)]
+            
+            results.append(result)
+        
+        batch["results"] = results
+    
+    def reset(self) -> None:
+        """Reset the mock provider state."""
+        self.batches.clear()
+        self.call_history.clear()
+        self.responses.clear()
+        self.should_fail = False

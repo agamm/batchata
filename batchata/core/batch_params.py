@@ -33,6 +33,17 @@ class BatchParams:
     save_raw_responses: bool = True
     verbosity: str = "info"
     
+    def __post_init__(self):
+        """Validate parameters after initialization."""
+        if self.max_concurrent <= 0:
+            raise ValueError("max_concurrent must be greater than 0")
+        
+        if self.items_per_batch <= 0:
+            raise ValueError("items_per_batch must be greater than 0")
+        
+        if self.cost_limit_usd is not None and self.cost_limit_usd < 0:
+            raise ValueError("cost_limit_usd must be non-negative")
+    
     def validate_default_params(self, model: str) -> None:
         """Validate default parameters for a model."""
         if not self.default_params:

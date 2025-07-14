@@ -46,7 +46,7 @@ class AnthropicProvider(Provider):
         """Validate job constraints and message format."""
         # Check if model is supported
         if not self.supports_model(job.model):
-            raise ValidationError(f"Model '{job.model}' is not supported by Anthropic provider")
+            raise ValidationError(f"Unsupported model: {job.model}")
         
         # Check file capabilities
         model_config = self.get_model_config(job.model)
@@ -57,6 +57,13 @@ class AnthropicProvider(Provider):
         if job.messages:
             try:
                 messages, _ = prepare_messages(job)
+                
+                # Anthropic-specific validation: no consecutive messages from same role
+                if len(messages) > 1:
+                    for i in range(1, len(messages)):
+                        if messages[i].get("role") == messages[i-1].get("role"):
+                            raise ValidationError("Anthropic does not allow consecutive messages from same role")
+                            
             except Exception as e:
                 raise ValidationError(f"Invalid message format: {e}")
     
@@ -115,6 +122,11 @@ class AnthropicProvider(Provider):
             
             # Map Anthropic statuses to our standard statuses
             if status == "ended":
+                # Check if there were any errors
+                if hasattr(batch_status, 'request_counts'):
+                    counts = batch_status.request_counts
+                    if hasattr(counts, 'errored') and counts.errored > 0:
+                        return "failed"
                 return "complete"
             elif status in ["canceled", "expired"]:
                 return "failed"

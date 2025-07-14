@@ -121,10 +121,10 @@ ANTHROPIC_MODELS = {
         max_output_tokens=4096,
         batch_discount=0.5,
         supports_images=True,
-        supports_files=True,
+        supports_files=False,
         supports_citations=True,
         supports_structured_output=True,
-        file_types=[".pdf", ".txt", ".docx", ".jpg", ".png", ".gif", ".webp"]
+        file_types=[]
     ),
     "claude-3-sonnet-20240229": ModelConfig(
         name="claude-3-sonnet-20240229",
