@@ -34,7 +34,8 @@ def main():
     for _, text in enumerate(texts):
         batch.add_job(
             messages=[{"role": "user", "content": f"Analyze this business update: {text}"}],
-            response_model=Analysis
+            response_model=Analysis,
+            enable_citations=True
         )
     
     # Execute batch
