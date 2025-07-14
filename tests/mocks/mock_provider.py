@@ -211,7 +211,7 @@ class MockProvider(Provider):
             
             result = JobResult(
                 job_id=job.id,
-                response=content,
+                raw_response=content,
                 cost_usd=cost,
                 input_tokens=int(input_tokens),
                 output_tokens=int(output_tokens),

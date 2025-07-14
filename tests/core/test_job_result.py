@@ -25,7 +25,7 @@ class TestJobResult:
         # Successful result (no error)
         success_result = JobResult(
             job_id="success-job",
-            response="Success response",
+            raw_response="Success response",
             cost_usd=0.001,
             input_tokens=10,
             output_tokens=20
@@ -35,7 +35,7 @@ class TestJobResult:
         # Failed result (has error)
         failed_result = JobResult(
             job_id="failed-job",
-            response="",
+            raw_response="",
             cost_usd=0.0,
             input_tokens=10,
             output_tokens=0,
@@ -46,7 +46,7 @@ class TestJobResult:
         # Edge case: empty error string should still be considered failure
         empty_error_result = JobResult(
             job_id="empty-error-job",
-            response="Some response",
+            raw_response="Some response",
             error=""
         )
         assert empty_error_result.is_success is False
@@ -55,7 +55,7 @@ class TestJobResult:
         """Test the total_tokens property correctly sums input and output tokens."""
         result = JobResult(
             job_id="token-test",
-            response="Test response",
+            raw_response="Test response",
             input_tokens=150,
             output_tokens=75
         )
@@ -64,7 +64,7 @@ class TestJobResult:
         # Test with zero tokens
         zero_result = JobResult(
             job_id="zero-tokens",
-            response="",
+            raw_response="",
             input_tokens=0,
             output_tokens=0
         )
@@ -73,7 +73,7 @@ class TestJobResult:
         # Test with only input tokens
         input_only = JobResult(
             job_id="input-only",
-            response="",
+            raw_response="",
             input_tokens=100,
             output_tokens=0
         )
@@ -84,7 +84,7 @@ class TestJobResult:
         # Create a result with all fields populated
         original = JobResult(
             job_id="serialize-test",
-            response="Test response content",
+            raw_response="Test response content",
             input_tokens=100,
             output_tokens=50,
             cost_usd=0.0025,
@@ -96,7 +96,7 @@ class TestJobResult:
         
         # Verify dict structure
         assert data["job_id"] == "serialize-test"
-        assert data["response"] == "Test response content"
+        assert data["raw_response"] == "Test response content"
         assert data["input_tokens"] == 100
         assert data["output_tokens"] == 50
         assert data["cost_usd"] == 0.0025
@@ -113,7 +113,7 @@ class TestJobResult:
         
         # Verify all fields match
         assert restored.job_id == original.job_id
-        assert restored.response == original.response
+        assert restored.raw_response == original.raw_response
         assert restored.input_tokens == original.input_tokens
         assert restored.output_tokens == original.output_tokens
         assert restored.cost_usd == original.cost_usd
@@ -130,7 +130,7 @@ class TestJobResult:
         
         result = JobResult(
             job_id="citation-test",
-            response="Response with citations",
+            raw_response="Response with citations",
             citations=citations
         )
         
@@ -165,7 +165,7 @@ class TestJobResult:
         
         result_with_model = JobResult(
             job_id="model-test",
-            response="{\"name\": \"test\", \"value\": 42}",
+            raw_response="{\"name\": \"test\", \"value\": 42}",
             parsed_response=model_instance
         )
         
@@ -177,7 +177,7 @@ class TestJobResult:
         dict_response = {"name": "test", "value": 42}
         result_with_dict = JobResult(
             job_id="dict-test",
-            response="{\"name\": \"test\", \"value\": 42}",
+            raw_response="{\"name\": \"test\", \"value\": 42}",
             parsed_response=dict_response
         )
         
@@ -192,7 +192,7 @@ class TestJobResult:
         """Test serialization of failed results with errors."""
         error_result = JobResult(
             job_id="error-test",
-            response="",
+            raw_response="",
             cost_usd=0.0,
             input_tokens=50,
             output_tokens=0,
@@ -216,14 +216,14 @@ class TestJobResult:
         # Minimal data dict (missing optional fields)
         minimal_data = {
             "job_id": "minimal-test",
-            "response": "Minimal response"
+            "raw_response": "Minimal response"
         }
         
         result = JobResult.from_dict(minimal_data)
         
         # Check defaults are applied
         assert result.job_id == "minimal-test"
-        assert result.response == "Minimal response"
+        assert result.raw_response == "Minimal response"
         assert result.input_tokens == 0  # Default
         assert result.output_tokens == 0  # Default
         assert result.cost_usd == 0.0  # Default

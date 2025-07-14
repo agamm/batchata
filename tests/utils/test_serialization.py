@@ -42,7 +42,7 @@ class TestSerialization:
         """Test serializing JobResult objects."""
         result = JobResult(
             job_id="test-job",
-            response="The answer is 42",
+            raw_response="The answer is 42",
             cost_usd=0.01,
             input_tokens=100,
             output_tokens=50
@@ -56,7 +56,7 @@ class TestSerialization:
         
         # Check key fields
         assert serialized["job_id"] == "test-job"
-        assert serialized["response"] == "The answer is 42"
+        assert serialized["raw_response"] == "The answer is 42"
     
     def test_batch_state_serialization(self):
         """Test serializing BatchState objects."""

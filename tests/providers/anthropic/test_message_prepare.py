@@ -45,7 +45,7 @@ class TestMessagePrepare:
         """Test preparing messages from file inputs."""
         from pathlib import Path
         
-        with patch("builtins.open", mock_open(read_data=b"File content here")):
+        with patch("builtins.open", mock_open(read_data="File content here")):
             job = Job(
                 id="file-job",
                 model="claude-3-5-sonnet-20241022",
@@ -64,11 +64,11 @@ class TestMessagePrepare:
             assert isinstance(content, list)
             assert len(content) == 2
             
-            # First part should be the document with base64 data
+            # First part should be the document with text data for .txt files
             assert content[0]["type"] == "document"
-            assert content[0]["source"]["type"] == "base64"
+            assert content[0]["source"]["type"] == "text"
             assert content[0]["source"]["media_type"] == "text/plain"
-            assert content[0]["source"]["data"] is not None  # base64 encoded data
+            assert content[0]["source"]["data"] == "File content here"
             
             # Second part should be the prompt
             assert content[1]["type"] == "text"
@@ -78,7 +78,7 @@ class TestMessagePrepare:
         """Test system message for citation mode with file input."""
         from pathlib import Path
         
-        with patch("builtins.open", mock_open(read_data=b"File content here")):
+        with patch("builtins.open", mock_open(read_data="File content here")):
             job = Job(
                 id="citation-job",
                 model="claude-3-5-sonnet-20241022",
@@ -191,6 +191,7 @@ class TestMessagePrepare:
             # Document part with citations enabled
             document_part = content[0]
             assert document_part["type"] == "document"
+            assert document_part["source"]["type"] == "base64"  # PDFs use base64
             assert document_part["source"]["media_type"] == "application/pdf"
             assert "title" in document_part
             assert document_part["title"] == "document.pdf"

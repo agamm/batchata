@@ -46,7 +46,7 @@ class TestParseResults:
         assert len(results) == 1
         result = results[0]
         assert result.job_id == "test-job-1"
-        assert result.response == "This is the response text"
+        assert result.raw_response == "This is the response text"
         assert result.input_tokens == 150
         assert result.output_tokens == 50
         assert result.error is None
@@ -74,10 +74,10 @@ class TestParseResults:
         assert len(results) == 1
         result = results[0]
         assert result.job_id == "error-job"
-        assert result.response == ""
+        assert result.raw_response == ""
         assert result.input_tokens == 0
         assert result.output_tokens == 0
-        assert "Request failed: errored" in result.error
+        assert "Request failed: Invalid model parameter" in result.error
     
     def test_citation_extraction(self):
         """Test extracting citations from Anthropic content blocks."""
@@ -128,7 +128,7 @@ class TestParseResults:
         assert len(results) == 1
         result = results[0]
         assert result.job_id == "citation-job"
-        assert result.response == "Python is a programming language created by Guido van Rossum."
+        assert result.raw_response == "Python is a programming language created by Guido van Rossum."
         assert result.input_tokens == 100
         assert result.output_tokens == 80
         assert result.cost_usd == 0.05
@@ -199,7 +199,7 @@ class TestParseResults:
         assert len(results) == 1
         result = results[0]
         assert result.job_id == "json-job"
-        assert result.response == response_text
+        assert result.raw_response == response_text
         assert result.input_tokens == 50
         assert result.output_tokens == 120
         assert result.cost_usd == 0.03
@@ -247,7 +247,7 @@ class TestParseResults:
         assert len(results) == 1
         result = results[0]
         assert result.job_id == "no-citations-job"
-        assert result.response == "Response text with potential citations."
+        assert result.raw_response == "Response text with potential citations."
         
         # Citations should not be extracted when disabled
         assert result.citations is None
@@ -321,7 +321,7 @@ class TestParseResults:
         
         # Check that all text blocks were concatenated
         expected_text = "Python is a programming language that was designed for readability. It's popular in many fields including data science."
-        assert result.response == expected_text
+        assert result.raw_response == expected_text
         
         assert result.input_tokens == 80
         assert result.output_tokens == 60
@@ -424,7 +424,7 @@ class TestParseResults:
         
         # Check that all text blocks were concatenated
         expected_text = 'Based on the research, here\'s the information: {"name": "Python", "year_created": 1991, "creator": "Guido van Rossum", "main_features": ["readable", "interpreted", "object-oriented"]} This data was compiled from historical records.'
-        assert result.response == expected_text
+        assert result.raw_response == expected_text
         
         # Check that JSON was extracted and parsed despite being in the middle of text
         assert result.parsed_response is not None

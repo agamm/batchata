@@ -13,7 +13,7 @@ class JobResult:
     
     Attributes:
         job_id: ID of the job this result is for
-        response: Raw text response from the model
+        raw_response: Raw text response from the model
         parsed_response: Structured output (if response_model was used)
         citations: Extracted citations (if enable_citations was True)
         input_tokens: Number of input tokens used
@@ -23,7 +23,7 @@ class JobResult:
     """
     
     job_id: str
-    response: str  # Raw text response
+    raw_response: str  # Raw text response
     parsed_response: Optional[Union[BaseModel, Dict]] = None  # Structured output or error dict
     citations: Optional[List[Citation]] = None  # Extracted citations
     input_tokens: int = 0
@@ -55,7 +55,7 @@ class JobResult:
         
         return {
             "job_id": self.job_id,
-            "response": self.response,
+            "raw_response": self.raw_response,
             "parsed_response": parsed_response,
             "citations": [asdict(c) for c in self.citations] if self.citations else None,
             "input_tokens": self.input_tokens,
@@ -74,7 +74,7 @@ class JobResult:
         
         return cls(
             job_id=data["job_id"],
-            response=data["response"],
+            raw_response=data["raw_response"],
             parsed_response=data.get("parsed_response"),
             citations=citations,
             input_tokens=data.get("input_tokens", 0),

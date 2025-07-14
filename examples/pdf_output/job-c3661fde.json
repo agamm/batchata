@@ -1,0 +1,60 @@
+{
+  "job_id": "job-c3661fde",
+  "raw_response": "Based on the invoice document provided, here is the extracted information in JSON format:\n\n```json\n{\n  \"invoice_number\": \"INV-2024-001\",\n  \"total_amount\": 704.00,\n  \"vendor\": \"Office Supplies\",\n  \"payment_status\": \"OVERDUE\"\n}\n```\n\nThe information was extracted from the invoice document which shows:\n- Invoice number: INV-2024-001\n- Total amount: $704.00\n- Vendor: Office Supplies\n- Payment status: OVERDUE",
+  "parsed_response": {
+    "invoice_number": "INV-2024-001",
+    "total_amount": 704.0,
+    "vendor": "Office Supplies",
+    "payment_status": "OVERDUE"
+  },
+  "citations": [
+    {
+      "text": "INVOICE #INV-2024-001\r\nVendor: Office Supplies\r\nTotal: $704.00\r\nPayment Status: OVERDUE",
+      "source": "invoice_001.pdf",
+      "page": null,
+      "metadata": {
+        "type": "page_location",
+        "document_index": 0,
+        "start_page_number": 1,
+        "end_page_number": 2
+      }
+    },
+    {
+      "text": "INVOICE #INV-2024-001\r\nVendor: Office Supplies\r\nTotal: $704.00\r\nPayment Status: OVERDUE",
+      "source": "invoice_001.pdf",
+      "page": null,
+      "metadata": {
+        "type": "page_location",
+        "document_index": 0,
+        "start_page_number": 1,
+        "end_page_number": 2
+      }
+    },
+    {
+      "text": "INVOICE #INV-2024-001\r\nVendor: Office Supplies\r\nTotal: $704.00\r\nPayment Status: OVERDUE",
+      "source": "invoice_001.pdf",
+      "page": null,
+      "metadata": {
+        "type": "page_location",
+        "document_index": 0,
+        "start_page_number": 1,
+        "end_page_number": 2
+      }
+    },
+    {
+      "text": "INVOICE #INV-2024-001\r\nVendor: Office Supplies\r\nTotal: $704.00\r\nPayment Status: OVERDUE",
+      "source": "invoice_001.pdf",
+      "page": null,
+      "metadata": {
+        "type": "page_location",
+        "document_index": 0,
+        "start_page_number": 1,
+        "end_page_number": 2
+      }
+    }
+  ],
+  "input_tokens": 2397,
+  "output_tokens": 195,
+  "cost_usd": 0.005058,
+  "error": null
+}

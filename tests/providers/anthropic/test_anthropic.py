@@ -198,12 +198,12 @@ class TestAnthropicProvider:
         # Verify results
         assert len(results) == 2
         assert results[0].job_id == "job-1"
-        assert results[0].response == "4"
+        assert results[0].raw_response == "4"
         assert results[0].input_tokens == 10
         assert results[0].output_tokens == 5
         
         assert results[1].job_id == "job-2"
-        assert results[1].response == "Python is a programming language"
+        assert results[1].raw_response == "Python is a programming language"
         assert results[1].input_tokens == 15
         assert results[1].output_tokens == 20
     

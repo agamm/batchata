@@ -46,7 +46,7 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
             
             job_results.append(JobResult(
                 job_id=job_id,
-                response="",
+                raw_response="",
                 error=error_message
             ))
             continue
@@ -74,7 +74,7 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
             
             job_results.append(JobResult(
                 job_id=job_id,
-                response=full_text,
+                raw_response=full_text,
                 parsed_response=parsed_response,
                 citations=citations if citations else None,
                 input_tokens=input_tokens,
@@ -85,7 +85,7 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
         except Exception as e:
             job_results.append(JobResult(
                 job_id=job_id,
-                response="",
+                raw_response="",
                 error=f"Failed to parse result: {str(e)}"
             ))
     
