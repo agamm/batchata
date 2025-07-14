@@ -132,24 +132,30 @@ class TestAnthropicProvider:
         mock_batch.ended_at = None
         mock_anthropic_client.messages.batches.retrieve.return_value = mock_batch
         
-        status = provider.get_batch_status("batch_123")
+        status, error_details = provider.get_batch_status("batch_123")
         assert status == "running"
+        assert error_details is None
         
         # Test completed status
         mock_batch.processing_status = "ended"
         mock_batch.ended_at = "2024-01-01T00:00:00Z"
         mock_batch.request_counts.succeeded = 10
         mock_batch.request_counts.errored = 0
+        mock_batch.request_counts.total = 10
         
-        status = provider.get_batch_status("batch_123")
+        status, error_details = provider.get_batch_status("batch_123")
         assert status == "complete"
+        assert error_details is None
         
         # Test failed status
         mock_batch.request_counts.succeeded = 5
         mock_batch.request_counts.errored = 5
         
-        status = provider.get_batch_status("batch_123")
+        status, error_details = provider.get_batch_status("batch_123")
         assert status == "failed"
+        assert error_details is not None
+        assert error_details["errored_count"] == 5
+        assert error_details["total_count"] == 10
     
     def test_batch_results_retrieval(self, provider, mock_anthropic_client):
         """Test retrieving results from completed batch."""

@@ -7,7 +7,7 @@ Testing:
 """
 
 import pytest
-from typing import List, Optional
+from typing import List, Optional, Dict
 from unittest.mock import MagicMock
 
 from batchata.providers import Provider
@@ -38,8 +38,8 @@ class ConcreteProvider(Provider):
     def create_batch(self, jobs: List[Job]) -> str:
         return "test-batch-id"
     
-    def get_batch_status(self, batch_id: str) -> str:
-        return "complete"
+    def get_batch_status(self, batch_id: str) -> tuple[str, Optional[Dict]]:
+        return "complete", None
     
     def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
         return []

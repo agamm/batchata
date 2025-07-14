@@ -114,28 +114,44 @@ class AnthropicProvider(Provider):
         
         return provider_batch_id
     
-    def get_batch_status(self, batch_id: str) -> str:
+    def get_batch_status(self, batch_id: str) -> tuple[str, Optional[Dict]]:
         """Get current status of a batch."""
         try:
             batch_status = self.client.messages.batches.retrieve(batch_id)
+            
+            # Check if this is an error response
+            if hasattr(batch_status, 'type') and batch_status.type == 'error':
+                error_details = {
+                    "batch_id": batch_id,
+                    "error": batch_status.error.message,
+                    "error_type": batch_status.error.type
+                }
+                logger.error(f"Batch {batch_id} retrieval failed: {batch_status.error.message}")
+                return "failed", error_details
+            
             status = batch_status.processing_status
             
             # Map Anthropic statuses to our standard statuses
             if status == "ended":
                 # Check if there were any errors
-                if hasattr(batch_status, 'request_counts'):
-                    counts = batch_status.request_counts
-                    if hasattr(counts, 'errored') and counts.errored > 0:
-                        return "failed"
-                return "complete"
+                if hasattr(batch_status, 'request_counts') and batch_status.request_counts.errored > 0:
+                    error_details = {
+                        "batch_id": batch_id,
+                        "errored_count": batch_status.request_counts.errored,
+                        "total_count": batch_status.request_counts.total
+                    }
+                    logger.error(f"Batch {batch_id} completed with {batch_status.request_counts.errored} errors")
+                    return "failed", error_details
+                return "complete", None
             elif status in ["canceled", "expired"]:
-                return "failed"
-            elif status in ["in_progress"]:
-                return "running"
+                return "failed", {"batch_id": batch_id, "reason": f"Batch {status}"}
+            elif status == "in_progress":
+                return "running", None
             else:
-                return "pending"
+                return "pending", None
         except Exception as e:
-            raise ValidationError(f"Failed to get batch status: {e}")
+            logger.error(f"Failed to get batch status for {batch_id}: {e}")
+            return "failed", {"batch_id": batch_id, "error": str(e)}
     
     def cancel_batch(self, batch_id: str) -> bool:
         """Cancel a batch request.

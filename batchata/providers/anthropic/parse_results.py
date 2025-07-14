@@ -34,16 +34,20 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
         if not job:
             raise ValueError(f"Job {job_id} not found in mapping")
         
-        # Save raw response to disk if directory is provided
+        # Save raw response to disk if directory is provided (before any error handling)
         if raw_responses_dir:
             _save_raw_response(result, job_id, raw_responses_dir)
         
         # Handle failed results
         if result.result.type != "succeeded":
+            error_message = f"Request failed: {result.result.type}"
+            if hasattr(result.result, 'error') and result.result.error:
+                error_message = f"Request failed: {result.result.error.message}"
+            
             job_results.append(JobResult(
                 job_id=job_id,
                 response="",
-                error=f"Request failed: {result.result.type}"
+                error=error_message
             ))
             continue
         

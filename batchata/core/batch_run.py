@@ -142,7 +142,13 @@ class BatchRun:
             "created_at": datetime.now().isoformat(),
             "pending_jobs": [job.to_dict() for job in self.pending_jobs],
             "completed_results": [result.to_dict() for result in self.completed_results.values()],
-            "failed_jobs": [{"id": job_id, "error": error} for job_id, error in self.failed_jobs.items()],
+            "failed_jobs": [
+                {
+                    "id": job_id, 
+                    "error": error,
+                    "timestamp": datetime.now().isoformat()
+                } for job_id, error in self.failed_jobs.items()
+            ],
             "total_cost_usd": self.cost_tracker.used_usd,
             "config": {
                 "state_file": self.config.state_file,
@@ -288,7 +294,7 @@ class BatchRun:
             
             # Poll for completion
             logger.info(f"Polling for batch {batch_id} completion...")
-            status = provider.get_batch_status(batch_id)
+            status, error_details = provider.get_batch_status(batch_id)
             logger.info(f"Initial batch status: {status}")
             poll_count = 0
             
@@ -298,7 +304,7 @@ class BatchRun:
                 
                 # Sleep for the progress interval duration
                 time.sleep(self._progress_interval)
-                status = provider.get_batch_status(batch_id)
+                status, error_details = provider.get_batch_status(batch_id)
                 
                 # Call progress callback after each interval
                 if self._progress_callback:
@@ -310,10 +316,21 @@ class BatchRun:
                 logger.info(f"Batch {batch_id} status: {status} (polling for {elapsed_seconds:.1f}s)")
             
             if status == "failed":
-                logger.error(f"Batch {batch_id} failed")
+                error_msg = f"Batch failed: {batch_id}"
+                if error_details:
+                    error_msg = f"Batch failed: {error_details.get('error', error_details.get('reason', 'Unknown error'))}"
+                    logger.error(f"Batch {batch_id} failed with details: {error_details}")
+                else:
+                    logger.error(f"Batch {batch_id} failed")
+                
                 for job in jobs:
-                    self.failed_jobs[job.id] = f"Batch failed: {batch_id}"
+                    self.failed_jobs[job.id] = error_msg
                     self.pending_jobs.remove(job)
+                
+                # Save raw responses even on failure if configured
+                if self.raw_responses_dir and error_details:
+                    self._save_batch_error_details(batch_id, error_details)
+                
                 return
             
             # Get results
@@ -333,6 +350,8 @@ class BatchRun:
                     logger.info(f"✓ Job {result.job_id} completed successfully")
                 else:
                     self.failed_jobs[result.job_id] = result.error or "Unknown error"
+                    # Save failed result to file as well for debugging
+                    self._save_result_to_file(result)
                     logger.error(f"✗ Job {result.job_id} failed: {result.error}")
                 
                 # Remove from pending
@@ -364,6 +383,20 @@ class BatchRun:
                 json.dump(result.to_dict(), f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save result for {result.job_id}: {e}")
+    
+    def _save_batch_error_details(self, batch_id: str, error_details: Dict):
+        """Save batch error details to raw responses directory."""
+        try:
+            error_file = self.raw_responses_dir / f"batch_{batch_id}_error.json"
+            with open(error_file, 'w') as f:
+                json.dump({
+                    "batch_id": batch_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "error_details": error_details
+                }, f, indent=2)
+            logger.info(f"Saved batch error details to {error_file}")
+        except Exception as e:
+            logger.error(f"Failed to save batch error details: {e}")
     
     def _is_complete(self) -> bool:
         """Check if all jobs are complete."""

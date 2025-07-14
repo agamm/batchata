@@ -103,7 +103,7 @@ class MockProvider(Provider):
         
         return batch_id
     
-    def get_batch_status(self, batch_id: str) -> str:
+    def get_batch_status(self, batch_id: str) -> tuple[str, Optional[Dict]]:
         """Get mock batch status."""
         self.call_history.append({"method": "get_batch_status", "batch_id": batch_id})
         
@@ -115,14 +115,14 @@ class MockProvider(Provider):
         # Simulate processing delay
         elapsed = time.time() - batch["created_at"]
         if elapsed < self.delay:
-            return "running"
+            return "running", None
         
         # Mark as complete and generate results if needed
         if batch["status"] == "pending":
             batch["status"] = "complete"
             self._generate_results(batch_id)
         
-        return batch["status"]
+        return batch["status"], None
     
     def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
         """Get mock batch results."""
@@ -134,7 +134,8 @@ class MockProvider(Provider):
         batch = self.batches[batch_id]
         
         # Ensure batch is complete
-        if self.get_batch_status(batch_id) != "complete":
+        status, _ = self.get_batch_status(batch_id)
+        if status != "complete":
             raise ProviderError("Batch not complete")
         
         return batch["results"]

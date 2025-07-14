@@ -87,14 +87,16 @@ class Provider(ABC):
         pass
     
     @abstractmethod
-    def get_batch_status(self, batch_id: str) -> str:
+    def get_batch_status(self, batch_id: str) -> tuple[str, Optional[Dict]]:
         """Get current status of a batch.
         
         Args:
             batch_id: Provider's batch identifier
             
         Returns:
-            Status string: "pending", "running", "complete", "failed"
+            Tuple of (status, error_details) where:
+            - status: "pending", "running", "complete", "failed"
+            - error_details: Optional dict with error information if failed
         """
         pass
     
