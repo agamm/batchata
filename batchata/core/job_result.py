@@ -43,10 +43,20 @@ class JobResult:
     
     def to_dict(self) -> Dict[str, Any]:
         """Serialize for state persistence."""
+        # Handle parsed_response serialization
+        parsed_response = None
+        if self.parsed_response is not None:
+            if isinstance(self.parsed_response, dict):
+                parsed_response = self.parsed_response
+            elif isinstance(self.parsed_response, BaseModel):
+                parsed_response = self.parsed_response.model_dump()
+            else:
+                parsed_response = str(self.parsed_response)
+        
         return {
             "job_id": self.job_id,
             "response": self.response,
-            "parsed_response": self.parsed_response if isinstance(self.parsed_response, dict) else None,
+            "parsed_response": parsed_response,
             "citations": [asdict(c) for c in self.citations] if self.citations else None,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,

@@ -125,14 +125,23 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Citati
 def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel | None:
     """Extract JSON from text and parse into Pydantic model."""
     try:
-        # Find JSON in text
-        start_idx = text.find('{')
-        end_idx = text.rfind('}') + 1
+        # First try to extract JSON from markdown code blocks
+        import re
+        code_block_pattern = r'```(?:json)?\s*\n([\s\S]*?)\n```'
+        match = re.search(code_block_pattern, text)
         
-        if start_idx == -1 or end_idx <= start_idx:
-            return None
+        if match:
+            json_str = match.group(1)
+        else:
+            # Fall back to finding JSON in text
+            start_idx = text.find('{')
+            end_idx = text.rfind('}') + 1
+            
+            if start_idx == -1 or end_idx <= start_idx:
+                return None
+            
+            json_str = text[start_idx:end_idx]
         
-        json_str = text[start_idx:end_idx]
         json_data = json.loads(json_str)
         return response_model(**json_data)
     except:

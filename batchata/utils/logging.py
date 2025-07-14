@@ -53,4 +53,10 @@ def set_log_level(logger_name: Optional[str] = None, level: str = "INFO"):
         logger.setLevel(getattr(logging, level.upper()))
     else:
         # Set for all batchata loggers
-        logging.getLogger("batchata").setLevel(getattr(logging, level.upper()))
+        root_logger = logging.getLogger("batchata")
+        root_logger.setLevel(getattr(logging, level.upper()))
+        
+        # Also set level for all existing child loggers
+        for name, logger in logging.Logger.manager.loggerDict.items():
+            if isinstance(logger, logging.Logger) and name.startswith("batchata."):
+                logger.setLevel(getattr(logging, level.upper()))

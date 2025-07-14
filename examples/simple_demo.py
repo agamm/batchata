@@ -21,7 +21,7 @@ def main():
         Batch(state_file="./examples/demo_state.json", results_dir="./examples/output", max_concurrent=1, items_per_batch=1, reuse_state=False)
         .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
         .add_cost_limit(usd=5.0)
-        .set_verbosity("warning")
+        .set_verbosity("error")
     )
     
     # Add some jobs
@@ -39,7 +39,11 @@ def main():
     
     # Execute batch
     print("Starting batch processing...")
-    run = batch.run(wait=True, on_progress=lambda s, t: print(f"\rProgress: {s['completed']}/{s['total']} jobs | Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | Items per batch: {s['items_per_batch']} | Time: {round(t, 2)}s", end=""))
+    run = batch.run(wait=True, on_progress=lambda s, t: \
+                    print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
+                          f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
+                          f"Cost: ${s['cost_usd']}/{s['cost_limit_usd']} | " \
+                          f"Items per batch: {s['items_per_batch']} | Time: {round(t, 2)}s", end=""))
     
     # Get results
     run.status(print_status=True)

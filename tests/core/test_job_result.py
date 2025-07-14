@@ -169,10 +169,9 @@ class TestJobResult:
             parsed_response=model_instance
         )
         
-        # Serialize - Pydantic models should be excluded from serialization
-        # (as noted in the to_dict method)
+        # Serialize - Pydantic models should be serialized to dict
         data = result_with_model.to_dict()
-        assert data["parsed_response"] is None  # Pydantic models are not serialized
+        assert data["parsed_response"] == {"name": "test", "value": 42}  # Pydantic models are serialized
         
         # Test with dict (which should be serialized)
         dict_response = {"name": "test", "value": 42}
