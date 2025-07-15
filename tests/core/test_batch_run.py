@@ -159,8 +159,6 @@ class TestBatchRun:
     
     def test_cost_reservation_blocks_then_frees_budget(self, temp_dir, mock_all_file_operations):
         """Test that cost reservation and adjustment works correctly across sequential batches."""
-        import threading
-        import time
         from unittest.mock import Mock, patch
         from batchata.core.job_result import JobResult
         
@@ -177,7 +175,7 @@ class TestBatchRun:
         params = BatchParams(
             state_file=state_file,
             results_dir=results_dir,
-            max_concurrent=1,  # Force sequential execution to avoid race conditions
+            max_concurrent=1,  # Sequential execution to test reserve->adjust->reserve flow
             items_per_batch=1,  # One job per batch
             cost_limit_usd=100.0
         )
