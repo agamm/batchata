@@ -217,6 +217,26 @@ class Batch:
             from ..utils.validation import validate_flat_model
             validate_flat_model(response_model)
         
+        # Validate PDF textual compatibility with citations
+        if file and enable_citations and file.suffix.lower() == '.pdf':
+            from ..utils.pdf import is_textual_pdf
+            from ..utils.logging import get_logger
+            
+            logger = get_logger(__name__)
+            textual_score = is_textual_pdf(file)
+            
+            if textual_score == 0.0:
+                raise ValueError(
+                    f"PDF '{file}' appears to be image-only (no extractable text). "
+                    "Citations will not work with scanned/image PDFs. "
+                    "Please use a text-based PDF or disable citations."
+                )
+            elif textual_score < 0.1:
+                logger.warning(
+                    f"PDF '{file}' has very low text content (score: {textual_score:.2f}). "
+                    "Citations may not work well with primarily image-based PDFs."
+                )
+        
         self.jobs.append(job)
         return self
     
