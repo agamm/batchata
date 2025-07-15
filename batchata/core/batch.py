@@ -212,6 +212,11 @@ class Batch:
             **params
         )
         
+        # Validate citation compatibility
+        if response_model and enable_citations:
+            from ..utils.validation import validate_flat_model
+            validate_flat_model(response_model)
+        
         self.jobs.append(job)
         return self
     

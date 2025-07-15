@@ -1,15 +1,12 @@
 # Batchata
 
-Batch processing for AI models with cost tracking, state persistence, and parallel execution.
+Unified API for AI Batch requests with cost tracking, Pydantic responses, citation mapping and parallel execution.
 
 ## Why Batchata?
 
-Other libraries don't have batch request capabilities out of the box. Batchata provides:
-
 - Native batch processing (50% cost savings via provider APIs)
-- Cost tracking and limits
+- Set $ cost limits for batch requests
 - State persistence for network interruption recovery
-- Parallel execution
 - Structured output with Pydantic models
 - Citation extraction and field mapping (supported only by anthropic atm)
 
@@ -160,6 +157,14 @@ load_dotenv()
 from batchata import Batch
 # Your API keys will now be loaded from .env
 ```
+
+## Limitations
+
+- Parallel execution not implemented yet.
+- Field/citation mapping is heuristic, which means it isn't perfect.
+- Right now only Anthropic Batch requests are supported.
+- Cost tracking is not precise as the actual usage is only known after the batch is complete, try setting `items_per_batch` to a lower value for more accurate cost tracking.
+
 
 ## License
 

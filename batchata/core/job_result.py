@@ -16,6 +16,7 @@ class JobResult:
         raw_response: Raw text response from the model
         parsed_response: Structured output (if response_model was used)
         citations: Extracted citations (if enable_citations was True)
+        citation_mappings: Maps field names to relevant citations (if response_model used)
         input_tokens: Number of input tokens used
         output_tokens: Number of output tokens generated
         cost_usd: Total cost in USD
@@ -26,6 +27,7 @@ class JobResult:
     raw_response: str  # Raw text response
     parsed_response: Optional[Union[BaseModel, Dict]] = None  # Structured output or error dict
     citations: Optional[List[Citation]] = None  # Extracted citations
+    citation_mappings: Optional[Dict[str, List[Citation]]] = None  # Field -> citations mapping
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
@@ -53,11 +55,20 @@ class JobResult:
             else:
                 parsed_response = str(self.parsed_response)
         
+        # Handle citation_mappings serialization
+        citation_mappings = None
+        if self.citation_mappings:
+            citation_mappings = {
+                field: [asdict(c) for c in citations]
+                for field, citations in self.citation_mappings.items()
+            }
+        
         return {
             "job_id": self.job_id,
             "raw_response": self.raw_response,
             "parsed_response": parsed_response,
             "citations": [asdict(c) for c in self.citations] if self.citations else None,
+            "citation_mappings": citation_mappings,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
             "cost_usd": self.cost_usd,
@@ -72,11 +83,20 @@ class JobResult:
         if data.get("citations"):
             citations = [Citation(**c) for c in data["citations"]]
         
+        # Reconstruct citation_mappings if present
+        citation_mappings = None
+        if data.get("citation_mappings"):
+            citation_mappings = {
+                field: [Citation(**c) for c in citations]
+                for field, citations in data["citation_mappings"].items()
+            }
+        
         return cls(
             job_id=data["job_id"],
             raw_response=data["raw_response"],
             parsed_response=data.get("parsed_response"),
             citations=citations,
+            citation_mappings=citation_mappings,
             input_tokens=data.get("input_tokens", 0),
             output_tokens=data.get("output_tokens", 0),
             cost_usd=data.get("cost_usd", 0.0),

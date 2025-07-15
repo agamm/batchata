@@ -74,7 +74,7 @@ def prepare_messages(job: Job) -> tuple[List[Dict], Optional[str]]:
         if job.enable_citations:
             document_part["title"] = job.file.name
             document_part["citations"] = {"enabled": True}
-            system_parts.append("Include citations in your response referencing the specific parts of the documents you used.")
+            system_parts.append("(Important) Include concise citations in your response referencing the specific parts of the documents you used.")
         
         content_parts.append(document_part)
         

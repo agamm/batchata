@@ -54,13 +54,33 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
         try:
             message = result.result.message
             
-            # Extract text and citations
-            full_text, citations = _parse_content(message.content, job)
+            # Extract text and citation blocks
+            full_text, citation_blocks = _parse_content(message.content, job)
             
             # Parse structured output if needed
             parsed_response = None
             if job.response_model:
                 parsed_response = _extract_json_model(full_text, job.response_model)
+            
+            # Process citations
+            final_citations = None
+            citation_mappings = None
+            
+            if citation_blocks:
+                # Always populate citations list
+                final_citations = [citation for _, citation in citation_blocks]
+                
+                # Try to map citations to fields if we have a response model
+                if parsed_response:
+                    from .citation_mapper import map_citations_to_fields
+                    mappings, warning = map_citations_to_fields(
+                        citation_blocks, 
+                        parsed_response
+                    )
+                    citation_mappings = mappings if mappings else None
+                    
+                    if warning:
+                        logger.warning(f"Job {job_id}: {warning}")
             
             # Extract usage
             usage = getattr(message, 'usage', None)
@@ -76,7 +96,8 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
                 job_id=job_id,
                 raw_response=full_text,
                 parsed_response=parsed_response,
-                citations=citations if citations else None,
+                citations=final_citations,
+                citation_mappings=citation_mappings,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cost_usd=cost_usd
@@ -92,8 +113,13 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
     return job_results
 
 
-def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Citation]]:
-    """Parse content blocks to extract text and citations."""
+def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[str, Citation]]]:
+    """Parse content blocks to extract text and citation blocks.
+    
+    Returns:
+        Tuple of (full_text, citation_blocks) where citation_blocks is
+        a list of (block_text, citation) tuples.
+    """
     if isinstance(content, str):
         return content, []
     
@@ -101,19 +127,23 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Citati
         return str(content), []
     
     text_parts = []
-    citations = []
+    citation_blocks = []
     
     for block in content:
+        block_text = ""
+        
         # Extract text
         if hasattr(block, 'text'):
-            text_parts.append(block.text)
+            block_text = block.text
+            text_parts.append(block_text)
         
         # Extract citations if enabled  
-        if job.enable_citations and hasattr(block, 'citations'):
+        if job and job.enable_citations and hasattr(block, 'citations'):
             for cit in block.citations or []:
                 citation = Citation(
                     text=getattr(cit, 'cited_text', ''),
                     source=getattr(cit, 'document_title', 'Document'),
+                    page=getattr(cit, 'start_page_number', None),  # Set page directly
                     metadata={
                         'type': getattr(cit, 'type', ''),
                         'document_index': getattr(cit, 'document_index', 0),
@@ -121,9 +151,9 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Citati
                         'end_page_number': getattr(cit, 'end_page_number', None)
                     }
                 )
-                citations.append(citation)
+                citation_blocks.append((block_text, citation))
     
-    return "".join(text_parts), citations
+    return "".join(text_parts), citation_blocks
 
 
 def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel | None:

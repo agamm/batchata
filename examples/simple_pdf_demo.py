@@ -20,16 +20,31 @@ class InvoiceAnalysis(BaseModel):
     payment_status: str
 
 
-def generate_invoice_content(invoice_num: int) -> str:
-    """Generate simple invoice content with random data."""
+def generate_invoice_pages(invoice_num: int) -> list[str]:
+    """Generate invoice content split across multiple pages."""
     vendor = random.choice(["Acme Corp", "Tech Solutions", "Office Supplies"])
     total = random.randint(100, 1000)
     status = random.choice(["PAID", "PENDING", "OVERDUE"])
     
-    return f"""INVOICE #INV-2024-{invoice_num:03d}
-Vendor: {vendor}
+    # Split content across 3 pages for better citation testing
+    page1 = f"""INVOICE #INV-2024-{invoice_num:03d}
+
+Date: 2024-07-14
+Vendor: {vendor}"""
+    
+    page2 = f"""Invoice Details
+
 Total: ${total}.00
-Payment Status: {status}"""
+Tax: Included
+Shipping: Free"""
+    
+    page3 = f"""Payment Information
+
+Payment Status: {status}
+Due Date: 2024-08-14
+Terms: Net 30"""
+    
+    return [page1, page2, page3]
 
 
 def create_temp_invoice_files():
@@ -39,8 +54,8 @@ def create_temp_invoice_files():
     files = []
     for i in range(1, 4):
         filepath = Path(temp_dir) / f"invoice_{i:03d}.pdf"
-        content = generate_invoice_content(i)
-        pdf_bytes = create_pdf([content])
+        pages = generate_invoice_pages(i)
+        pdf_bytes = create_pdf(pages)
         filepath.write_bytes(pdf_bytes)
         files.append(filepath)
     
@@ -96,8 +111,16 @@ def main():
                 # Show citations if available
                 if result.citations:
                     print(f"  Citations found: {len(result.citations)}")
-                    for i, citation in enumerate(result.citations[:2]):
-                        print(f"    - {citation.text[:50]}...")
+                    for i, citation in enumerate(result.citations):
+                        print(f"    - Page {citation.page}: {citation.text[:50]}...")
+                
+                # Show citation mappings if available
+                if result.citation_mappings:
+                    print(f"  \nCitation mappings:")
+                    for field, field_citations in result.citation_mappings.items():
+                        print(f"    {field}:")
+                        for citation in field_citations:
+                            print(f"      - Page {citation.page}: {citation.text.strip()}")
             else:
                 print(f"\nJob {job_id} failed: {result.error}")
     
