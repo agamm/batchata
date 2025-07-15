@@ -35,16 +35,7 @@ batch = Batch(state_file="./state.json", results_dir="./output", max_concurrent=
 for file in files:
     batch.add_job(file=file, prompt="Summarize")
 
-# Option 1: Progress callback during run
-run = batch.run(
-    wait=True, 
-    on_progress=lambda stats, time: print(f"Progress: {stats['completed']}/{stats['total']}")
-)
-
-# Option 2: Set progress callback on BatchRun
-run = batch.run()
-run.on_progress(lambda stats, time: print(f"Progress: {stats['completed']}/{stats['total']}, {time:.1f}s"))
-run.wait()
+run = batch.run(wait=True)
 
 results = run.results()  # Dict[job_id, JobResult]
 ```
@@ -55,12 +46,22 @@ results = run.results()  # Dict[job_id, JobResult]
 ### Batch
 
 ```python
-Batch(state_file: str, results_dir: str, max_concurrent: int = 10)
+Batch(
+    state_file: str, 
+    results_dir: str, 
+    max_concurrent: int = 10,
+    items_per_batch: int = 10,
+    reuse_state: bool = True,
+    save_raw_responses: Optional[bool] = None
+)
 ```
 
 - `state_file`: Path to save batch state for recovery (in case of network interruption)
 - `results_dir`: Directory to store individual job results  
 - `max_concurrent`: Maximum parallel batch requests (default: 10)
+- `items_per_batch`: Number of jobs per provider batch (affects cost tracking accuracy, default: 10)
+- `reuse_state`: Whether to resume from existing state file and delete previous results_dir file results (default: True)
+- `save_raw_responses`: Whether to save raw API responses in the results dir (default: True if results_dir is set)
 
 **Methods:**
 
@@ -81,7 +82,7 @@ Set logging verbosity level. Useful for production environments.
 #### `.add_job(...)`
 Add a job to the batch. Parameters:
 - `messages`: Chat messages (list of dicts with "role" and "content")
-- `file`: Path to file for file-based input
+- `file`: Path to file for file-based input (supports string paths, Path objects, and PDF files)
 - `prompt`: Prompt to use with file input
 - `model`: Override default model
 - `temperature`: Override default temperature (0.0-1.0)
@@ -101,7 +102,7 @@ Execute the batch. Returns a `BatchRun` object.
 
 Object returned by `batch.run()`:
 
-- `.status(print: bool = False)` - Get current batch status
+- `.status(print_status: bool = False)` - Get current batch status
 - `.results()` - Get completed results as Dict[str, JobResult]
 - `.wait(timeout: float = None)` - Wait for batch completion
 - `.on_progress(callback, interval=3.0)` - Set progress monitoring callback
@@ -117,17 +118,32 @@ The progress callback receives a dict with:
 - `cost_usd`: Current total cost
 - `cost_limit_usd`: Cost limit (if set)
 - `is_complete`: Whether batch is finished
+- `batches_completed`: Number of completed batches
+- `batches_total`: Total number of batches
+- `batches_pending`: Number of pending batches
+- `items_per_batch`: Items per batch setting
 
 ### JobResult
 
 - `job_id`: Unique identifier
-- `response`: Raw text response
+- `raw_response`: Raw text response
 - `parsed_response`: Structured data (if response_model used)
-- `citations`: List of citations (if enabled)
+- `citations`: List of Citation objects (if enabled)
+- `citation_mappings`: Dict[str, List[Citation]] - Maps field names to relevant citations (not 100% accurate, only with response_model)
 - `input_tokens`: Input token count
 - `output_tokens`: Output token count
 - `cost_usd`: Cost for this job
 - `error`: Error message (if failed)
+- `is_success`: Property that returns True if job completed successfully
+- `total_tokens`: Property that returns total tokens used (input + output)
+
+### Citation
+
+Each Citation object contains:
+- `text`: The cited text
+- `source`: Source identifier (e.g., file name)
+- `page`: Page number if applicable (for PDFs)
+- `metadata`: Additional metadata dict
 
 ## File Structure
 
@@ -162,6 +178,7 @@ from batchata import Batch
 
 - Parallel execution not implemented yet.
 - Field/citation mapping is heuristic, which means it isn't perfect.
+- Citation mapping only works with flat Pydantic models (no nested BaseModel fields).
 - Right now only Anthropic Batch requests are supported.
 - Cost tracking is not precise as the actual usage is only known after the batch is complete, try setting `items_per_batch` to a lower value for more accurate cost tracking.
 
