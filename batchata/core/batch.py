@@ -217,6 +217,10 @@ class Batch:
             from ..utils.validation import validate_flat_model
             validate_flat_model(response_model)
         
+        # Validate job with provider (includes PDF validation for Anthropic)
+        provider.validate_job(job)
+        
+        
         self.jobs.append(job)
         return self
     
