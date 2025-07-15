@@ -95,6 +95,8 @@ Add a job to the batch. Parameters:
 
 Note: Provide either `messages` OR `file`+`prompt`, not both.
 
+**PDF Citation Validation**: When using Anthropic models with `enable_citations=True` on PDF files, Batchata automatically validates that the PDF contains extractable text. Image-only or scanned PDFs will raise a ValidationError since citations cannot be extracted from them. This validation is Anthropic-specific and doesn't affect other providers.
+
 #### `.run(wait: bool = False, on_progress: Callable = None)`
 Execute the batch. Returns a `BatchRun` object.
 - `wait=True`: Block until all jobs complete
