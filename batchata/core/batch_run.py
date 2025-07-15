@@ -2,7 +2,6 @@
 
 import json
 import logging
-import signal
 import time
 import uuid
 from datetime import datetime
@@ -85,15 +84,6 @@ class BatchRun:
         # Try to resume from saved state
         self._resume_from_state()
     
-    def _setup_signal_handlers(self):
-        """Setup signal handlers for graceful shutdown."""
-        def signal_handler(signum, frame):
-            logger.info(f"Received signal {signum}, initiating graceful shutdown")
-            self._shutdown_event.set()  # Signal shutdown to execution loop
-            self.shutdown(wait_for_active=False)  # Don't wait for active jobs on Ctrl+C
-        
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
     
     def _resume_from_state(self):
         """Resume from saved state if available."""
@@ -287,6 +277,7 @@ class BatchRun:
                 self.pending_jobs.remove(job)
             return
         
+        batch_id = None
         try:
             # Create batch
             logger.info(f"Creating batch with {len(jobs)} jobs...")
@@ -314,6 +305,16 @@ class BatchRun:
                 
                 elapsed_seconds = poll_count * self._progress_interval
                 logger.info(f"Batch {batch_id} status: {status} (polling for {elapsed_seconds:.1f}s)")
+        except KeyboardInterrupt:
+            logger.warning(f"\nCancelling batch{f' {batch_id}' if batch_id else ''}...")
+            if batch_id:
+                provider.cancel_batch(batch_id)
+            for job in jobs:
+                self.failed_jobs[job.id] = "Cancelled by user"
+                if job in self.pending_jobs:
+                    self.pending_jobs.remove(job)
+            self.state_manager.save(self)
+            raise
             
             if status == "failed":
                 error_msg = f"Batch failed: {batch_id}"
