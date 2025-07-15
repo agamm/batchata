@@ -1,70 +1,46 @@
-"""Custom exceptions for batchata."""
+"""Custom exceptions for the batch processing library."""
 
 
-# Base exceptions
 class BatchataError(Exception):
-    """Base exception for all batchata errors"""
+    """Base exception for all Batchata errors."""
     pass
 
 
-# Batch Manager exceptions
-class BatchManagerError(BatchataError):
-    """Base exception for BatchManager errors"""
+class ValidationError(BatchataError):
+    """Raised when job or configuration validation fails."""
     pass
 
 
-class StateFileError(BatchManagerError):
-    """Error related to state file operations"""
+class ProviderError(BatchataError):
+    """Base exception for provider-related errors."""
     pass
 
 
-class InvalidStateError(StateFileError):
-    """State file is invalid or corrupted"""
+class ProviderNotFoundError(ProviderError):
+    """Raised when no provider is found for a model."""
     pass
 
 
-class CostLimitExceededError(BatchManagerError):
-    """Processing stopped due to cost limit"""
+class ModelNotSupportedError(ProviderError):
+    """Raised when a model is not supported by its provider."""
     pass
 
 
-class JobProcessingError(BatchManagerError):
-    """Error during job processing"""
+class BatchSubmissionError(ProviderError):
+    """Raised when batch submission to provider fails."""
     pass
 
 
-class BatchInterruptedError(BatchManagerError):
-    """Batch processing was interrupted and cannot be resumed"""
+class CostLimitExceededError(BatchataError):
+    """Raised when cost limit would be exceeded."""
     pass
 
 
-# File and content validation exceptions
-class FileTooLargeError(BatchataError):
-    """File exceeds model context window limits"""
+class StateError(BatchataError):
+    """Raised when state management operations fail."""
     pass
 
 
-class UnsupportedContentError(BatchataError):
-    """Content type is not supported for the requested operation"""
-    pass
-
-
-class UnsupportedFileFormatError(BatchataError):
-    """File format is not supported"""
-    pass
-
-
-# Resource constraint exceptions
-class InsufficientMemoryError(BatchataError):
-    """Insufficient memory to process the request"""
-    pass
-
-
-class RateLimitExceededError(BatchataError):
-    """API rate limit exceeded"""
-    pass
-
-
-class APIQuotaExceededError(BatchataError):
-    """API quota limit exceeded"""
+class ParseError(BatchataError):
+    """Raised when response parsing fails."""
     pass

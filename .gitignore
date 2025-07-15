@@ -44,3 +44,7 @@ Thumbs.db
 raw_responses/
 debug/
 .qodo/
+examples/output/
+examples/file_output/
+examples/pdf_output/
+examples/**/*.json

@@ -126,10 +126,11 @@ wheels = [
 
 [[package]]
 name = "batchata"
-version = "0.2.6"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "pydantic" },
     { name = "tokencost" },
 ]
 
@@ -144,6 +145,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.57.1" },
+    { name = "pydantic", specifier = ">=2.0" },
     { name = "tokencost", specifier = ">=0.1.24" },
 ]
 
