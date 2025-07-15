@@ -122,7 +122,7 @@ class BatchRun:
             self.failed_jobs[job_data["id"]] = job_data.get("error", "Unknown error")
         
         # Restore cost tracker
-        self.cost_tracker.track_spend(state.total_cost_usd)
+        self.cost_tracker.used_usd = state.total_cost_usd
         
         logger.info(
             f"Resumed with {len(self.pending_jobs)} pending, "
@@ -317,8 +317,7 @@ class BatchRun:
         failed = batch_result.get("failed", {})
         cost = batch_result.get("cost", 0.0)
         
-        # Track cost
-        self.cost_tracker.track_spend(cost)
+        # Note: Cost already tracked by adjust_reserved_cost in _execute_batch
         
         # Update completed results
         for result in results:
@@ -347,12 +346,12 @@ class BatchRun:
         if not batch_jobs:
             return {"results": [], "failed": {}, "cost": 0.0}
         
-        # Check cost limit
+        # Reserve cost limit
         logger.info(f"Estimating cost for batch of {len(batch_jobs)} jobs...")
         estimated_cost = provider.estimate_cost(batch_jobs)
         logger.info(f"Total estimated cost: ${estimated_cost:.4f}, remaining budget: ${self.cost_tracker.remaining():.4f}")
         
-        if not self.cost_tracker.can_afford(estimated_cost):
+        if not self.cost_tracker.reserve_cost(estimated_cost):
             logger.warning(f"Cost limit would be exceeded, skipping batch of {len(batch_jobs)} jobs")
             failed = {}
             for job in batch_jobs:
@@ -377,6 +376,9 @@ class BatchRun:
                 else:
                     logger.error(f"Batch {batch_id} failed")
                 
+                # Release the reservation since batch failed
+                self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
+                
                 failed = {}
                 for job in batch_jobs:
                     failed[job.id] = error_msg
@@ -392,8 +394,9 @@ class BatchRun:
             raw_responses_path = str(self.raw_responses_dir) if self.raw_responses_dir else None
             results = provider.get_batch_results(batch_id, raw_responses_path)
             
-            # Calculate actual cost
+            # Calculate actual cost and adjust reservation
             actual_cost = sum(r.cost_usd for r in results)
+            self.cost_tracker.adjust_reserved_cost(estimated_cost, actual_cost)
             
             logger.info(
                 f"✓ Batch {batch_id} completed: "
@@ -408,11 +411,15 @@ class BatchRun:
             logger.warning(f"\nCancelling batch{f' {batch_id}' if batch_id else ''}...")
             if batch_id:
                 provider.cancel_batch(batch_id)
+            # Release the reservation since batch was cancelled
+            self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
             # Handle cancellation in the wrapper with proper locking
             raise
             
         except Exception as e:
             logger.error(f"✗ Batch execution failed: {e}")
+            # Release the reservation since batch failed
+            self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
             failed = {}
             for job in batch_jobs:
                 failed[job.id] = str(e)
