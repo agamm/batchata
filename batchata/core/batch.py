@@ -227,16 +227,16 @@ class Batch:
     def run(self, wait: bool = False, on_progress: Optional[Callable[[Dict, float], None]] = None, progress_interval: float = 1.0) -> 'BatchRun':
         """Execute the batch.
         
-        Creates a BatchRun instance and starts processing the jobs.
+        Creates a BatchRun instance and starts processing the jobs synchronously.
         
         Args:
-            wait: If True, block until all jobs complete
+            wait: Legacy parameter, ignored (execution is always synchronous)
             on_progress: Optional progress callback function that receives
                         (stats_dict, elapsed_time_seconds)
             progress_interval: Interval in seconds between progress updates (default: 1.0)
             
         Returns:
-            BatchRun instance for monitoring progress
+            BatchRun instance with completed results
             
         Raises:
             ValueError: If no jobs have been added
@@ -255,9 +255,6 @@ class Batch:
             run.set_on_progress(on_progress, interval=progress_interval)
         
         run.start()
-        
-        if wait:
-            run.wait()
         
         return run
     

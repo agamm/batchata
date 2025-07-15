@@ -1,11 +1,15 @@
 # Batchata
 
-[![Build Status](https://github.com/agamm/batchata/workflows/Tests/badge.svg)](https://github.com/agamm/batchata/actions)
-[![PyPI version](https://badge.fury.io/py/batchata.svg)](https://badge.fury.io/py/batchata)
+<img alt="Batchata AI Batch Build Status" src="https://github.com/agamm/batchata/workflows/Tests/badge.svg" />
+<img alt="Batchata AI Batch PyPI version" src="https://badge.fury.io/py/batchata.svg" />
 
 Unified API for AI Batch requests with cost tracking, Pydantic responses, citation mapping and parallel execution.
 
 *This library is currently in alpha - so there will be breaking changes*
+
+## Why AI-batching?
+
+AI providers offer batch APIs that process requests asynchronously at 50% reduced cost compared to real-time APIs. This is ideal for workloads like document processing, data analysis, and content generation where immediate responses aren't required. However, managing batch jobs across providers, tracking costs, handling failures, and mapping citations back to source documents quickly becomes complex - that's where Batchata comes in.
 
 ## Why Batchata?
 
@@ -253,7 +257,6 @@ from batchata import Batch
 
 ## Limitations
 
-- Parallel execution not implemented yet.
 - Field/citation mapping is heuristic, which means it isn't perfect.
 - Citation mapping only works with flat Pydantic models (no nested BaseModel fields).
 - Right now only Anthropic Batch requests are supported.

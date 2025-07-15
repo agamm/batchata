@@ -1,9 +1,9 @@
 """Batch run execution management."""
 
 import json
-import logging
+import threading
 import time
-import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -64,6 +64,10 @@ class BatchRun:
         self._start_time: Optional[datetime] = None
         self._progress_callback: Optional[Callable[[Dict, float], None]] = None
         self._progress_interval: float = 1.0  # Default to 1 second
+        
+        # Threading primitives
+        self._state_lock = threading.Lock()
+        self._shutdown_event = threading.Event()
         
         # Results directory
         self.results_dir = Path(config.results_dir)
@@ -194,29 +198,47 @@ class BatchRun:
         return self
     
     def _process_all_jobs(self):
-        """Process all jobs synchronously."""
+        """Process all jobs with parallel execution."""
         # Prepare all batches
         batches = self._prepare_batches()
         self.total_batches = len(batches)
         
-        # Process each batch
-        for i, (provider_name, provider, batch_jobs) in enumerate(batches):
-            self.current_batch_index = i + 1
-            self.current_batch_size = len(batch_jobs)
+        # Process batches in parallel
+        with ThreadPoolExecutor(max_workers=self.config.max_concurrent) as executor:
+            futures = [executor.submit(self._execute_batch_wrapped, provider, batch_jobs) 
+                      for _, provider, batch_jobs in batches]
             
-            logger.info(f"Processing batch {i+1}/{self.total_batches} ({provider_name}, {len(batch_jobs)} jobs)")
-            
-            # Execute batch
-            batch_result = self._execute_batch(provider, batch_jobs)
-            
-            # Update state with results
-            self._update_batch_results(batch_result)
-            
-            # Call progress callback
-            if self._progress_callback:
-                stats = self.status()
-                elapsed_time = round((datetime.now() - self._start_time).total_seconds())
-                self._progress_callback(stats, elapsed_time)
+            try:
+                for future in as_completed(futures):
+                    # Stop if shutdown event detected
+                    if self._shutdown_event.is_set():
+                        break
+                    future.result()  # Re-raise any exceptions
+            except KeyboardInterrupt:
+                self._shutdown_event.set()
+                raise
+    
+    def _execute_batch_wrapped(self, provider, batch_jobs):
+        """Thread-safe wrapper for _execute_batch."""
+        try:
+            result = self._execute_batch(provider, batch_jobs)
+            with self._state_lock:
+                self._update_batch_results(result)
+                # Remove jobs from pending_jobs if specified
+                jobs_to_remove = result.get("jobs_to_remove", [])
+                for job in jobs_to_remove:
+                    if job in self.pending_jobs:
+                        self.pending_jobs.remove(job)
+        except KeyboardInterrupt:
+            self._shutdown_event.set()
+            # Handle cancelled jobs with proper locking
+            with self._state_lock:
+                for job in batch_jobs:
+                    self.failed_jobs[job.id] = "Cancelled by user"
+                    if job in self.pending_jobs:
+                        self.pending_jobs.remove(job)
+                self.state_manager.save(self)
+            raise
     
     def _group_jobs_by_provider(self) -> Dict[str, List[Job]]:
         """Group jobs by provider."""
@@ -234,8 +256,9 @@ class BatchRun:
                 
             except Exception as e:
                 logger.error(f"Failed to get provider for job {job.id}: {e}")
-                self.failed_jobs[job.id] = str(e)
-                self.pending_jobs.remove(job)
+                with self._state_lock:
+                    self.failed_jobs[job.id] = str(e)
+                    self.pending_jobs.remove(job)
         
         return jobs_by_provider
     
@@ -278,8 +301,9 @@ class BatchRun:
             status, error_details = provider.get_batch_status(batch_id)
             
             if self._progress_callback:
-                stats = self.status()
-                elapsed_time = round((datetime.now() - self._start_time).total_seconds())
+                with self._state_lock:
+                    stats = self.status()
+                    elapsed_time = round((datetime.now() - self._start_time).total_seconds())
                 self._progress_callback(stats, elapsed_time)
             
             elapsed_seconds = poll_count * self._progress_interval
@@ -333,8 +357,7 @@ class BatchRun:
             failed = {}
             for job in batch_jobs:
                 failed[job.id] = "Cost limit exceeded"
-                self.pending_jobs.remove(job)
-            return {"results": [], "failed": failed, "cost": 0.0}
+            return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
         
         batch_id = None
         try:
@@ -357,13 +380,12 @@ class BatchRun:
                 failed = {}
                 for job in batch_jobs:
                     failed[job.id] = error_msg
-                    self.pending_jobs.remove(job)
                 
                 # Save error details if configured
                 if self.raw_responses_dir and error_details:
                     self._save_batch_error_details(batch_id, error_details)
                 
-                return {"results": [], "failed": failed, "cost": 0.0}
+                return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
             
             # Get results
             logger.info(f"Getting results for batch {batch_id}")
@@ -373,13 +395,6 @@ class BatchRun:
             # Calculate actual cost
             actual_cost = sum(r.cost_usd for r in results)
             
-            # Remove from pending
-            for result in results:
-                for job in batch_jobs:
-                    if job.id == result.job_id:
-                        self.pending_jobs.remove(job)
-                        break
-            
             logger.info(
                 f"✓ Batch {batch_id} completed: "
                 f"{len([r for r in results if r.is_success])} success, "
@@ -387,18 +402,13 @@ class BatchRun:
                 f"cost: ${actual_cost:.6f}"
             )
             
-            return {"results": results, "failed": {}, "cost": actual_cost}
+            return {"results": results, "failed": {}, "cost": actual_cost, "jobs_to_remove": list(batch_jobs)}
             
         except KeyboardInterrupt:
             logger.warning(f"\nCancelling batch{f' {batch_id}' if batch_id else ''}...")
             if batch_id:
                 provider.cancel_batch(batch_id)
-            failed = {}
-            for job in batch_jobs:
-                failed[job.id] = "Cancelled by user"
-                if job in self.pending_jobs:
-                    self.pending_jobs.remove(job)
-            self.state_manager.save(self)
+            # Handle cancellation in the wrapper with proper locking
             raise
             
         except Exception as e:
@@ -406,9 +416,7 @@ class BatchRun:
             failed = {}
             for job in batch_jobs:
                 failed[job.id] = str(e)
-                if job in self.pending_jobs:
-                    self.pending_jobs.remove(job)
-            return {"results": [], "failed": failed, "cost": 0.0}
+            return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
     
     
     def _save_result_to_file(self, result: JobResult):
@@ -435,20 +443,13 @@ class BatchRun:
         except Exception as e:
             logger.error(f"Failed to save batch error details: {e}")
     
-    def _is_complete(self) -> bool:
-        """Check if all jobs are complete."""
-        total_jobs = len(self.jobs)
-        completed_count = len(self.completed_results) + len(self.failed_jobs)
-        return len(self.pending_jobs) == 0 and completed_count == total_jobs
-    
     @property
     def is_complete(self) -> bool:
         """Whether all jobs are complete."""
-        return self._is_complete()
-    
-    def wait(self, timeout: Optional[float] = None):
-        """Wait for batch to complete (no-op for synchronous execution)."""
-        pass
+        total_jobs = len(self.jobs)
+        completed_count = len(self.completed_results) + len(self.failed_jobs)
+        return len(self.pending_jobs) == 0 and completed_count == total_jobs
+
     
     def status(self, print_status: bool = False) -> Dict:
         """Get current execution statistics."""
@@ -464,7 +465,7 @@ class BatchRun:
             "failed": len(self.failed_jobs),
             "cost_usd": self.cost_tracker.used_usd,
             "cost_limit_usd": self.cost_tracker.limit_usd,
-            "is_complete": self._is_complete(),
+            "is_complete": self.is_complete,
             "batches_total": self.total_batches,
             "batches_completed": self.completed_batches,
             "batches_pending": self.total_batches - self.completed_batches,

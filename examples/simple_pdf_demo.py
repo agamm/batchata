@@ -70,10 +70,10 @@ def main():
     try:
         # Create batch configuration
         batch = (
-            Batch(state_file="./examples/demo_pdf_state.json", results_dir="./examples/pdf_output", max_concurrent=1, items_per_batch=3, reuse_state=False)
+            Batch(state_file="./examples/demo_pdf_state.json", results_dir="./examples/pdf_output", max_concurrent=3, items_per_batch=2, reuse_state=False)
             .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=5.0)
-            .set_verbosity("info")
+            .set_verbosity("warn")
         )
         
         # Add jobs using file and prompt
