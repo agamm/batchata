@@ -16,9 +16,9 @@ class CostTracker:
     
     Example:
         >>> tracker = CostTracker(limit_usd=100.0)
-        >>> if tracker.can_afford(5.0):
+        >>> if tracker.reserve_cost(5.0):
         ...     # Do work
-        ...     tracker.track_spend(4.8)
+        ...     tracker.adjust_reserved_cost(5.0, 4.8)
     """
     
     def __init__(self, limit_usd: Optional[float] = None):
@@ -32,29 +32,38 @@ class CostTracker:
         self._lock = threading.Lock()
         self._last_updated = datetime.now()
     
-    def can_afford(self, cost_usd: float) -> bool:
-        """Check if we can afford the given cost.
+    def reserve_cost(self, estimated_cost: float) -> bool:
+        """Reserve budget for estimated cost atomically.
         
         Args:
-            cost_usd: Cost to check
+            estimated_cost: Estimated cost to reserve
             
         Returns:
-            True if we can afford it, False otherwise
+            True if reservation successful, False if would exceed limit
         """
         with self._lock:
             if self.limit_usd is None:
+                self.used_usd += estimated_cost
+                self._last_updated = datetime.now()
                 return True
             
-            return (self.used_usd + cost_usd) <= self.limit_usd
+            if (self.used_usd + estimated_cost) <= self.limit_usd:
+                self.used_usd += estimated_cost
+                self._last_updated = datetime.now()
+                return True
+            
+            return False
     
-    def track_spend(self, cost_usd: float):
-        """Track actual spending.
+    def adjust_reserved_cost(self, estimated_cost: float, actual_cost: float):
+        """Adjust previously reserved cost to actual cost.
         
         Args:
-            cost_usd: Actual cost incurred
+            estimated_cost: Previously reserved amount
+            actual_cost: Actual cost incurred
         """
         with self._lock:
-            self.used_usd += cost_usd
+            # Remove the reserved amount and add the actual cost
+            self.used_usd = self.used_usd - estimated_cost + actual_cost
             self._last_updated = datetime.now()
     
     
