@@ -89,7 +89,6 @@ class TestIsTextualPdf:
             score_strict = is_textual_pdf(
                 tmp.name, 
                 text_page_thresh=0.01,  # Very strict
-                font_ratio_thresh=10.0   # Very high font requirement
             )
             
             # Both should be valid scores
@@ -143,7 +142,7 @@ class TestIsTextualPdf:
             # Clean up
             Path(tmp.name).unlink()
     
-    def test_nonexistent_file_raises_error(self):
-        """Test that nonexistent files raise appropriate error."""
-        with pytest.raises(FileNotFoundError):
-            is_textual_pdf("/nonexistent/path/file.pdf")
+    def test_nonexistent_file_returns_zero(self):
+        """Test that nonexistent files return 0.0 score."""
+        score = is_textual_pdf("/nonexistent/path/file.pdf")
+        assert score == 0.0

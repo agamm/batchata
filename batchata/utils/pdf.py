@@ -8,6 +8,8 @@ import re
 from pathlib import Path
 from typing import List
 
+import pypdf
+
 
 def create_pdf(pages: List[str]) -> bytes:
     """
@@ -93,47 +95,61 @@ startxref
     return pdf_content.encode('latin-1')
 
 
-# --- regex helpers -----------------------------------------------------------
-_PAGE_SPLIT    = re.compile(br'/Type\s*/Page\b')
-_TEXT_PATTERN  = re.compile(br'(?:BT\b.*?ET)|(?:\([^)]+\)\s*T[Jj])', re.S)
-_FONT_PATTERN  = re.compile(br'/Font\b')
-_IMAGE_PATTERN = re.compile(br'/Subtype\s*/Image\b')
-
 def is_textual_pdf(
     path: str | Path,
     text_page_thresh: float = 0.2,   # ≤20% blank pages ⇒ treat as textual
-    font_ratio_thresh: float = 0.05  # ≥0.05 fonts per page ⇒ textual
+    min_chars_per_page: int = 20     # Minimum characters per page to consider it textual
 ) -> float:
     """
-    Heuristic: classify a PDF as textual (machine‑readable) without external deps.
+    Classify a PDF as textual (machine‑readable) using pypdf.
     
     Returns:
         float: textual score from 0.0 (no text) to 1.0 (fully textual)
                0.8+ is pretty textual, <0.1 shows warning, 0.0 raises error with citations
     
     Args:
-        text_page_thresh: max fraction of pages allowed to lack text operators
-        font_ratio_thresh: min avg '/Font' hits per page signalling embedded fonts
+        text_page_thresh: max fraction of pages allowed to lack text
+        min_chars_per_page: minimum characters per page to consider it textual
     """
-    data = Path(path).read_bytes()
-
-    pages = _PAGE_SPLIT.split(data)[1:]
-    if not pages:
-        return 0.0                     # can't detect pages → assume not textual
-
-    textful_pages = sum(bool(_TEXT_PATTERN.search(p)) for p in pages)
-    textless_ratio = 1 - textful_pages / len(pages)
-    textual_ratio = 1 - textless_ratio
-
-    font_hits   = len(_FONT_PATTERN.findall(data))
-    font_ratio  = font_hits / max(len(pages), 1)
-
-    # Calculate textual score
-    # Base score from text content ratio
-    score = textual_ratio
-    
-    # Boost score if fonts are embedded (indicates real text)
-    if font_ratio >= font_ratio_thresh:
-        score = min(1.0, score + 0.2)
-    
-    return score
+    try:
+        reader = pypdf.PdfReader(str(path))
+        
+        if not reader.pages:
+            return 0.0
+        
+        pages_with_text = 0
+        total_pages = len(reader.pages)
+        
+        for page in reader.pages:
+            try:
+                # Extract text from the page
+                text = page.extract_text()
+                
+                # Remove whitespace and count actual characters
+                cleaned_text = ''.join(text.split())
+                
+                # Check if page has substantial text
+                if len(cleaned_text) >= min_chars_per_page:
+                    pages_with_text += 1
+                    
+            except Exception:
+                # If text extraction fails, consider page as non-textual
+                continue
+        
+        # Calculate score based on pages with actual text
+        if total_pages == 0:
+            return 0.0
+            
+        textual_ratio = pages_with_text / total_pages
+        
+        # Apply threshold - if too many pages lack text, score drops
+        textless_ratio = 1 - textual_ratio
+        if textless_ratio > text_page_thresh:
+            # Too many pages without text
+            return textual_ratio * 0.5  # Penalize score
+        
+        return textual_ratio
+        
+    except Exception:
+        # If PDF can't be read, assume it's not textual
+        return 0.0

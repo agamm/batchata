@@ -5,13 +5,15 @@
 
 Unified API for AI Batch requests with cost tracking, Pydantic responses, citation mapping and parallel execution.
 
+*This library is currently in alpha - so there will be breaking changes*
+
 ## Why Batchata?
 
 - Native batch processing (50% cost savings via provider APIs)
-- Set $ cost limits for batch requests
-- State persistence for network interruption recovery
-- Structured output with Pydantic models
-- Citation extraction and field mapping (supported only by anthropic atm)
+- Set `max_cost_usd` limits for batch requests
+- State persistence in case of network interruption
+- Structured output `.json` format with Pydantic models
+- Citation support and field mapping (supported only by anthropic atm)
 
 ## Installation
 
@@ -31,7 +33,7 @@ uv add batchata
 from batchata import Batch
 
 # Simple batch processing
-batch = Batch(state_file="./state.json", results_dir="./output", max_concurrent=10)
+batch = Batch(state_file="./state.json", results_dir="./output")
     .defaults(model="claude-sonnet-4-20250514")
     .add_cost_limit(usd=15)
 
@@ -41,6 +43,76 @@ for file in files:
 run = batch.run(wait=True)
 
 results = run.results()  # Dict[job_id, JobResult]
+```
+
+## Complete Example
+
+```python
+from batchata import Batch
+from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()  # Load API keys from .env
+
+# Define structured output
+class InvoiceAnalysis(BaseModel):
+    invoice_number: str
+    total_amount: float
+    vendor: str
+    payment_status: str
+
+# Create batch configuration
+batch = (
+    Batch(
+        state_file="./invoice_state.json", 
+        results_dir="./invoice_results",
+        max_concurrent=1,
+        items_per_batch=3,
+        reuse_state=False 
+    )
+    .defaults(model="claude-sonnet-4-20250514", temperature=0.0)
+    .add_cost_limit(usd=5.0)
+    .set_verbosity("warn") 
+)
+
+# Add jobs with structured output and citations
+invoice_files = ["path/to/invoice1.pdf", "path/to/invoice2.pdf", "path/to/invoice3.pdf"]
+for invoice_file in invoice_files:
+    batch.add_job(
+        file=invoice_file,
+        prompt="Extract the invoice number, total amount, vendor name, and payment status.",
+        response_model=InvoiceAnalysis,
+        enable_citations=True
+    )
+
+# Execute with progress tracking
+print("Starting batch processing...")
+run = batch.run(
+    wait=True, 
+    on_progress=lambda s, t: print(
+        f"\rProgress: {s['completed']}/{s['total']} jobs | "
+        f"Batches: {s['batches_completed']}/{s['batches_total']} | "
+        f"Cost: ${s['cost_usd']:.3f}/{s['cost_limit_usd']} | "
+        f"Time: {t:.1f}s", 
+        end=""
+    )
+)
+
+# Get results
+results = run.results()
+
+# Process results
+for job_id, result in results.items():
+    if result.is_success:
+        analysis = result.parsed_response
+        citations = result.citation_mappings
+        print(f"\nInvoice: {analysis.invoice_number} (page: {citations.get("invoice_number").page})")
+        print(f"  Vendor: {analysis.vendor} (page: {citations.get("vendor").page})")
+        print(f"  Total: ${analysis.total_amount:.2f} (page: {citations.get("total_amount").page})")
+        print(f"  Status: {analysis.payment_status} (page: {citations.get("payment_status").page})")
+
+    else:
+        print(f"\nJob {job_id} failed: {result.error}")
 ```
 
 
@@ -79,7 +151,7 @@ Set maximum spend limit. Batch will stop accepting new jobs when limit is reache
 
 #### `.set_verbosity(level: str)`
 Set logging verbosity level. Useful for production environments.
-- Levels: "debug", "info" (default), "warning", "error"
+- Levels: "debug", "info" (default), "warn", "error"
 - Example: `batch.set_verbosity("error")` for production
 
 #### `.add_job(...)`
