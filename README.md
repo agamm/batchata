@@ -1,5 +1,8 @@
 # Batchata
 
+[![Build Status](https://github.com/agamm/batchata/workflows/Tests/badge.svg)](https://github.com/agamm/batchata/actions)
+[![PyPI version](https://badge.fury.io/py/batchata.svg)](https://badge.fury.io/py/batchata)
+
 Unified API for AI Batch requests with cost tracking, Pydantic responses, citation mapping and parallel execution.
 
 ## Why Batchata?
