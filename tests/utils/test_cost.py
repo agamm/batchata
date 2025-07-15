@@ -166,3 +166,4 @@ class TestCostTracker:
         tracker.adjust_reserved_cost(30.0, 35.0)
         assert tracker.used_usd == 85.0
         assert tracker.remaining() == 15.0
+    
