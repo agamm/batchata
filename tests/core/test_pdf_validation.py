@@ -6,6 +6,7 @@ from pathlib import Path
 
 from batchata.core.batch import Batch
 from batchata.utils.pdf import create_pdf
+from batchata.exceptions import ValidationError
 
 
 class TestPdfValidation:
@@ -20,7 +21,7 @@ class TestPdfValidation:
             batch = Batch("/tmp/state.json", "/tmp/results")
             batch.defaults(model="claude-3-5-sonnet-latest")
             
-            with pytest.raises(ValueError, match="appears to be image-only"):
+            with pytest.raises(ValidationError, match="appears to be image-only"):
                 batch.add_job(file=tmp.name, prompt="Test", enable_citations=True)
             
             Path(tmp.name).unlink()

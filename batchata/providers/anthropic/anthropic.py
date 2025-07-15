@@ -53,6 +53,24 @@ class AnthropicProvider(Provider):
         if job.file and not model_config.supports_files:
             raise ValidationError(f"Model '{job.model}' does not support file input")
         
+        # Validate PDF textual compatibility with citations (Anthropic-specific)
+        if job.file and job.enable_citations and job.file.suffix.lower() == '.pdf':
+            from ...utils.pdf import is_textual_pdf
+            
+            textual_score = is_textual_pdf(job.file)
+            
+            if textual_score == 0.0:
+                raise ValidationError(
+                    f"PDF '{job.file}' appears to be image-only (no extractable text). "
+                    "Citations will not work with scanned/image PDFs. "
+                    "Please use a text-based PDF or disable citations."
+                )
+            elif textual_score < 0.1:
+                logger.warning(
+                    f"PDF '{job.file}' has very low text content (score: {textual_score:.2f}). "
+                    "Citations may not work well with primarily image-based PDFs."
+                )
+        
         # Validate messages using pydantic
         if job.messages:
             try:
