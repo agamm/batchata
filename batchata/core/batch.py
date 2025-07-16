@@ -270,68 +270,93 @@ class Batch:
         
         # Set progress callback - either rich display or custom callback
         if print_status:
-            # Use rich progress display
-            from ..utils.rich_progress import RichBatchProgressDisplay
-            display = RichBatchProgressDisplay()
-            
-            def rich_progress_callback(stats, elapsed_time, batch_data):
-                # Start display on first call
-                if not hasattr(rich_progress_callback, '_started'):
-                    config_dict = {
-                        'results_dir': self.config.results_dir,
-                        'state_file': self.config.state_file,
-                        'items_per_batch': self.config.items_per_batch,
-                        'max_parallel_batches': self.config.max_parallel_batches
-                    }
-                    display.start(stats, config_dict)
-                    rich_progress_callback._started = True
-                
-                # Update display
-                display.update(stats, batch_data, elapsed_time)
-            
-            run.set_on_progress(rich_progress_callback, interval=progress_interval)
-            
-            # Ensure display is stopped when done
-            try:
-                run.start()
-                
-                # Show final status with all batches completed
-                stats = run.status()
-                display.update(stats, run.batch_tracking, (datetime.now() - run._start_time).total_seconds())
-                
-                # Small delay to ensure display updates
-                import time
-                time.sleep(0.2)
-                
-            except KeyboardInterrupt:
-                # Update batch tracking to show cancelled status for pending/running batches
-                with run._state_lock:
-                    for batch_id, batch_info in run.batch_tracking.items():
-                        if batch_info['status'] == 'running':
-                            batch_info['status'] = 'cancelled'
-                        elif batch_info['status'] == 'pending':
-                            batch_info['status'] = 'cancelled'
-                
-                # Show final status with cancelled batches
-                stats = run.status()
-                display.update(stats, run.batch_tracking, 0.0)
-                
-                # Add a small delay to ensure the display updates
-                import time
-                time.sleep(0.1)
-                
-                display.stop()
-                raise
-            finally:
-                if display.live:  # Only stop if not already stopped
-                    display.stop()
+            return self._run_with_rich_display(run, progress_interval)
         else:
-            # Use custom progress callback if provided
-            if on_progress:
-                run.set_on_progress(on_progress, interval=progress_interval)
-            
-            run.start()
+            return self._run_with_custom_callback(run, on_progress, progress_interval)
+    
+    def _run_with_rich_display(self, run: 'BatchRun', progress_interval: float) -> 'BatchRun':
+        """Execute batch run with rich progress display.
         
+        Args:
+            run: BatchRun instance to execute
+            progress_interval: Interval between progress updates
+            
+        Returns:
+            Completed BatchRun instance
+        """
+        from ..utils.rich_progress import RichBatchProgressDisplay
+        display = RichBatchProgressDisplay()
+        
+        def rich_progress_callback(stats, elapsed_time, batch_data):
+            # Start display on first call
+            if not hasattr(rich_progress_callback, '_started'):
+                config_dict = {
+                    'results_dir': self.config.results_dir,
+                    'state_file': self.config.state_file,
+                    'items_per_batch': self.config.items_per_batch,
+                    'max_parallel_batches': self.config.max_parallel_batches
+                }
+                display.start(stats, config_dict)
+                rich_progress_callback._started = True
+            
+            # Update display
+            display.update(stats, batch_data, elapsed_time)
+        
+        run.set_on_progress(rich_progress_callback, interval=progress_interval)
+        
+        # Execute with proper cleanup
+        try:
+            run.start()
+            
+            # Show final status with all batches completed
+            stats = run.status()
+            display.update(stats, run.batch_tracking, (datetime.now() - run._start_time).total_seconds())
+            
+            # Small delay to ensure display updates
+            import time
+            time.sleep(0.2)
+            
+        except KeyboardInterrupt:
+            # Update batch tracking to show cancelled status for pending/running batches
+            with run._state_lock:
+                for batch_id, batch_info in run.batch_tracking.items():
+                    if batch_info['status'] == 'running':
+                        batch_info['status'] = 'cancelled'
+                    elif batch_info['status'] == 'pending':
+                        batch_info['status'] = 'cancelled'
+            
+            # Show final status with cancelled batches
+            stats = run.status()
+            display.update(stats, run.batch_tracking, 0.0)
+            
+            # Add a small delay to ensure the display updates
+            import time
+            time.sleep(0.1)
+            
+            display.stop()
+            raise
+        finally:
+            if display.live:  # Only stop if not already stopped
+                display.stop()
+        
+        return run
+    
+    def _run_with_custom_callback(self, run: 'BatchRun', on_progress: Optional[Callable[[Dict, float, Dict], None]], progress_interval: float) -> 'BatchRun':
+        """Execute batch run with custom progress callback.
+        
+        Args:
+            run: BatchRun instance to execute
+            on_progress: Optional custom progress callback
+            progress_interval: Interval between progress updates
+            
+        Returns:
+            Completed BatchRun instance
+        """
+        # Use custom progress callback if provided
+        if on_progress:
+            run.set_on_progress(on_progress, interval=progress_interval)
+        
+        run.start()
         return run
     
     def __len__(self) -> int:
