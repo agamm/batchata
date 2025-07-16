@@ -388,10 +388,11 @@ class BatchRun:
             return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
         
         batch_id = None
+        job_mapping = None
         try:
             # Create batch
             logger.info(f"Creating batch with {len(batch_jobs)} jobs...")
-            batch_id = provider.create_batch(batch_jobs)
+            batch_id, job_mapping = provider.create_batch(batch_jobs)
             
             # Poll for completion
             logger.info(f"Polling for batch {batch_id} completion...")
@@ -421,7 +422,7 @@ class BatchRun:
             # Get results
             logger.info(f"Getting results for batch {batch_id}")
             raw_responses_path = str(self.raw_responses_dir) if self.raw_responses_dir else None
-            results = provider.get_batch_results(batch_id, raw_responses_path)
+            results = provider.get_batch_results(batch_id, job_mapping, raw_responses_path)
             
             # Calculate actual cost and adjust reservation
             actual_cost = sum(r.cost_usd for r in results)
