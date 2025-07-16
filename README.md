@@ -88,11 +88,14 @@ for invoice_file in invoice_files:
         enable_citations=True
     )
 
-# Execute with progress tracking
+# Execute with rich progress display
 print("Starting batch processing...")
+run = batch.run(wait=True, print_status=True)
+
+# Or use custom progress callback
 run = batch.run(
-    wait=True, 
-    on_progress=lambda s, t: print(
+    wait=True,
+    on_progress=lambda s, t, b: print(
         f"\rProgress: {s['completed']}/{s['total']} jobs | "
         f"Batches: {s['batches_completed']}/{s['batches_total']} | "
         f"Cost: ${s['cost_usd']:.3f}/{s['cost_limit_usd']} | "

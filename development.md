@@ -10,9 +10,9 @@ classDiagram
         +set_state(file, reuse_previous) Batch
         +set_default_params(**kwargs) Batch
         +add_cost_limit(usd) Batch
-        +save_raw_responses(enabled) Batch
+        +set_verbosity(level) Batch
         +add_job(...) Batch
-        +run(wait, on_progress) BatchRun
+        +run(wait, on_progress, print_status) BatchRun
     }
     
     class BatchParams {
@@ -24,6 +24,7 @@ classDiagram
         +Dict default_params
         +bool reuse_state
         +bool save_raw_responses
+        +str verbosity_level
     }
     
     class Job {
@@ -45,8 +46,10 @@ classDiagram
         +List~Job~ jobs
         +start()
         +set_on_progress(callback, interval)
-        +status() Dict
+        +status(print_status) Dict
         +results() Dict~str,JobResult~
+        +wait(timeout) None
+        +shutdown(wait_for_active) None
     }
     
     class JobResult {
@@ -96,6 +99,13 @@ classDiagram
         +clear()
     }
     
+    class RichBatchProgressDisplay {
+        +start_progress()
+        +update_progress(stats, elapsed_time, batch_data)
+        +finish_progress()
+        +handle_cancellation()
+    }
+    
     class BatchState {
         +str batch_id
         +str created_at
@@ -116,6 +126,7 @@ classDiagram
     BatchRun --> Provider : uses directly
     BatchRun --> StateManager : uses
     BatchRun --> CostTracker : uses
+    BatchRun --> RichBatchProgressDisplay : uses
     BatchRun --> JobResult : produces *
     
     AnthropicProvider ..|> Provider : implements
