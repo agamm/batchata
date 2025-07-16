@@ -70,8 +70,6 @@ def main():
     """Run invoice processing demo with file and prompt."""
     # Create temporary invoice files
     invoice_files, temp_dir = create_temp_invoice_files()
-
-    print(temp_dir, invoice_files)
     
     try:
         # Create batch configuration
@@ -94,7 +92,7 @@ def main():
         
         # Execute batch
         print("Starting batch processing...")
-        run = batch.run(wait=True, on_progress=lambda s, t: \
+        run = batch.run(print_status=True, on_progress=lambda s, t, b: \
                         print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
                               f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
                               f"Cost: ${round(s['cost_usd'],3)}/{s['cost_limit_usd']} | " \

@@ -240,7 +240,7 @@ class Batch:
         self.jobs.append(job)
         return self
     
-    def run(self, wait: bool = False, on_progress: Optional[Callable[[Dict, float], None]] = None, progress_interval: float = 1.0) -> 'BatchRun':
+    def run(self, on_progress: Optional[Callable[[Dict, float, Dict], None]] = None, progress_interval: float = 1.0, print_status: bool = False) -> 'BatchRun':
         """Execute the batch.
         
         Creates a BatchRun instance and starts processing the jobs synchronously.
@@ -248,8 +248,9 @@ class Batch:
         Args:
             wait: Legacy parameter, ignored (execution is always synchronous)
             on_progress: Optional progress callback function that receives
-                        (stats_dict, elapsed_time_seconds)
+                        (stats_dict, elapsed_time_seconds, batch_data)
             progress_interval: Interval in seconds between progress updates (default: 1.0)
+            print_status: Whether to show rich progress display (default: False)
             
         Returns:
             BatchRun instance with completed results
@@ -266,11 +267,60 @@ class Batch:
         # Create and start the run
         run = BatchRun(self.config, self.jobs)
         
-        # Set progress callback if provided
-        if on_progress:
-            run.set_on_progress(on_progress, interval=progress_interval)
-        
-        run.start()
+        # Set progress callback - either rich display or custom callback
+        if print_status:
+            # Use rich progress display
+            from ..utils.rich_progress import RichBatchProgressDisplay
+            display = RichBatchProgressDisplay()
+            
+            def rich_progress_callback(stats, elapsed_time, batch_data):
+                # Start display on first call
+                if not hasattr(rich_progress_callback, '_started'):
+                    config_dict = {
+                        'results_dir': self.config.results_dir,
+                        'state_file': self.config.state_file,
+                        'items_per_batch': self.config.items_per_batch,
+                        'max_concurrent': self.config.max_concurrent
+                    }
+                    display.start(stats, config_dict)
+                    rich_progress_callback._started = True
+                
+                # Update display
+                display.update(stats, batch_data, elapsed_time)
+            
+            run.set_on_progress(rich_progress_callback, interval=progress_interval)
+            
+            # Ensure display is stopped when done
+            try:
+                run.start()
+            except KeyboardInterrupt:
+                # Update batch tracking to show cancelled status for pending/running batches
+                with run._state_lock:
+                    for batch_id, batch_info in run.batch_tracking.items():
+                        if batch_info['status'] == 'running':
+                            batch_info['status'] = 'cancelled'
+                        elif batch_info['status'] == 'pending':
+                            batch_info['status'] = 'cancelled'
+                
+                # Show final status with cancelled batches
+                stats = run.status()
+                display.update(stats, run.batch_tracking, 0.0)
+                
+                # Add a small delay to ensure the display updates
+                import time
+                time.sleep(0.1)
+                
+                display.stop()
+                raise
+            finally:
+                if display.live:  # Only stop if not already stopped
+                    display.stop()
+        else:
+            # Use custom progress callback if provided
+            if on_progress:
+                run.set_on_progress(on_progress, interval=progress_interval)
+            
+            run.start()
         
         return run
     
