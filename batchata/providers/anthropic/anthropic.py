@@ -194,11 +194,11 @@ class AnthropicProvider(Provider):
             logger.error(f"✗ Failed to cancel Anthropic batch {batch_id}: {e}")
             return False
     
-    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], debug_files_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch."""
         try:
             results = list(self.client.messages.batches.results(batch_id))
-            return parse_results(results, job_mapping, raw_responses_dir, self.BATCH_DISCOUNT)
+            return parse_results(results, job_mapping, debug_files_dir, self.BATCH_DISCOUNT)
         except Exception as e:
             raise ValidationError(f"Failed to get batch results: {e}")
     

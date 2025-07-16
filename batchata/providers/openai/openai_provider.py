@@ -181,7 +181,7 @@ class OpenAIProvider(Provider):
             logger.error(f"✗ Failed to cancel OpenAI batch {batch_id}: {e}")
             return False
     
-    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], debug_files_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch."""
         try:
             # Get batch info to get output file ID
@@ -195,6 +195,10 @@ class OpenAIProvider(Provider):
             file_response = self.client.files.content(batch_info.output_file_id)
             jsonl_content = file_response.text
             
+            # Save JSONL debug file if directory provided
+            if debug_files_dir:
+                self._save_jsonl_debug_file(batch_id, jsonl_content, debug_files_dir)
+            
             # Parse JSONL content
             results = []
             for line in jsonl_content.strip().split('\n'):
@@ -202,7 +206,7 @@ class OpenAIProvider(Provider):
                     results.append(json.loads(line))
             
             # Parse results using our parser
-            return parse_results(results, job_mapping, raw_responses_dir, self.BATCH_DISCOUNT)
+            return parse_results(results, job_mapping, debug_files_dir, self.BATCH_DISCOUNT)
             
         except Exception as e:
             raise ValidationError(f"Failed to get batch results: {e}")
@@ -273,3 +277,18 @@ class OpenAIProvider(Provider):
                 continue
         
         return total_cost
+    
+    def _save_jsonl_debug_file(self, batch_id: str, jsonl_content: str, debug_files_dir: str) -> None:
+        """Save JSONL response file for debugging."""
+        try:
+            from pathlib import Path
+            debug_path = Path(debug_files_dir)
+            jsonl_file = debug_path / f"openai_batch_{batch_id}_results.jsonl"
+            
+            with open(jsonl_file, 'w') as f:
+                f.write(jsonl_content)
+            
+            logger.debug(f"Saved JSONL debug file for batch {batch_id} to {jsonl_file}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to save JSONL debug file for batch {batch_id}: {e}")

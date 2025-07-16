@@ -93,11 +93,11 @@ class BatchRun:
         
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
-        # Raw responses directory (if enabled)
-        self.raw_responses_dir = None
-        if config.save_raw_responses:
-            self.raw_responses_dir = self.results_dir / "raw_responses"
-            self.raw_responses_dir.mkdir(parents=True, exist_ok=True)
+        # Debug files directory (if enabled)
+        self.debug_files_dir = None
+        if config.raw_files:
+            self.debug_files_dir = self.results_dir / "debug_files"
+            self.debug_files_dir.mkdir(parents=True, exist_ok=True)
         
         # Try to resume from saved state
         self._resume_from_state()
@@ -177,7 +177,7 @@ class BatchRun:
                 "items_per_batch": self.config.items_per_batch,
                 "cost_limit_usd": self.config.cost_limit_usd,
                 "default_params": self.config.default_params,
-                "save_raw_responses": self.config.save_raw_responses
+                "raw_files": self.config.raw_files
             }
         }
     
@@ -474,15 +474,15 @@ class BatchRun:
                     failed[job.id] = error_msg
                 
                 # Save error details if configured
-                if self.raw_responses_dir and error_details:
+                if self.debug_files_dir and error_details:
                     self._save_batch_error_details(batch_id, error_details)
                 
                 return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
             
             # Get results
             logger.info(f"Getting results for batch {batch_id}")
-            raw_responses_path = str(self.raw_responses_dir) if self.raw_responses_dir else None
-            results = provider.get_batch_results(batch_id, job_mapping, raw_responses_path)
+            debug_files_path = str(self.debug_files_dir) if self.debug_files_dir else None
+            results = provider.get_batch_results(batch_id, job_mapping, debug_files_path)
             
             # Calculate actual cost and adjust reservation
             actual_cost = sum(r.cost_usd for r in results)
@@ -545,9 +545,9 @@ class BatchRun:
             logger.error(f"Failed to save result for {result.job_id}: {e}")
     
     def _save_batch_error_details(self, batch_id: str, error_details: Dict):
-        """Save batch error details to raw responses directory."""
+        """Save batch error details to debug files directory."""
         try:
-            error_file = self.raw_responses_dir / f"batch_{batch_id}_error.json"
+            error_file = self.debug_files_dir / f"batch_{batch_id}_error.json"
             with open(error_file, 'w') as f:
                 json.dump({
                     "batch_id": batch_id,

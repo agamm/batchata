@@ -13,13 +13,13 @@ from ...utils import to_dict, get_logger
 logger = get_logger(__name__)
 
 
-def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_responses_dir: str | None = None) -> List[JobResult]:
+def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], debug_files_dir: str | None = None, batch_discount: float = 0.5) -> List[JobResult]:
     """Parse Anthropic batch results into JobResult objects.
     
     Args:
         results: Raw results from Anthropic API
         job_mapping: Mapping of job ID to Job object
-        raw_responses_dir: Optional directory to save raw API responses
+        debug_files_dir: Optional directory to save debug files
         
     Returns:
         List of JobResult objects
@@ -35,8 +35,8 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
             raise ValueError(f"Job {job_id} not found in mapping")
         
         # Save raw response to disk if directory is provided (before any error handling)
-        if raw_responses_dir:
-            _save_raw_response(result, job_id, raw_responses_dir)
+        if debug_files_dir:
+            _save_raw_response(result, job_id, debug_files_dir)
         
         # Handle failed results
         if result.result.type != "succeeded":
@@ -87,9 +87,7 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_respons
             input_tokens = getattr(usage, 'input_tokens', 0) if usage else 0
             output_tokens = getattr(usage, 'output_tokens', 0) if usage else 0
             
-            # Calculate cost using tokencost
-            # Get batch discount from model (would need provider reference for model config)
-            batch_discount = 0.5  # Default Anthropic batch discount
+            # Calculate cost using tokencost with provided batch discount
             cost_usd = _calculate_cost(input_tokens, output_tokens, job.model, batch_discount)
             
             job_results.append(JobResult(
@@ -182,11 +180,11 @@ def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel
         return None
 
 
-def _save_raw_response(result: Any, job_id: str, raw_responses_dir: str) -> None:
+def _save_raw_response(result: Any, job_id: str, debug_files_dir: str) -> None:
     """Save raw API response to disk."""
     try:
-        raw_responses_path = Path(raw_responses_dir)
-        raw_response_file = raw_responses_path / f"{job_id}_raw.json"
+        debug_files_path = Path(debug_files_dir)
+        raw_response_file = debug_files_path / f"{job_id}_raw.json"
         
         # Convert to dict using utility function
         raw_data = to_dict(result)

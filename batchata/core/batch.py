@@ -30,18 +30,18 @@ class Batch:
         >>> run = batch.run(wait=True)
     """
     
-    def __init__(self, results_dir: str, max_parallel_batches: int = 10, items_per_batch: int = 10, save_raw_responses: Optional[bool] = None):
+    def __init__(self, results_dir: str, max_parallel_batches: int = 10, items_per_batch: int = 10, raw_files: Optional[bool] = None):
         """Initialize batch configuration.
         
         Args:
             results_dir: Directory to store results
             max_parallel_batches: Maximum parallel batch requests
             items_per_batch: Number of jobs per provider batch
-            save_raw_responses: Whether to save raw API responses from providers (default: True if results_dir is set, False otherwise)
+            raw_files: Whether to save debug files (raw responses, JSONL files) from providers (default: True if results_dir is set, False otherwise)
         """
-        # Auto-determine save_raw_responses based on results_dir if not explicitly set
-        if save_raw_responses is None:
-            save_raw_responses = bool(results_dir and results_dir.strip())
+        # Auto-determine raw_files based on results_dir if not explicitly set
+        if raw_files is None:
+            raw_files = bool(results_dir and results_dir.strip())
         
         self.config = BatchParams(
             state_file=None,
@@ -49,7 +49,7 @@ class Batch:
             max_parallel_batches=max_parallel_batches,
             items_per_batch=items_per_batch,
             reuse_state=True,
-            save_raw_responses=save_raw_responses
+            raw_files=raw_files
         )
         self.jobs: List[Job] = []
     
@@ -112,23 +112,23 @@ class Batch:
         self.config.cost_limit_usd = usd
         return self
     
-    def save_raw_responses(self, enabled: bool = True) -> 'Batch':
-        """Enable or disable saving raw API responses from providers.
+    def raw_files(self, enabled: bool = True) -> 'Batch':
+        """Enable or disable saving debug files from providers.
         
-        When enabled, the raw API responses will be saved alongside the parsed results
-        in a 'raw_responses' subdirectory within the results directory.
+        When enabled, debug files (raw API responses, JSONL files) will be saved
+        in a 'debug_files' subdirectory within the results directory.
         This is useful for debugging, auditing, or accessing provider-specific metadata.
         
         Args:
-            enabled: Whether to save raw responses (default: True)
+            enabled: Whether to save debug files (default: True)
             
         Returns:
             Self for chaining
             
         Example:
-            >>> batch.save_raw_responses(True)
+            >>> batch.raw_files(True)
         """
-        self.config.save_raw_responses = enabled
+        self.config.raw_files = enabled
         return self
     
     def set_verbosity(self, level: str) -> 'Batch':
