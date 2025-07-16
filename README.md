@@ -69,7 +69,7 @@ class InvoiceAnalysis(BaseModel):
 batch = (
     Batch(
         results_dir="./invoice_results",
-        max_concurrent=1,
+        max_parallel_batches=1,
         items_per_batch=3
     )
     .set_state(file="./invoice_state.json", reuse_previous=False)
@@ -126,14 +126,14 @@ for job_id, result in results.items():
 ```python
 Batch(
     results_dir: str, 
-    max_concurrent: int = 10,
+    max_parallel_batches: int = 10,
     items_per_batch: int = 10,
     save_raw_responses: Optional[bool] = None
 )
 ```
 
 - `results_dir`: Directory to store individual job results  
-- `max_concurrent`: Maximum parallel batch requests (default: 10)
+- `max_parallel_batches`: Maximum parallel batch requests (default: 10)
 - `items_per_batch`: Number of jobs per provider batch (affects cost tracking accuracy, default: 10)
 - `save_raw_responses`: Whether to save raw API responses in the results dir (default: True if results_dir is set)
 

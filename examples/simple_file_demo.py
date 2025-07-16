@@ -53,7 +53,7 @@ def main():
     try:
         # Create batch configuration
         batch = (
-            Batch(results_dir="./examples/file_output", max_concurrent=1, items_per_batch=1)
+            Batch(results_dir="./examples/file_output", max_parallel_batches=1, items_per_batch=1)
             .set_state(file="./examples/demo_file_state.json", reuse_previous=False)
             .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=5.0)

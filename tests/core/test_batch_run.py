@@ -30,11 +30,11 @@ def mock_all_file_operations():
 class TestBatchRun:
     """BatchRun tests focusing on parameter validation."""
     
-    @pytest.mark.parametrize("max_concurrent,items_per_batch,cost_limit,jobs,expected_error", [
+    @pytest.mark.parametrize("max_parallel_batches,items_per_batch,cost_limit,jobs,expected_error", [
         # Valid parameters
         (2, 1, 1.0, [Job(id="job-1", model="claude-3-5-haiku-latest", messages=[{"role": "user", "content": "Test"}])], None),
         
-        # Invalid max_concurrent
+        # Invalid max_parallel_batches
         (0, 1, 1.0, [Job(id="job-1", model="claude-3-5-haiku-latest", messages=[{"role": "user", "content": "Test"}])], ValueError),
         (-1, 1, 1.0, [Job(id="job-1", model="claude-3-5-haiku-latest", messages=[{"role": "user", "content": "Test"}])], ValueError),
         
@@ -48,7 +48,7 @@ class TestBatchRun:
         # Empty jobs list
         (2, 1, 1.0, [], None),
     ])
-    def test_parameter_validation(self, temp_dir, max_concurrent, items_per_batch, cost_limit, jobs, expected_error, mock_all_file_operations):
+    def test_parameter_validation(self, temp_dir, max_parallel_batches, items_per_batch, cost_limit, jobs, expected_error, mock_all_file_operations):
         """Test that BatchRun validates parameters correctly."""
         results_dir = str(temp_dir / "results")
         
@@ -58,7 +58,7 @@ class TestBatchRun:
                 params = BatchParams(
                     state_file=str(temp_dir / "state.json"),
                     results_dir=results_dir,
-                    max_concurrent=max_concurrent,
+                    max_parallel_batches=max_parallel_batches,
                     items_per_batch=items_per_batch,
                     cost_limit_usd=cost_limit
                 )
@@ -67,7 +67,7 @@ class TestBatchRun:
             params = BatchParams(
                 state_file=str(temp_dir / "state.json"),
                 results_dir=results_dir,
-                max_concurrent=max_concurrent,
+                max_parallel_batches=max_parallel_batches,
                 items_per_batch=items_per_batch,
                 cost_limit_usd=cost_limit
             )
@@ -84,7 +84,7 @@ class TestBatchRun:
         params = BatchParams(
             state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
-            max_concurrent=2,
+            max_parallel_batches=2,
             items_per_batch=1,
             cost_limit_usd=1.0
         )
@@ -121,7 +121,7 @@ class TestBatchRun:
         params = BatchParams(
             state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
-            max_concurrent=1,
+            max_parallel_batches=1,
             items_per_batch=1,
             cost_limit_usd=1.0
         )
@@ -171,7 +171,7 @@ class TestBatchRun:
         params = BatchParams(
             state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
-            max_concurrent=1,  # Sequential execution to test reserve->adjust->reserve flow
+            max_parallel_batches=1,  # Sequential execution to test reserve->adjust->reserve flow
             items_per_batch=1,  # One job per batch
             cost_limit_usd=100.0
         )

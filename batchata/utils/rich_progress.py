@@ -235,8 +235,8 @@ class RichBatchProgressDisplay:
             footer_parts.append(f"State: {self.config['state_file']}")
         if self.config.get('items_per_batch'):
             footer_parts.append(f"Items/Batch: {self.config['items_per_batch']}")
-        if self.config.get('max_concurrent'):
-            footer_parts.append(f"Max Concurrent: {self.config['max_concurrent']}")
+        if self.config.get('max_parallel_batches'):
+            footer_parts.append(f"Max Parallel Batches: {self.config['max_parallel_batches']}")
         
         # Add elapsed time
         if self.start_time:

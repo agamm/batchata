@@ -18,7 +18,7 @@ classDiagram
     class BatchParams {
         +Optional~str~ state_file
         +str results_dir
-        +int max_concurrent
+        +int max_parallel_batches
         +int items_per_batch
         +Optional~float~ cost_limit_usd
         +Dict default_params

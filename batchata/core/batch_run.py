@@ -160,7 +160,7 @@ class BatchRun:
             "config": {
                 "state_file": self.config.state_file,
                 "results_dir": self.config.results_dir,
-                "max_concurrent": self.config.max_concurrent,
+                "max_parallel_batches": self.config.max_parallel_batches,
                 "items_per_batch": self.config.items_per_batch,
                 "cost_limit_usd": self.config.cost_limit_usd,
                 "default_params": self.config.default_params,
@@ -231,7 +231,7 @@ class BatchRun:
         self.total_batches = len(batches)
         
         # Process batches in parallel
-        with ThreadPoolExecutor(max_workers=self.config.max_concurrent) as executor:
+        with ThreadPoolExecutor(max_workers=self.config.max_parallel_batches) as executor:
             futures = [executor.submit(self._execute_batch_wrapped, provider, batch_jobs) 
                       for _, provider, batch_jobs in batches]
             

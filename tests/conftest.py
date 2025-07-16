@@ -59,7 +59,7 @@ def batch_params(temp_dir) -> Dict[str, Any]:
     return {
         "state_file": str(temp_dir / "state.json"),
         "results_dir": str(temp_dir / "results"),
-        "max_concurrent": 5,
+        "max_parallel_batches": 5,
         "items_per_batch": 10,
         "reuse_state": True,
         "save_raw_responses": True

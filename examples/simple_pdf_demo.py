@@ -74,7 +74,7 @@ def main():
     try:
         # Create batch configuration
         batch = (
-            Batch(results_dir="./examples/pdf_output", max_concurrent=3, items_per_batch=2)
+            Batch(results_dir="./examples/pdf_output", max_parallel_batches=3, items_per_batch=2)
             .set_state(file="./examples/demo_pdf_state.json", reuse_previous=False)
             .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=5.0)

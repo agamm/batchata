@@ -30,12 +30,12 @@ class Batch:
         >>> run = batch.run(wait=True)
     """
     
-    def __init__(self, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10, save_raw_responses: Optional[bool] = None):
+    def __init__(self, results_dir: str, max_parallel_batches: int = 10, items_per_batch: int = 10, save_raw_responses: Optional[bool] = None):
         """Initialize batch configuration.
         
         Args:
             results_dir: Directory to store results
-            max_concurrent: Maximum concurrent batch requests
+            max_parallel_batches: Maximum parallel batch requests
             items_per_batch: Number of jobs per provider batch
             save_raw_responses: Whether to save raw API responses from providers (default: True if results_dir is set, False otherwise)
         """
@@ -46,7 +46,7 @@ class Batch:
         self.config = BatchParams(
             state_file=None,
             results_dir=results_dir,
-            max_concurrent=max_concurrent,
+            max_parallel_batches=max_parallel_batches,
             items_per_batch=items_per_batch,
             reuse_state=True,
             save_raw_responses=save_raw_responses
@@ -281,7 +281,7 @@ class Batch:
                         'results_dir': self.config.results_dir,
                         'state_file': self.config.state_file,
                         'items_per_batch': self.config.items_per_batch,
-                        'max_concurrent': self.config.max_concurrent
+                        'max_parallel_batches': self.config.max_parallel_batches
                     }
                     display.start(stats, config_dict)
                     rich_progress_callback._started = True
@@ -342,6 +342,6 @@ class Batch:
         """String representation of the batch."""
         return (
             f"Batch(jobs={len(self.jobs)}, "
-            f"max_concurrent={self.config.max_concurrent}, "
+            f"max_parallel_batches={self.config.max_parallel_batches}, "
             f"cost_limit=${self.config.cost_limit_usd or 'None'})"
         )

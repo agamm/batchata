@@ -14,7 +14,7 @@ class BatchParams:
     Attributes:
         state_file: Optional path to state file for persistence
         results_dir: Directory to store results
-        max_concurrent: Maximum concurrent batch requests
+        max_parallel_batches: Maximum parallel batch requests
         items_per_batch: Number of jobs per provider batch
         cost_limit_usd: Optional cost limit in USD
         default_params: Default parameters for all jobs
@@ -25,7 +25,7 @@ class BatchParams:
     
     state_file: Optional[str]
     results_dir: str
-    max_concurrent: int
+    max_parallel_batches: int
     items_per_batch: int = 10
     cost_limit_usd: Optional[float] = None
     default_params: Dict[str, Any] = field(default_factory=dict)
@@ -35,8 +35,8 @@ class BatchParams:
     
     def __post_init__(self):
         """Validate parameters after initialization."""
-        if self.max_concurrent <= 0:
-            raise ValueError("max_concurrent must be greater than 0")
+        if self.max_parallel_batches <= 0:
+            raise ValueError("max_parallel_batches must be greater than 0")
         
         if self.items_per_batch <= 0:
             raise ValueError("items_per_batch must be greater than 0")
