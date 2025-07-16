@@ -179,6 +179,9 @@ Execute the batch. Returns a `BatchRun` object.
 - `wait=False`: Return immediately, process in background
 - `on_progress`: Optional progress callback function
 
+<img width="2230" height="222" alt="image" src="https://github.com/user-attachments/assets/caf549a6-92a1-4ee0-8ac7-eda2d0f280a7" />
+
+
 ### BatchRun
 
 Object returned by `batch.run()`:
