@@ -20,23 +20,22 @@ class Batch:
     and progress callbacks.
     
     Example:
-        >>> batch = Batch("./state", "./results", max_concurrent=10, items_per_batch=10)
-        ...     .defaults(model="claude-3-sonnet", temperature=0.7)
+        >>> batch = Batch("./results", max_concurrent=10, items_per_batch=10)
+        ...     .set_state(file="./state.json", reuse_previous=True)
+        ...     .set_default_params(model="claude-3-sonnet", temperature=0.7)
         ...     .add_cost_limit(usd=15.0)
         ...     .add_job(messages=[{"role": "user", "content": "Hello"}])
         ...     .add_job(file="./path/to/file.pdf", prompt: "Generate summary of file")
         >>> run = batch.run(wait=True)
     """
     
-    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10, reuse_state: bool = True, save_raw_responses: Optional[bool] = None):
+    def __init__(self, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10, save_raw_responses: Optional[bool] = None):
         """Initialize batch configuration.
         
         Args:
-            state_file: Path to state file for persistence
             results_dir: Directory to store results
             max_concurrent: Maximum concurrent batch requests
             items_per_batch: Number of jobs per provider batch
-            reuse_state: Whether to resume from existing state file (default: True)
             save_raw_responses: Whether to save raw API responses from providers (default: True if results_dir is set, False otherwise)
         """
         # Auto-determine save_raw_responses based on results_dir if not explicitly set
@@ -44,16 +43,16 @@ class Batch:
             save_raw_responses = bool(results_dir and results_dir.strip())
         
         self.config = BatchParams(
-            state_file=state_file,
+            state_file=None,
             results_dir=results_dir,
             max_concurrent=max_concurrent,
             items_per_batch=items_per_batch,
-            reuse_state=reuse_state,
+            reuse_state=True,
             save_raw_responses=save_raw_responses
         )
         self.jobs: List[Job] = []
     
-    def defaults(self, **kwargs) -> 'Batch':
+    def set_default_params(self, **kwargs) -> 'Batch':
         """Set default parameters for all jobs.
         
         These defaults will be applied to all jobs unless overridden
@@ -66,13 +65,30 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.defaults(model="claude-3-sonnet", temperature=0.7)
+            >>> batch.set_default_params(model="claude-3-sonnet", temperature=0.7)
         """
         # Validate if model is provided
         if "model" in kwargs:
             self.config.validate_default_params(kwargs["model"])
         
         self.config.default_params.update(kwargs)
+        return self
+    
+    def set_state(self, file: Optional[str] = None, reuse_previous: bool = True) -> 'Batch':
+        """Set state file configuration.
+        
+        Args:
+            file: Path to state file for persistence (default: None)
+            reuse_previous: Whether to resume from existing state file (default: True)
+            
+        Returns:
+            Self for chaining
+            
+        Example:
+            >>> batch.set_state(file="./state.json", reuse_previous=True)
+        """
+        self.config.state_file = file
+        self.config.reuse_state = reuse_previous
         return self
     
     def add_cost_limit(self, usd: float) -> 'Batch':
@@ -118,7 +134,7 @@ class Batch:
         """Set logging verbosity level.
         
         Args:
-            level: Verbosity level ("debug", "info", "warning", "error")
+            level: Verbosity level ("debug", "info", "warn", "error")
             
         Returns:
             Self for chaining
@@ -127,7 +143,7 @@ class Batch:
             >>> batch.set_verbosity("error")  # For production
             >>> batch.set_verbosity("debug")  # For debugging
         """
-        valid_levels = {"debug", "info", "warning", "error"}
+        valid_levels = {"debug", "info", "warn", "error"}
         if level.lower() not in valid_levels:
             raise ValueError(f"Invalid verbosity level: {level}. Must be one of {valid_levels}")
         self.config.verbosity = level.lower()

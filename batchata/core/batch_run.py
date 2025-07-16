@@ -1,6 +1,7 @@
 """Batch run execution management."""
 
 import json
+import signal
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -46,7 +47,16 @@ class BatchRun:
         
         # Initialize components
         self.cost_tracker = CostTracker(limit_usd=config.cost_limit_usd)
-        self.state_manager = StateManager(config.state_file)
+        
+        # Use temp file for state if not provided
+        state_file = config.state_file
+        if not state_file:
+            import tempfile
+            temp_file = tempfile.NamedTemporaryFile(suffix='.json', delete=False)
+            temp_file.close()
+            state_file = temp_file.name
+        
+        self.state_manager = StateManager(state_file)
         
         # State tracking
         self.pending_jobs: List[Job] = []
@@ -163,17 +173,29 @@ class BatchRun:
         self._started = True
         self._start_time = datetime.now()
         
-        logger.info("Starting batch run")
+        # Register signal handler for graceful shutdown
+        def signal_handler(signum, frame):
+            logger.warning("Received interrupt signal, shutting down gracefully...")
+            self._shutdown_event.set()
         
-        # Call initial progress
-        if self._progress_callback:
-            stats = self.status()
-            self._progress_callback(stats, 0.0)
+        # Store original handler to restore later
+        original_handler = signal.signal(signal.SIGINT, signal_handler)
         
-        # Process all jobs synchronously
-        self._process_all_jobs()
-        
-        logger.info("Batch run completed")
+        try:
+            logger.info("Starting batch run")
+            
+            # Call initial progress
+            if self._progress_callback:
+                stats = self.status()
+                self._progress_callback(stats, 0.0)
+            
+            # Process all jobs synchronously
+            self._process_all_jobs()
+            
+            logger.info("Batch run completed")
+        finally:
+            # Restore original signal handler
+            signal.signal(signal.SIGINT, original_handler)
     
     def set_on_progress(self, callback: Callable[[Dict, float], None], interval: float = 1.0) -> 'BatchRun':
         """Set progress callback for execution monitoring.
@@ -216,6 +238,9 @@ class BatchRun:
                     future.result()  # Re-raise any exceptions
             except KeyboardInterrupt:
                 self._shutdown_event.set()
+                # Cancel remaining futures
+                for future in futures:
+                    future.cancel()
                 raise
     
     def _execute_batch_wrapped(self, provider, batch_jobs):
@@ -297,7 +322,11 @@ class BatchRun:
             poll_count += 1
             logger.debug(f"Polling attempt {poll_count}, current status: {status}")
             
-            time.sleep(self._progress_interval)
+            # Interruptible wait - will wake up immediately if shutdown event is set
+            if self._shutdown_event.wait(self._progress_interval):
+                logger.info(f"Batch {batch_id} polling interrupted by shutdown")
+                raise KeyboardInterrupt("Batch cancelled by user")
+            
             status, error_details = provider.get_batch_status(batch_id)
             
             if self._progress_callback:

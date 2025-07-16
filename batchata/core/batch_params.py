@@ -12,7 +12,7 @@ class BatchParams:
     """Parameters for a batch job.
     
     Attributes:
-        state_file: Path to state file for persistence
+        state_file: Optional path to state file for persistence
         results_dir: Directory to store results
         max_concurrent: Maximum concurrent batch requests
         items_per_batch: Number of jobs per provider batch
@@ -20,10 +20,10 @@ class BatchParams:
         default_params: Default parameters for all jobs
         reuse_state: Whether to resume from existing state file
         save_raw_responses: Whether to save raw API responses from providers
-        verbosity: Logging verbosity level ("debug", "info", "warning", "error")
+        verbosity: Logging verbosity level ("debug", "info", "warn", "error")
     """
     
-    state_file: str
+    state_file: Optional[str]
     results_dir: str
     max_concurrent: int
     items_per_batch: int = 10

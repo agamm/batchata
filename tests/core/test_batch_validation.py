@@ -31,7 +31,7 @@ class TestBatchCitationValidation:
     
     def test_flat_model_with_citations_allowed(self):
         """Test that flat models work with citations."""
-        batch = Batch("./state", "./results")
+        batch = Batch("./results").set_state(file="./state")
         
         # Should not raise
         batch.add_job(
@@ -45,7 +45,7 @@ class TestBatchCitationValidation:
     
     def test_nested_model_with_citations_fails(self):
         """Test that nested models fail early with citations."""
-        batch = Batch("./state", "./results")
+        batch = Batch("./results").set_state(file="./state")
         
         with pytest.raises(ValueError) as exc_info:
             batch.add_job(
@@ -61,7 +61,7 @@ class TestBatchCitationValidation:
     
     def test_nested_model_without_citations_allowed(self):
         """Test that nested models work when citations are disabled."""
-        batch = Batch("./state", "./results")
+        batch = Batch("./results").set_state(file="./state")
         
         # Should not raise when citations disabled
         batch.add_job(
@@ -75,7 +75,7 @@ class TestBatchCitationValidation:
     
     def test_no_model_with_citations_allowed(self):
         """Test that citations work without response_model."""
-        batch = Batch("./state", "./results")
+        batch = Batch("./results").set_state(file="./state")
         
         # Should not raise
         batch.add_job(

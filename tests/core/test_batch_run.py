@@ -50,14 +50,13 @@ class TestBatchRun:
     ])
     def test_parameter_validation(self, temp_dir, max_concurrent, items_per_batch, cost_limit, jobs, expected_error, mock_all_file_operations):
         """Test that BatchRun validates parameters correctly."""
-        state_file = str(temp_dir / "state.json")
         results_dir = str(temp_dir / "results")
         
         if expected_error:
             # Should raise an error during BatchParams creation
             with pytest.raises(expected_error):
                 params = BatchParams(
-                    state_file=state_file,
+                    state_file=str(temp_dir / "state.json"),
                     results_dir=results_dir,
                     max_concurrent=max_concurrent,
                     items_per_batch=items_per_batch,
@@ -66,7 +65,7 @@ class TestBatchRun:
         else:
             # Should create successfully
             params = BatchParams(
-                state_file=state_file,
+                state_file=str(temp_dir / "state.json"),
                 results_dir=results_dir,
                 max_concurrent=max_concurrent,
                 items_per_batch=items_per_batch,
@@ -80,11 +79,10 @@ class TestBatchRun:
     
     def test_batch_run_initialization(self, temp_dir, mock_all_file_operations):
         """Test that BatchRun can be initialized properly."""
-        state_file = str(temp_dir / "state.json")
         results_dir = str(temp_dir / "results")
         
         params = BatchParams(
-            state_file=state_file,
+            state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
             max_concurrent=2,
             items_per_batch=1,
@@ -118,11 +116,10 @@ class TestBatchRun:
     
     def test_progress_callback_setup(self, temp_dir, mock_all_file_operations):
         """Test that progress callbacks can be set up."""
-        state_file = str(temp_dir / "state.json")
         results_dir = str(temp_dir / "results")
         
         params = BatchParams(
-            state_file=state_file,
+            state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
             max_concurrent=1,
             items_per_batch=1,
@@ -162,7 +159,6 @@ class TestBatchRun:
         from unittest.mock import Mock, patch
         from batchata.core.job_result import JobResult
         
-        state_file = str(temp_dir / "state.json")
         results_dir = str(temp_dir / "results")
         
         # Create three jobs - first reserves most budget, others proceed after adjustment
@@ -173,7 +169,7 @@ class TestBatchRun:
         ]
         
         params = BatchParams(
-            state_file=state_file,
+            state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
             max_concurrent=1,  # Sequential execution to test reserve->adjust->reserve flow
             items_per_batch=1,  # One job per batch

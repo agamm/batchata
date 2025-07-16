@@ -19,12 +19,11 @@ class TestBatchParams:
     
     def test_parameter_validation(self, temp_dir):
         """Test that invalid parameters are rejected."""
-        state_file = str(temp_dir / "state.json")
         results_dir = str(temp_dir / "results")
         
         # Valid params should work
         params = BatchParams(
-            state_file=state_file,
+            state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
             max_concurrent=10,
             items_per_batch=20
@@ -35,7 +34,7 @@ class TestBatchParams:
         # Test negative max_concurrent
         with pytest.raises(ValueError):
             BatchParams(
-                state_file=state_file,
+                state_file=str(temp_dir / "state.json"),
                 results_dir=results_dir,
                 max_concurrent=-1
             )
@@ -43,7 +42,7 @@ class TestBatchParams:
         # Test zero items_per_batch
         with pytest.raises(ValueError):
             BatchParams(
-                state_file=state_file,
+                state_file=str(temp_dir / "state.json"),
                 results_dir=results_dir,
                 max_concurrent=5,
                 items_per_batch=0
@@ -52,7 +51,7 @@ class TestBatchParams:
         # Test negative cost limit
         with pytest.raises(ValueError):
             BatchParams(
-                state_file=state_file,
+                state_file=str(temp_dir / "state.json"),
                 results_dir=results_dir,
                 max_concurrent=5,
                 cost_limit_usd=-10.0
@@ -60,11 +59,10 @@ class TestBatchParams:
     
     def test_serialization_and_deserialization(self, temp_dir):
         """Test params can be serialized to JSON and back."""
-        state_file = str(temp_dir / "state.json")
         results_dir = str(temp_dir / "results")
         
         original = BatchParams(
-            state_file=state_file,
+            state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
             max_concurrent=5,
             items_per_batch=15,
@@ -96,12 +94,11 @@ class TestBatchParams:
     
     def test_default_values(self, temp_dir):
         """Test that default values are correctly applied."""
-        state_file = str(temp_dir / "state.json")
         results_dir = str(temp_dir / "results")
         
         # Create with minimal params (max_concurrent is required)
         params = BatchParams(
-            state_file=state_file,
+            state_file=str(temp_dir / "state.json"),
             results_dir=results_dir,
             max_concurrent=5  # Required parameter
         )
