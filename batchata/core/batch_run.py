@@ -62,6 +62,7 @@ class BatchRun:
         self.pending_jobs: List[Job] = []
         self.completed_results: Dict[str, JobResult] = {}  # job_id -> result
         self.failed_jobs: Dict[str, str] = {}  # job_id -> error
+        self.cancelled_jobs: Dict[str, str] = {}  # job_id -> reason
         
         # Batch tracking
         self.total_batches = 0
@@ -134,13 +135,18 @@ class BatchRun:
         for job_data in state.failed_jobs:
             self.failed_jobs[job_data["id"]] = job_data.get("error", "Unknown error")
         
+        # Restore cancelled jobs (if they exist in state)
+        for job_data in getattr(state, 'cancelled_jobs', []):
+            self.cancelled_jobs[job_data["id"]] = job_data.get("reason", "Cancelled")
+        
         # Restore cost tracker
         self.cost_tracker.used_usd = state.total_cost_usd
         
         logger.info(
             f"Resumed with {len(self.pending_jobs)} pending, "
             f"{len(self.completed_results)} completed, "
-            f"{len(self.failed_jobs)} failed"
+            f"{len(self.failed_jobs)} failed, "
+            f"{len(self.cancelled_jobs)} cancelled"
         )
     
     def to_json(self) -> Dict:
@@ -155,6 +161,13 @@ class BatchRun:
                     "error": error,
                     "timestamp": datetime.now().isoformat()
                 } for job_id, error in self.failed_jobs.items()
+            ],
+            "cancelled_jobs": [
+                {
+                    "id": job_id, 
+                    "reason": reason,
+                    "timestamp": datetime.now().isoformat()
+                } for job_id, reason in self.cancelled_jobs.items()
             ],
             "total_cost_usd": self.cost_tracker.used_usd,
             "config": {
@@ -264,7 +277,7 @@ class BatchRun:
             # Handle cancelled jobs with proper locking
             with self._state_lock:
                 for job in batch_jobs:
-                    self.failed_jobs[job.id] = "Cancelled by user"
+                    self.cancelled_jobs[job.id] = "Cancelled by user"
                     if job in self.pending_jobs:
                         self.pending_jobs.remove(job)
                 self.state_manager.save(self)
@@ -493,7 +506,7 @@ class BatchRun:
                 # Update batch tracking for cancellation
                 with self._state_lock:
                     if batch_id in self.batch_tracking:
-                        self.batch_tracking[batch_id]['status'] = 'failed'
+                        self.batch_tracking[batch_id]['status'] = 'cancelled'
                         self.batch_tracking[batch_id]['error'] = 'Cancelled by user'
             # Release the reservation since batch was cancelled
             self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
@@ -544,14 +557,14 @@ class BatchRun:
     def is_complete(self) -> bool:
         """Whether all jobs are complete."""
         total_jobs = len(self.jobs)
-        completed_count = len(self.completed_results) + len(self.failed_jobs)
+        completed_count = len(self.completed_results) + len(self.failed_jobs) + len(self.cancelled_jobs)
         return len(self.pending_jobs) == 0 and completed_count == total_jobs
 
     
     def status(self, print_status: bool = False) -> Dict:
         """Get current execution statistics."""
         total_jobs = len(self.jobs)
-        completed_count = len(self.completed_results) + len(self.failed_jobs)
+        completed_count = len(self.completed_results) + len(self.failed_jobs) + len(self.cancelled_jobs)
         remaining_count = total_jobs - completed_count
         
         stats = {
@@ -560,6 +573,7 @@ class BatchRun:
             "active": 0,  # Always 0 for synchronous execution
             "completed": len(self.completed_results),
             "failed": len(self.failed_jobs),
+            "cancelled": len(self.cancelled_jobs),
             "cost_usd": self.cost_tracker.used_usd,
             "cost_limit_usd": self.cost_tracker.limit_usd,
             "is_complete": self.is_complete,
@@ -578,6 +592,7 @@ class BatchRun:
             logger.info(f"  Active: {stats['active']}")
             logger.info(f"  Completed: {stats['completed']}")
             logger.info(f"  Failed: {stats['failed']}")
+            logger.info(f"  Cancelled: {stats['cancelled']}")
             logger.info(f"  Cost: ${stats['cost_usd']:.6f}")
             if stats['cost_limit_usd']:
                 logger.info(f"  Cost limit: ${stats['cost_limit_usd']:.2f}")
