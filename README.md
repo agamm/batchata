@@ -180,6 +180,9 @@ Execute the batch. Returns a `BatchRun` object.
 - `on_progress`: Optional progress callback function that receives `(stats_dict, elapsed_time, batch_data)`
 - `print_status=True`: Enable rich progress display with real-time updates
 
+<img width="2230" height="222" alt="image" src="https://github.com/user-attachments/assets/caf549a6-92a1-4ee0-8ac7-eda2d0f280a7" />
+
+
 ### BatchRun
 
 Object returned by `batch.run()`:
