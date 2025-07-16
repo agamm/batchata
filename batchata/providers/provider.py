@@ -72,14 +72,14 @@ class Provider(ABC):
         pass
     
     @abstractmethod
-    def create_batch(self, jobs: List[Job]) -> str:
+    def create_batch(self, jobs: List[Job]) -> tuple[str, Dict[str, Job]]:
         """Create and submit a batch of jobs.
         
         Args:
             jobs: List of jobs to include in the batch
             
         Returns:
-            Provider's batch ID
+            Tuple of (provider's batch ID, job mapping dict)
             
         Raises:
             BatchSubmissionError: If batch submission fails
@@ -101,11 +101,12 @@ class Provider(ABC):
         pass
     
     @abstractmethod
-    def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_responses_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch.
         
         Args:
             batch_id: Provider's batch identifier
+            job_mapping: Job mapping for this specific batch
             raw_responses_dir: Optional directory to save raw API responses
             
         Returns:

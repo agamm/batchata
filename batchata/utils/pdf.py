@@ -13,7 +13,7 @@ import pypdf
 
 def create_pdf(pages: List[str]) -> bytes:
     """
-    Create a PDF with the given pages.
+    Create a PDF with the given pages using pypdf.PdfWriter.
     
     Args:
         pages: List of text content for each page
@@ -24,75 +24,58 @@ def create_pdf(pages: List[str]) -> bytes:
     if not pages:
         raise ValueError("At least one page is required")
     
-    num_pages = len(pages)
+    import io
+    from pypdf import PdfWriter, PageObject
+    from pypdf.generic import StreamObject, DictionaryObject, NameObject
     
-    # Build page objects
-    page_objects = []
-    content_objects = []
+    writer = PdfWriter()
     
-    for i, page_content in enumerate(pages):
-        page_num = i + 3  # Pages start from object 3
-        content_num = page_num + num_pages  # Content objects after page objects
+    for page_content in pages:
+        # Create a blank page
+        page = PageObject.create_blank_page(width=612, height=792)  # Letter size
         
-        page_objects.append(f"{page_num} 0 obj")
-        page_objects.append(f"<< /Type /Page /Parent 2 0 R /Resources {2 + num_pages + num_pages + 1} 0 R /MediaBox [0 0 612 792] /Contents {content_num} 0 R >>")
-        page_objects.append("endobj")
-        
-        # Split content into lines and position each line separately
+        # Create text content stream
         lines = page_content.split('\n')
-        line_commands = []
+        text_commands = []
+        text_commands.append("BT")  # Begin text
+        text_commands.append("/F1 12 Tf")  # Set font
+        text_commands.append("72 720 Td")  # Position at top-left with margin
+        
         for i, line in enumerate(lines):
-            if i == 0:
-                line_commands.append(f"72 720 Td")
-            else:
-                line_commands.append(f"0 -15 Td")  # Move down 15 points for each line
-            line_commands.append(f"({line}) Tj")
+            if i > 0:
+                text_commands.append("0 -15 Td")  # Move down for next line
+            # Escape parentheses and backslashes in text
+            escaped_line = line.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+            text_commands.append(f"({escaped_line}) Tj")  # Show text
         
-        stream_content = f"""BT
-/F1 12 Tf
-{chr(10).join(line_commands)}
-ET"""
+        text_commands.append("ET")  # End text
+        content_stream = "\n".join(text_commands)
         
-        content_objects.append(f"{content_num} 0 obj")
-        content_objects.append(f"<< /Length {len(stream_content)} >>")
-        content_objects.append("stream")
-        content_objects.append(stream_content)
-        content_objects.append("endstream")
-        content_objects.append("endobj")
+        # Create StreamObject properly as shown in pypdf tests
+        stream_object = StreamObject()
+        stream_object[NameObject("/Type")] = NameObject("/Text")
+        stream_object._data = content_stream.encode()
+        
+        # Add the content stream to the page
+        page[NameObject("/Contents")] = stream_object
+        
+        # Add basic font resources
+        page[NameObject("/Resources")] = DictionaryObject({
+            NameObject("/Font"): DictionaryObject({
+                NameObject("/F1"): DictionaryObject({
+                    NameObject("/Type"): NameObject("/Font"),
+                    NameObject("/Subtype"): NameObject("/Type1"),
+                    NameObject("/BaseFont"): NameObject("/Helvetica")
+                })
+            })
+        })
+        
+        writer.add_page(page)
     
-    # Build page references for Pages object
-    page_refs = " ".join([f"{i + 3} 0 R" for i in range(num_pages)])
-    
-    pdf_content = f"""%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [{page_refs}] /Count {num_pages} >>
-endobj
-{chr(10).join(page_objects)}
-{2 + num_pages + num_pages + 1} 0 obj
-<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
-endobj
-{chr(10).join(content_objects)}
-xref
-0 {2 + num_pages + num_pages + 2}
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n"""
-
-    # Add xref entries (simplified)
-    for i in range(num_pages + num_pages + 1):
-        pdf_content += f"\n{1000 + i * 100:010d} 00000 n"
-    
-    pdf_content += f"""
-trailer
-<< /Size {2 + num_pages + num_pages + 2} /Root 1 0 R >>
-startxref
-{5000 + sum(len(p) for p in pages)}
-%%EOF"""
-    
-    return pdf_content.encode('latin-1')
+    # Write to bytes
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
 
 
 def is_textual_pdf(

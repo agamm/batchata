@@ -101,10 +101,12 @@ class TestAnthropicProvider:
         mock_anthropic_client.messages.batches.create.return_value = mock_batch_response
         
         # Create batch
-        batch_id = provider.create_batch(jobs)
+        batch_id, job_mapping = provider.create_batch(jobs)
         
-        # Verify batch ID
+        # Verify batch ID and job mapping
         assert batch_id == "batch_abc123"
+        assert len(job_mapping) == 3
+        assert all(job.id in job_mapping for job in jobs)
         
         # Verify API was called with correct format
         mock_anthropic_client.messages.batches.create.assert_called_once()
@@ -192,8 +194,14 @@ class TestAnthropicProvider:
         
         mock_anthropic_client.messages.batches.results.return_value = [mock_result1, mock_result2]
         
+        # Create a job mapping for the test
+        job_mapping = {
+            "job-1": Job(id="job-1", model="claude-3-5-sonnet-20241022", messages=[{"role": "user", "content": "What is 2+2?"}]),
+            "job-2": Job(id="job-2", model="claude-3-5-sonnet-20241022", messages=[{"role": "user", "content": "What is Python?"}])
+        }
+        
         # Get results
-        results = provider.get_batch_results("batch_123")
+        results = provider.get_batch_results("batch_123", job_mapping)
         
         # Verify results
         assert len(results) == 2

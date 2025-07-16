@@ -16,8 +16,8 @@ class TestCreatePdf:
         pdf_bytes = create_pdf(pages)
         
         assert isinstance(pdf_bytes, bytes)
-        assert pdf_bytes.startswith(b'%PDF-1.4')
-        assert pdf_bytes.endswith(b'%%EOF')
+        assert pdf_bytes.startswith(b'%PDF-1.3')
+        assert pdf_bytes.endswith(b'%%EOF\n')
         assert b'Hello World' in pdf_bytes
     
     def test_create_multi_page(self):

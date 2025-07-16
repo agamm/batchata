@@ -7,7 +7,8 @@ classDiagram
     class Batch {
         +BatchParams config
         +List~Job~ jobs
-        +defaults(**kwargs) Batch
+        +set_state(file, reuse_previous) Batch
+        +set_default_params(**kwargs) Batch
         +add_cost_limit(usd) Batch
         +save_raw_responses(enabled) Batch
         +add_job(...) Batch
@@ -15,9 +16,9 @@ classDiagram
     }
     
     class BatchParams {
-        +str state_file
+        +Optional~str~ state_file
         +str results_dir
-        +int max_concurrent
+        +int max_parallel_batches
         +int items_per_batch
         +Optional~float~ cost_limit_usd
         +Dict default_params

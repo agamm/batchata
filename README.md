@@ -1,7 +1,6 @@
 # Batchata
 
-<img alt="Batchata AI Batch Build Status" src="https://github.com/agamm/batchata/workflows/Tests/badge.svg" />
-<img alt="Batchata AI Batch PyPI version" src="https://badge.fury.io/py/batchata.svg" />
+<img alt="Batchata AI Batch Build Status" src="https://github.com/agamm/batchata/workflows/Tests/badge.svg" /><img alt="Batchata AI Batch PyPI version" src="https://badge.fury.io/py/batchata.svg" />
 
 Unified API for AI Batch requests with cost tracking, Pydantic responses, citation mapping and parallel execution.
 
@@ -11,7 +10,7 @@ Unified API for AI Batch requests with cost tracking, Pydantic responses, citati
 
 AI providers offer batch APIs that process requests asynchronously at 50% reduced cost compared to real-time APIs. This is ideal for workloads like document processing, data analysis, and content generation where immediate responses aren't required. However, managing batch jobs across providers, tracking costs, handling failures, and mapping citations back to source documents quickly becomes complex - that's where Batchata comes in.
 
-## Why Batchata?
+## Batchata Features
 
 - Native batch processing (50% cost savings via provider APIs)
 - Set `max_cost_usd` limits for batch requests
@@ -37,9 +36,10 @@ uv add batchata
 from batchata import Batch
 
 # Simple batch processing
-batch = Batch(state_file="./state.json", results_dir="./output")
-    .defaults(model="claude-sonnet-4-20250514")
-    .add_cost_limit(usd=15)
+batch = Batch(results_dir="./output")
+    .set_state(file="./state.json")
+    .set_default_params(model="claude-sonnet-4-20250514")
+    .add_cost_limit(usd=5.0)
 
 for file in files:
     batch.add_job(file=file, prompt="Summarize")
@@ -68,13 +68,12 @@ class InvoiceAnalysis(BaseModel):
 # Create batch configuration
 batch = (
     Batch(
-        state_file="./invoice_state.json", 
         results_dir="./invoice_results",
-        max_concurrent=1,
-        items_per_batch=3,
-        reuse_state=False 
+        max_parallel_batches=1,
+        items_per_batch=3
     )
-    .defaults(model="claude-sonnet-4-20250514", temperature=0.0)
+    .set_state(file="./invoice_state.json", reuse_previous=False)
+    .set_default_params(model="claude-sonnet-4-20250514", temperature=0.0)
     .add_cost_limit(usd=5.0)
     .set_verbosity("warn") 
 )
@@ -126,25 +125,26 @@ for job_id, result in results.items():
 
 ```python
 Batch(
-    state_file: str, 
     results_dir: str, 
-    max_concurrent: int = 10,
+    max_parallel_batches: int = 10,
     items_per_batch: int = 10,
-    reuse_state: bool = True,
     save_raw_responses: Optional[bool] = None
 )
 ```
 
-- `state_file`: Path to save batch state for recovery (in case of network interruption)
 - `results_dir`: Directory to store individual job results  
-- `max_concurrent`: Maximum parallel batch requests (default: 10)
+- `max_parallel_batches`: Maximum parallel batch requests (default: 10)
 - `items_per_batch`: Number of jobs per provider batch (affects cost tracking accuracy, default: 10)
-- `reuse_state`: Whether to resume from existing state file and delete previous results_dir file results (default: True)
 - `save_raw_responses`: Whether to save raw API responses in the results dir (default: True if results_dir is set)
 
 **Methods:**
 
-#### `.defaults(**kwargs)`
+#### `.set_state(file: Optional[str] = None, reuse_previous: bool = True)`
+Set state file configuration for recovery in case of network interruption.
+- `file`: Path to save batch state (default: None, uses temp file)
+- `reuse_previous`: Whether to resume from existing state file (default: True)
+
+#### `.set_default_params(**kwargs)`
 Set default parameters for all jobs. Common parameters:
 - `model`: Model name (e.g., "claude-sonnet-4-20250514", "gpt-4")
 - `temperature`: Sampling temperature 0.0-1.0 (default: 0.7)

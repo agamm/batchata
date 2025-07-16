@@ -37,7 +37,6 @@ class AnthropicProvider(Provider):
             )
         
         self.client = Anthropic()
-        self._job_mapping: Dict[str, Job] = {}  # Track jobs for parsing
         super().__init__()
         self.models = ANTHROPIC_MODELS
     
@@ -85,7 +84,7 @@ class AnthropicProvider(Provider):
             except Exception as e:
                 raise ValidationError(f"Invalid message format: {e}")
     
-    def create_batch(self, jobs: List[Job]) -> str:
+    def create_batch(self, jobs: List[Job]) -> tuple[str, Dict[str, Job]]:
         """Create and submit a batch of jobs."""
         if not jobs:
             raise BatchSubmissionError("Cannot create empty batch")
@@ -97,9 +96,9 @@ class AnthropicProvider(Provider):
         for job in jobs:
             self.validate_job(job)
         
-        # Prepare batch requests
+        # Prepare batch requests and create batch-specific job mapping
         batch_requests = []
-        self._job_mapping.clear()
+        job_mapping = {}
         
         for job in jobs:
             messages, system_prompt = prepare_messages(job)
@@ -118,7 +117,7 @@ class AnthropicProvider(Provider):
                 request["params"]["system"] = system_prompt
             
             batch_requests.append(request)
-            self._job_mapping[job.id] = job
+            job_mapping[job.id] = job
         
         # Submit to Anthropic
         try:
@@ -130,7 +129,7 @@ class AnthropicProvider(Provider):
             logger.error(f"✗ Failed to create Anthropic batch: {e}")
             raise BatchSubmissionError(f"Failed to create batch: {e}")
         
-        return provider_batch_id
+        return provider_batch_id, job_mapping
     
     def get_batch_status(self, batch_id: str) -> tuple[str, Optional[Dict]]:
         """Get current status of a batch."""
@@ -192,11 +191,11 @@ class AnthropicProvider(Provider):
             logger.error(f"✗ Failed to cancel Anthropic batch {batch_id}: {e}")
             return False
     
-    def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_responses_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch."""
         try:
             results = list(self.client.messages.batches.results(batch_id))
-            return parse_results(results, self._job_mapping, raw_responses_dir)
+            return parse_results(results, job_mapping, raw_responses_dir)
         except Exception as e:
             raise ValidationError(f"Failed to get batch results: {e}")
     

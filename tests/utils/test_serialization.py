@@ -67,7 +67,7 @@ class TestSerialization:
             completed_results=[],
             failed_jobs=[],
             total_cost_usd=0.0,
-            config={"max_concurrent": 10}
+            config={"max_parallel_batches": 10}
         )
         
         serialized = to_dict(state)

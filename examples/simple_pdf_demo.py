@@ -47,12 +47,16 @@ Terms: Net 30"""
     return [page1, page2, page3]
 
 
-def create_temp_invoice_files():
-    """Create temporary invoice PDF files for testing."""
+def create_temp_invoice_files(num_files: int = 3):
+    """Create temporary invoice PDF files for testing.
+    
+    Args:
+        num_files: Number of invoice files to generate (default: 3)
+    """
     temp_dir = tempfile.mkdtemp(prefix="batchata_invoices_")
     
     files = []
-    for i in range(1, 4):
+    for i in range(1, num_files + 1):
         filepath = Path(temp_dir) / f"invoice_{i:03d}.pdf"
         pages = generate_invoice_pages(i)
         pdf_bytes = create_pdf(pages)
@@ -70,8 +74,9 @@ def main():
     try:
         # Create batch configuration
         batch = (
-            Batch(state_file="./examples/demo_pdf_state.json", results_dir="./examples/pdf_output", max_concurrent=3, items_per_batch=2, reuse_state=False)
-            .defaults(model="claude-sonnet-4-20250514", temperature=0.7)
+            Batch(results_dir="./examples/pdf_output", max_parallel_batches=3, items_per_batch=2)
+            .set_state(file="./examples/demo_pdf_state.json", reuse_previous=False)
+            .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=5.0)
             .set_verbosity("warn")
         )
@@ -87,7 +92,7 @@ def main():
         
         # Execute batch
         print("Starting batch processing...")
-        run = batch.run(wait=True, on_progress=lambda s, t: \
+        run = batch.run(print_status=True, on_progress=lambda s, t, b: \
                         print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
                               f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
                               f"Cost: ${round(s['cost_usd'],3)}/{s['cost_limit_usd']} | " \

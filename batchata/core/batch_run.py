@@ -1,6 +1,7 @@
 """Batch run execution management."""
 
 import json
+import signal
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -46,12 +47,22 @@ class BatchRun:
         
         # Initialize components
         self.cost_tracker = CostTracker(limit_usd=config.cost_limit_usd)
-        self.state_manager = StateManager(config.state_file)
+        
+        # Use temp file for state if not provided
+        state_file = config.state_file
+        if not state_file:
+            import tempfile
+            temp_file = tempfile.NamedTemporaryFile(suffix='.json', delete=False)
+            temp_file.close()
+            state_file = temp_file.name
+        
+        self.state_manager = StateManager(state_file)
         
         # State tracking
         self.pending_jobs: List[Job] = []
         self.completed_results: Dict[str, JobResult] = {}  # job_id -> result
         self.failed_jobs: Dict[str, str] = {}  # job_id -> error
+        self.cancelled_jobs: Dict[str, str] = {}  # job_id -> reason
         
         # Batch tracking
         self.total_batches = 0
@@ -68,6 +79,9 @@ class BatchRun:
         # Threading primitives
         self._state_lock = threading.Lock()
         self._shutdown_event = threading.Event()
+        
+        # Batch tracking for progress display
+        self.batch_tracking: Dict[str, Dict] = {}  # batch_id -> batch_info
         
         # Results directory
         self.results_dir = Path(config.results_dir)
@@ -121,13 +135,18 @@ class BatchRun:
         for job_data in state.failed_jobs:
             self.failed_jobs[job_data["id"]] = job_data.get("error", "Unknown error")
         
+        # Restore cancelled jobs (if they exist in state)
+        for job_data in getattr(state, 'cancelled_jobs', []):
+            self.cancelled_jobs[job_data["id"]] = job_data.get("reason", "Cancelled")
+        
         # Restore cost tracker
         self.cost_tracker.used_usd = state.total_cost_usd
         
         logger.info(
             f"Resumed with {len(self.pending_jobs)} pending, "
             f"{len(self.completed_results)} completed, "
-            f"{len(self.failed_jobs)} failed"
+            f"{len(self.failed_jobs)} failed, "
+            f"{len(self.cancelled_jobs)} cancelled"
         )
     
     def to_json(self) -> Dict:
@@ -143,11 +162,18 @@ class BatchRun:
                     "timestamp": datetime.now().isoformat()
                 } for job_id, error in self.failed_jobs.items()
             ],
+            "cancelled_jobs": [
+                {
+                    "id": job_id, 
+                    "reason": reason,
+                    "timestamp": datetime.now().isoformat()
+                } for job_id, reason in self.cancelled_jobs.items()
+            ],
             "total_cost_usd": self.cost_tracker.used_usd,
             "config": {
                 "state_file": self.config.state_file,
                 "results_dir": self.config.results_dir,
-                "max_concurrent": self.config.max_concurrent,
+                "max_parallel_batches": self.config.max_parallel_batches,
                 "items_per_batch": self.config.items_per_batch,
                 "cost_limit_usd": self.config.cost_limit_usd,
                 "default_params": self.config.default_params,
@@ -163,35 +189,49 @@ class BatchRun:
         self._started = True
         self._start_time = datetime.now()
         
-        logger.info("Starting batch run")
+        # Register signal handler for graceful shutdown
+        def signal_handler(signum, frame):
+            logger.warning("Received interrupt signal, shutting down gracefully...")
+            self._shutdown_event.set()
         
-        # Call initial progress
-        if self._progress_callback:
-            stats = self.status()
-            self._progress_callback(stats, 0.0)
+        # Store original handler to restore later
+        original_handler = signal.signal(signal.SIGINT, signal_handler)
         
-        # Process all jobs synchronously
-        self._process_all_jobs()
-        
-        logger.info("Batch run completed")
+        try:
+            logger.info("Starting batch run")
+            
+            # Call initial progress
+            if self._progress_callback:
+                stats = self.status()
+                batch_data = dict(self.batch_tracking)
+                self._progress_callback(stats, 0.0, batch_data)
+            
+            # Process all jobs synchronously
+            self._process_all_jobs()
+            
+            logger.info("Batch run completed")
+        finally:
+            # Restore original signal handler
+            signal.signal(signal.SIGINT, original_handler)
     
-    def set_on_progress(self, callback: Callable[[Dict, float], None], interval: float = 1.0) -> 'BatchRun':
+    def set_on_progress(self, callback: Callable[[Dict, float, Dict], None], interval: float = 1.0) -> 'BatchRun':
         """Set progress callback for execution monitoring.
         
         The callback will be called periodically with progress statistics
         including completed jobs, total jobs, current cost, etc.
         
         Args:
-            callback: Function that receives (stats_dict, elapsed_time_seconds)
+            callback: Function that receives (stats_dict, elapsed_time_seconds, batch_data)
                      - stats_dict: Progress statistics dictionary
                      - elapsed_time_seconds: Time elapsed since batch started (float)
+                     - batch_data: Dictionary mapping batch_id to batch information
             interval: Interval in seconds between progress updates (default: 1.0)
             
         Returns:
             Self for chaining
             
         Example:
-            >>> run.set_on_progress(lambda stats, time: print(f"Progress: {stats['completed']}/{stats['total']}, {time:.1f}s"))
+            >>> run.set_on_progress(lambda stats, time, batch_data: print(f"Progress: {stats['completed']}/{stats['total']}, {time:.1f}s"))
         """
         self._progress_callback = callback
         self._progress_interval = interval
@@ -204,7 +244,7 @@ class BatchRun:
         self.total_batches = len(batches)
         
         # Process batches in parallel
-        with ThreadPoolExecutor(max_workers=self.config.max_concurrent) as executor:
+        with ThreadPoolExecutor(max_workers=self.config.max_parallel_batches) as executor:
             futures = [executor.submit(self._execute_batch_wrapped, provider, batch_jobs) 
                       for _, provider, batch_jobs in batches]
             
@@ -216,6 +256,9 @@ class BatchRun:
                     future.result()  # Re-raise any exceptions
             except KeyboardInterrupt:
                 self._shutdown_event.set()
+                # Cancel remaining futures
+                for future in futures:
+                    future.cancel()
                 raise
     
     def _execute_batch_wrapped(self, provider, batch_jobs):
@@ -234,7 +277,7 @@ class BatchRun:
             # Handle cancelled jobs with proper locking
             with self._state_lock:
                 for job in batch_jobs:
-                    self.failed_jobs[job.id] = "Cancelled by user"
+                    self.cancelled_jobs[job.id] = "Cancelled by user"
                     if job in self.pending_jobs:
                         self.pending_jobs.remove(job)
                 self.state_manager.save(self)
@@ -284,6 +327,17 @@ class BatchRun:
             
             for batch_jobs in job_batches:
                 batches.append((provider_name, provider, batch_jobs))
+                
+                # Pre-populate batch tracking for pending batches
+                batch_id = f"pending_{len(self.batch_tracking)}"
+                self.batch_tracking[batch_id] = {
+                    'start_time': None,
+                    'status': 'pending',
+                    'total': len(batch_jobs),
+                    'completed': 0,
+                    'cost': 0.0,
+                    'jobs': batch_jobs
+                }
         
         return batches
     
@@ -297,14 +351,19 @@ class BatchRun:
             poll_count += 1
             logger.debug(f"Polling attempt {poll_count}, current status: {status}")
             
-            time.sleep(self._progress_interval)
+            # Interruptible wait - will wake up immediately if shutdown event is set
+            if self._shutdown_event.wait(self._progress_interval):
+                logger.info(f"Batch {batch_id} polling interrupted by shutdown")
+                raise KeyboardInterrupt("Batch cancelled by user")
+            
             status, error_details = provider.get_batch_status(batch_id)
             
             if self._progress_callback:
                 with self._state_lock:
                     stats = self.status()
                     elapsed_time = round((datetime.now() - self._start_time).total_seconds())
-                self._progress_callback(stats, elapsed_time)
+                    batch_data = dict(self.batch_tracking)
+                self._progress_callback(stats, elapsed_time, batch_data)
             
             elapsed_seconds = poll_count * self._progress_interval
             logger.info(f"Batch {batch_id} status: {status} (polling for {elapsed_seconds:.1f}s)")
@@ -359,10 +418,30 @@ class BatchRun:
             return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
         
         batch_id = None
+        job_mapping = None
         try:
             # Create batch
             logger.info(f"Creating batch with {len(batch_jobs)} jobs...")
-            batch_id = provider.create_batch(batch_jobs)
+            batch_id, job_mapping = provider.create_batch(batch_jobs)
+            
+            # Track batch creation
+            with self._state_lock:
+                # Remove pending entry if it exists
+                pending_keys = [k for k in self.batch_tracking.keys() if k.startswith('pending_')]
+                for pending_key in pending_keys:
+                    if self.batch_tracking[pending_key]['jobs'] == batch_jobs:
+                        del self.batch_tracking[pending_key]
+                        break
+                
+                # Add actual batch tracking
+                self.batch_tracking[batch_id] = {
+                    'start_time': datetime.now(),
+                    'status': 'running',
+                    'total': len(batch_jobs),
+                    'completed': 0,
+                    'cost': 0.0,
+                    'jobs': batch_jobs
+                }
             
             # Poll for completion
             logger.info(f"Polling for batch {batch_id} completion...")
@@ -375,6 +454,12 @@ class BatchRun:
                     logger.error(f"Batch {batch_id} failed with details: {error_details}")
                 else:
                     logger.error(f"Batch {batch_id} failed")
+                
+                # Update batch tracking for failure
+                with self._state_lock:
+                    if batch_id in self.batch_tracking:
+                        self.batch_tracking[batch_id]['status'] = 'failed'
+                        self.batch_tracking[batch_id]['error'] = error_msg
                 
                 # Release the reservation since batch failed
                 self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
@@ -392,11 +477,18 @@ class BatchRun:
             # Get results
             logger.info(f"Getting results for batch {batch_id}")
             raw_responses_path = str(self.raw_responses_dir) if self.raw_responses_dir else None
-            results = provider.get_batch_results(batch_id, raw_responses_path)
+            results = provider.get_batch_results(batch_id, job_mapping, raw_responses_path)
             
             # Calculate actual cost and adjust reservation
             actual_cost = sum(r.cost_usd for r in results)
             self.cost_tracker.adjust_reserved_cost(estimated_cost, actual_cost)
+            
+            # Update batch tracking for completion
+            with self._state_lock:
+                if batch_id in self.batch_tracking:
+                    self.batch_tracking[batch_id]['status'] = 'complete'
+                    self.batch_tracking[batch_id]['completed'] = len(results)
+                    self.batch_tracking[batch_id]['cost'] = actual_cost
             
             logger.info(
                 f"✓ Batch {batch_id} completed: "
@@ -411,6 +503,11 @@ class BatchRun:
             logger.warning(f"\nCancelling batch{f' {batch_id}' if batch_id else ''}...")
             if batch_id:
                 provider.cancel_batch(batch_id)
+                # Update batch tracking for cancellation
+                with self._state_lock:
+                    if batch_id in self.batch_tracking:
+                        self.batch_tracking[batch_id]['status'] = 'cancelled'
+                        self.batch_tracking[batch_id]['error'] = 'Cancelled by user'
             # Release the reservation since batch was cancelled
             self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
             # Handle cancellation in the wrapper with proper locking
@@ -418,6 +515,12 @@ class BatchRun:
             
         except Exception as e:
             logger.error(f"✗ Batch execution failed: {e}")
+            # Update batch tracking for exception
+            if batch_id:
+                with self._state_lock:
+                    if batch_id in self.batch_tracking:
+                        self.batch_tracking[batch_id]['status'] = 'failed'
+                        self.batch_tracking[batch_id]['error'] = str(e)
             # Release the reservation since batch failed
             self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
             failed = {}
@@ -454,14 +557,14 @@ class BatchRun:
     def is_complete(self) -> bool:
         """Whether all jobs are complete."""
         total_jobs = len(self.jobs)
-        completed_count = len(self.completed_results) + len(self.failed_jobs)
+        completed_count = len(self.completed_results) + len(self.failed_jobs) + len(self.cancelled_jobs)
         return len(self.pending_jobs) == 0 and completed_count == total_jobs
 
     
     def status(self, print_status: bool = False) -> Dict:
         """Get current execution statistics."""
         total_jobs = len(self.jobs)
-        completed_count = len(self.completed_results) + len(self.failed_jobs)
+        completed_count = len(self.completed_results) + len(self.failed_jobs) + len(self.cancelled_jobs)
         remaining_count = total_jobs - completed_count
         
         stats = {
@@ -470,6 +573,7 @@ class BatchRun:
             "active": 0,  # Always 0 for synchronous execution
             "completed": len(self.completed_results),
             "failed": len(self.failed_jobs),
+            "cancelled": len(self.cancelled_jobs),
             "cost_usd": self.cost_tracker.used_usd,
             "cost_limit_usd": self.cost_tracker.limit_usd,
             "is_complete": self.is_complete,
@@ -488,6 +592,7 @@ class BatchRun:
             logger.info(f"  Active: {stats['active']}")
             logger.info(f"  Completed: {stats['completed']}")
             logger.info(f"  Failed: {stats['failed']}")
+            logger.info(f"  Cancelled: {stats['cancelled']}")
             logger.info(f"  Cost: ${stats['cost_usd']:.6f}")
             if stats['cost_limit_usd']:
                 logger.info(f"  Cost limit: ${stats['cost_limit_usd']:.2f}")

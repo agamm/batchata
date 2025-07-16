@@ -18,8 +18,8 @@ class TestPdfValidation:
             tmp.write(b"not a real pdf")  # Score 0.0
             tmp.flush()
             
-            batch = Batch("/tmp/state.json", "/tmp/results")
-            batch.defaults(model="claude-3-5-sonnet-latest")
+            batch = Batch("/tmp/results").set_state(file="/tmp/state.json")
+            batch.set_default_params(model="claude-3-5-sonnet-latest")
             
             with pytest.raises(ValidationError, match="appears to be image-only"):
                 batch.add_job(file=tmp.name, prompt="Test", enable_citations=True)
@@ -32,8 +32,8 @@ class TestPdfValidation:
             tmp.write(b"not a real pdf")  # Score 0.0
             tmp.flush()
             
-            batch = Batch("/tmp/state.json", "/tmp/results")
-            batch.defaults(model="claude-3-5-sonnet-latest")
+            batch = Batch("/tmp/results").set_state(file="/tmp/state.json")
+            batch.set_default_params(model="claude-3-5-sonnet-latest")
             batch.add_job(file=tmp.name, prompt="Test", enable_citations=False)
             
             assert len(batch.jobs) == 1
@@ -48,8 +48,8 @@ class TestPdfValidation:
             tmp.write(pdf_bytes)
             tmp.flush()
             
-            batch = Batch("/tmp/state.json", "/tmp/results")
-            batch.defaults(model="claude-3-5-sonnet-latest")
+            batch = Batch("/tmp/results").set_state(file="/tmp/state.json")
+            batch.set_default_params(model="claude-3-5-sonnet-latest")
             batch.add_job(file=tmp.name, prompt="Test", enable_citations=True)
             
             assert len(batch.jobs) == 1
@@ -61,8 +61,8 @@ class TestPdfValidation:
             tmp.write(b"Text content")
             tmp.flush()
             
-            batch = Batch("/tmp/state.json", "/tmp/results")
-            batch.defaults(model="claude-3-5-sonnet-latest")
+            batch = Batch("/tmp/results").set_state(file="/tmp/state.json")
+            batch.set_default_params(model="claude-3-5-sonnet-latest")
             batch.add_job(file=tmp.name, prompt="Test", enable_citations=True)
             
             assert len(batch.jobs) == 1

@@ -1,6 +1,7 @@
 """Batch builder."""
 
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Type, Optional, Union
 
@@ -20,23 +21,22 @@ class Batch:
     and progress callbacks.
     
     Example:
-        >>> batch = Batch("./state", "./results", max_concurrent=10, items_per_batch=10)
-        ...     .defaults(model="claude-3-sonnet", temperature=0.7)
+        >>> batch = Batch("./results", max_concurrent=10, items_per_batch=10)
+        ...     .set_state(file="./state.json", reuse_previous=True)
+        ...     .set_default_params(model="claude-3-sonnet", temperature=0.7)
         ...     .add_cost_limit(usd=15.0)
         ...     .add_job(messages=[{"role": "user", "content": "Hello"}])
         ...     .add_job(file="./path/to/file.pdf", prompt: "Generate summary of file")
         >>> run = batch.run(wait=True)
     """
     
-    def __init__(self, state_file: str, results_dir: str, max_concurrent: int = 10, items_per_batch: int = 10, reuse_state: bool = True, save_raw_responses: Optional[bool] = None):
+    def __init__(self, results_dir: str, max_parallel_batches: int = 10, items_per_batch: int = 10, save_raw_responses: Optional[bool] = None):
         """Initialize batch configuration.
         
         Args:
-            state_file: Path to state file for persistence
             results_dir: Directory to store results
-            max_concurrent: Maximum concurrent batch requests
+            max_parallel_batches: Maximum parallel batch requests
             items_per_batch: Number of jobs per provider batch
-            reuse_state: Whether to resume from existing state file (default: True)
             save_raw_responses: Whether to save raw API responses from providers (default: True if results_dir is set, False otherwise)
         """
         # Auto-determine save_raw_responses based on results_dir if not explicitly set
@@ -44,16 +44,16 @@ class Batch:
             save_raw_responses = bool(results_dir and results_dir.strip())
         
         self.config = BatchParams(
-            state_file=state_file,
+            state_file=None,
             results_dir=results_dir,
-            max_concurrent=max_concurrent,
+            max_parallel_batches=max_parallel_batches,
             items_per_batch=items_per_batch,
-            reuse_state=reuse_state,
+            reuse_state=True,
             save_raw_responses=save_raw_responses
         )
         self.jobs: List[Job] = []
     
-    def defaults(self, **kwargs) -> 'Batch':
+    def set_default_params(self, **kwargs) -> 'Batch':
         """Set default parameters for all jobs.
         
         These defaults will be applied to all jobs unless overridden
@@ -66,13 +66,30 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.defaults(model="claude-3-sonnet", temperature=0.7)
+            >>> batch.set_default_params(model="claude-3-sonnet", temperature=0.7)
         """
         # Validate if model is provided
         if "model" in kwargs:
             self.config.validate_default_params(kwargs["model"])
         
         self.config.default_params.update(kwargs)
+        return self
+    
+    def set_state(self, file: Optional[str] = None, reuse_previous: bool = True) -> 'Batch':
+        """Set state file configuration.
+        
+        Args:
+            file: Path to state file for persistence (default: None)
+            reuse_previous: Whether to resume from existing state file (default: True)
+            
+        Returns:
+            Self for chaining
+            
+        Example:
+            >>> batch.set_state(file="./state.json", reuse_previous=True)
+        """
+        self.config.state_file = file
+        self.config.reuse_state = reuse_previous
         return self
     
     def add_cost_limit(self, usd: float) -> 'Batch':
@@ -118,7 +135,7 @@ class Batch:
         """Set logging verbosity level.
         
         Args:
-            level: Verbosity level ("debug", "info", "warning", "error")
+            level: Verbosity level ("debug", "info", "warn", "error")
             
         Returns:
             Self for chaining
@@ -127,7 +144,7 @@ class Batch:
             >>> batch.set_verbosity("error")  # For production
             >>> batch.set_verbosity("debug")  # For debugging
         """
-        valid_levels = {"debug", "info", "warning", "error"}
+        valid_levels = {"debug", "info", "warn", "error"}
         if level.lower() not in valid_levels:
             raise ValueError(f"Invalid verbosity level: {level}. Must be one of {valid_levels}")
         self.config.verbosity = level.lower()
@@ -224,7 +241,7 @@ class Batch:
         self.jobs.append(job)
         return self
     
-    def run(self, wait: bool = False, on_progress: Optional[Callable[[Dict, float], None]] = None, progress_interval: float = 1.0) -> 'BatchRun':
+    def run(self, on_progress: Optional[Callable[[Dict, float, Dict], None]] = None, progress_interval: float = 1.0, print_status: bool = False) -> 'BatchRun':
         """Execute the batch.
         
         Creates a BatchRun instance and starts processing the jobs synchronously.
@@ -232,8 +249,9 @@ class Batch:
         Args:
             wait: Legacy parameter, ignored (execution is always synchronous)
             on_progress: Optional progress callback function that receives
-                        (stats_dict, elapsed_time_seconds)
+                        (stats_dict, elapsed_time_seconds, batch_data)
             progress_interval: Interval in seconds between progress updates (default: 1.0)
+            print_status: Whether to show rich progress display (default: False)
             
         Returns:
             BatchRun instance with completed results
@@ -250,12 +268,95 @@ class Batch:
         # Create and start the run
         run = BatchRun(self.config, self.jobs)
         
-        # Set progress callback if provided
+        # Set progress callback - either rich display or custom callback
+        if print_status:
+            return self._run_with_rich_display(run, progress_interval)
+        else:
+            return self._run_with_custom_callback(run, on_progress, progress_interval)
+    
+    def _run_with_rich_display(self, run: 'BatchRun', progress_interval: float) -> 'BatchRun':
+        """Execute batch run with rich progress display.
+        
+        Args:
+            run: BatchRun instance to execute
+            progress_interval: Interval between progress updates
+            
+        Returns:
+            Completed BatchRun instance
+        """
+        from ..utils.rich_progress import RichBatchProgressDisplay
+        display = RichBatchProgressDisplay()
+        
+        def rich_progress_callback(stats, elapsed_time, batch_data):
+            # Start display on first call
+            if not hasattr(rich_progress_callback, '_started'):
+                config_dict = {
+                    'results_dir': self.config.results_dir,
+                    'state_file': self.config.state_file,
+                    'items_per_batch': self.config.items_per_batch,
+                    'max_parallel_batches': self.config.max_parallel_batches
+                }
+                display.start(stats, config_dict)
+                rich_progress_callback._started = True
+            
+            # Update display
+            display.update(stats, batch_data, elapsed_time)
+        
+        run.set_on_progress(rich_progress_callback, interval=progress_interval)
+        
+        # Execute with proper cleanup
+        try:
+            run.start()
+            
+            # Show final status with all batches completed
+            stats = run.status()
+            display.update(stats, run.batch_tracking, (datetime.now() - run._start_time).total_seconds())
+            
+            # Small delay to ensure display updates
+            import time
+            time.sleep(0.2)
+            
+        except KeyboardInterrupt:
+            # Update batch tracking to show cancelled status for pending/running batches
+            with run._state_lock:
+                for batch_id, batch_info in run.batch_tracking.items():
+                    if batch_info['status'] == 'running':
+                        batch_info['status'] = 'cancelled'
+                    elif batch_info['status'] == 'pending':
+                        batch_info['status'] = 'cancelled'
+            
+            # Show final status with cancelled batches
+            stats = run.status()
+            display.update(stats, run.batch_tracking, 0.0)
+            
+            # Add a small delay to ensure the display updates
+            import time
+            time.sleep(0.1)
+            
+            display.stop()
+            raise
+        finally:
+            if display.live:  # Only stop if not already stopped
+                display.stop()
+        
+        return run
+    
+    def _run_with_custom_callback(self, run: 'BatchRun', on_progress: Optional[Callable[[Dict, float, Dict], None]], progress_interval: float) -> 'BatchRun':
+        """Execute batch run with custom progress callback.
+        
+        Args:
+            run: BatchRun instance to execute
+            on_progress: Optional custom progress callback
+            progress_interval: Interval between progress updates
+            
+        Returns:
+            Completed BatchRun instance
+        """
+        # Use custom progress callback if provided
         if on_progress:
             run.set_on_progress(on_progress, interval=progress_interval)
         
         run.start()
-        
         return run
     
     def __len__(self) -> int:
@@ -266,6 +367,6 @@ class Batch:
         """String representation of the batch."""
         return (
             f"Batch(jobs={len(self.jobs)}, "
-            f"max_concurrent={self.config.max_concurrent}, "
+            f"max_parallel_batches={self.config.max_parallel_batches}, "
             f"cost_limit=${self.config.cost_limit_usd or 'None'})"
         )

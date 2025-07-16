@@ -40,7 +40,7 @@ class TestStatePersistence:
             ],
             failed_jobs=[],
             total_cost_usd=0.01,
-            config={"max_concurrent": 10, "items_per_batch": 5}
+            config={"max_parallel_batches": 10, "items_per_batch": 5}
         )
         
         # Save state
@@ -58,7 +58,7 @@ class TestStatePersistence:
         assert len(loaded.completed_results) == 1
         assert loaded.completed_results[0]["job_id"] == "job-0"
         assert loaded.total_cost_usd == 0.01
-        assert loaded.config["max_concurrent"] == 10
+        assert loaded.config["max_parallel_batches"] == 10
     
     def test_atomic_file_operations(self, temp_dir):
         """Test atomic file replacement during save."""
