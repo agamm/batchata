@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "batchata"
-version = "0.3.1"
+version = "0.3.2"
 description = "Batch processing for AI models with cost tracking and state persistence"
 readme = "README.md"
 requires-python = ">=3.12"
