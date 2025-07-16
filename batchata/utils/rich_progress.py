@@ -47,7 +47,7 @@ class RichBatchProgressDisplay:
             self.live = Live(
                 self._create_display(),
                 console=self.console,
-                refresh_per_second=10,
+                refresh_per_second=4,  # Reduced refresh rate to avoid flicker
                 auto_refresh=True
             )
             self.live.start()
@@ -87,16 +87,30 @@ class RichBatchProgressDisplay:
         failed_count = stats.get('failed', 0)
         cancelled_count = len([b for b in self.batches.values() if b.get('status') == 'cancelled'])
         
-        # Main tree
-        header_parts = [
-            f"Batches: {stats.get('batches_completed', 0)}/{stats.get('batches_total', 0)}",
-            f"Requests: {stats.get('completed', 0)}/{stats.get('total', 0)}"
-        ]
+        # Main tree with colored header
+        batches_done = stats.get('batches_completed', 0)
+        batches_total = stats.get('batches_total', 0)
+        requests_done = stats.get('completed', 0) 
+        requests_total = stats.get('total', 0)
+        
+        header_parts = []
+        
+        # Color batches based on completion
+        if batches_done == batches_total and batches_total > 0:
+            header_parts.append(f"[green]Batches: {batches_done}/{batches_total}[/green]")
+        else:
+            header_parts.append(f"[cyan]Batches: {batches_done}/{batches_total}[/cyan]")
+            
+        # Color requests based on completion
+        if requests_done == requests_total and requests_total > 0:
+            header_parts.append(f"[green]Requests: {requests_done}/{requests_total}[/green]")
+        else:
+            header_parts.append(f"[cyan]Requests: {requests_done}/{requests_total}[/cyan]")
         
         if running_count > 0:
-            header_parts.append(f"Running: {running_count}")
+            header_parts.append(f"[blue]Running: {running_count}[/blue]")
         if failed_count > 0:
-            header_parts.append(f"Failed: {failed_count}")
+            header_parts.append(f"[red]Failed: {failed_count}[/red]")
         if cancelled_count > 0:
             header_parts.append(f"[yellow]Cancelled: {cancelled_count}[/yellow]")
             

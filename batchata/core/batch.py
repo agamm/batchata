@@ -1,6 +1,7 @@
 """Batch builder."""
 
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Type, Optional, Union
 
@@ -293,6 +294,15 @@ class Batch:
             # Ensure display is stopped when done
             try:
                 run.start()
+                
+                # Show final status with all batches completed
+                stats = run.status()
+                display.update(stats, run.batch_tracking, (datetime.now() - run._start_time).total_seconds())
+                
+                # Small delay to ensure display updates
+                import time
+                time.sleep(0.2)
+                
             except KeyboardInterrupt:
                 # Update batch tracking to show cancelled status for pending/running batches
                 with run._state_lock:
