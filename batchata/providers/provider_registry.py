@@ -5,6 +5,7 @@ from ..exceptions import ProviderNotFoundError
 
 # Import providers to populate registry
 from .anthropic import AnthropicProvider
+from .openai import OpenAIProvider
 
 # Global registry: model name -> provider instance
 providers: Dict[str, 'Provider'] = {}
@@ -13,6 +14,10 @@ providers: Dict[str, 'Provider'] = {}
 _anthropic = AnthropicProvider(auto_register=False)
 for model_name in _anthropic.models:
     providers[model_name] = _anthropic
+
+_openai = OpenAIProvider(auto_register=False)
+for model_name in _openai.models:
+    providers[model_name] = _openai
 
 
 def get_provider(model: str) -> 'Provider':

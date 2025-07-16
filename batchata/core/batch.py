@@ -247,7 +247,6 @@ class Batch:
         Creates a BatchRun instance and starts processing the jobs synchronously.
         
         Args:
-            wait: Legacy parameter, ignored (execution is always synchronous)
             on_progress: Optional progress callback function that receives
                         (stats_dict, elapsed_time_seconds, batch_data)
             progress_interval: Interval in seconds between progress updates (default: 1.0)

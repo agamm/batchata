@@ -26,6 +26,9 @@ class AnthropicProvider(Provider):
     MAX_REQUESTS = 100_000
     MAX_TOTAL_SIZE_MB = 256
     
+    # Batch discount constant
+    BATCH_DISCOUNT = 0.5
+    
     def __init__(self, auto_register: bool = True):
         """Initialize Anthropic provider."""
         # Check API key
@@ -195,7 +198,7 @@ class AnthropicProvider(Provider):
         """Retrieve results for a completed batch."""
         try:
             results = list(self.client.messages.batches.results(batch_id))
-            return parse_results(results, job_mapping, raw_responses_dir)
+            return parse_results(results, job_mapping, raw_responses_dir, self.BATCH_DISCOUNT)
         except Exception as e:
             raise ValidationError(f"Failed to get batch results: {e}")
     

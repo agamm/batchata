@@ -131,6 +131,8 @@ class RichBatchProgressDisplay:
                 completed = batch_info.get('completed', 0)
                 total = batch_info.get('total', 1)
                 cost = batch_info.get('cost', 0.0)
+                estimated_cost = batch_info.get('estimated_cost', 0.0)
+                provider = batch_info.get('provider', 'Unknown')
                 
                 # Determine tree symbol
                 is_last = idx == num_batches - 1
@@ -207,12 +209,18 @@ class RichBatchProgressDisplay:
                             path_sep = "" if results_dir.endswith("/") else "/"
                             output_file = f"→ {results_dir}{path_sep}{job_ids[0]}.json (+{len(job_ids)-1} more)"
                 
+                # Format cost display based on status
+                if status in ['running', 'pending']:
+                    cost_text = f"${estimated_cost:>5.3f} (estimated)"
+                else:
+                    cost_text = f"${cost:>5.3f}"
+                
                 # Create the batch line with proper spacing
                 batch_line = (
-                    f"{batch_id:<18} {bar} "
+                    f"{provider} {batch_id:<18} {bar} "
                     f"{completed:>2}/{total:<2} {percentage:>3}% "
                     f"{status_text} "
-                    f"${cost:>5.3f} "
+                    f"{cost_text} "
                     f"{time_str:>8}"
                 )
                 

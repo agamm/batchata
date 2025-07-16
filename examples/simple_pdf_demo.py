@@ -4,12 +4,13 @@ import tempfile
 import os
 import random
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
+
 from batchata import Batch
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from batchata.utils.pdf import create_pdf
 
-load_dotenv()
 
 
 class InvoiceAnalysis(BaseModel):
@@ -76,7 +77,7 @@ def main():
         batch = (
             Batch(results_dir="./examples/pdf_output", max_parallel_batches=3, items_per_batch=2)
             .set_state(file="./examples/demo_pdf_state.json", reuse_previous=False)
-            .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
+            .set_default_params(model="gpt-4.1-2025-04-14", temperature=0.7)
             .add_cost_limit(usd=5.0)
             .set_verbosity("warn")
         )
@@ -86,8 +87,7 @@ def main():
             batch.add_job(
                 file=invoice_file,
                 prompt="Extract the invoice number, total amount, vendor name, and payment status.",
-                response_model=InvoiceAnalysis,
-                enable_citations=True
+                response_model=InvoiceAnalysis
             )
         
         # Execute batch
@@ -113,19 +113,8 @@ def main():
                 print(f"  Total: ${analysis.total_amount:.2f}")
                 print(f"  Status: {analysis.payment_status}")
                 
-                # Show citations if available
-                if result.citations:
-                    print(f"  Citations found: {len(result.citations)}")
-                    for i, citation in enumerate(result.citations):
-                        print(f"    - Page {citation.page}: {citation.text[:50]}...")
-                
-                # Show citation mappings if available
-                if result.citation_mappings:
-                    print(f"  \nCitation mappings:")
-                    for field, field_citations in result.citation_mappings.items():
-                        print(f"    {field}:")
-                        for citation in field_citations:
-                            print(f"      - Page {citation.page}: {citation.text.strip()}")
+                print(f"  Tokens: {result.input_tokens} input, {result.output_tokens} output")
+                print(f"  Cost: ${result.cost_usd:.6f}")
             else:
                 print(f"\nJob {job_id} failed: {result.error}")
     

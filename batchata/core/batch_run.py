@@ -330,12 +330,15 @@ class BatchRun:
                 
                 # Pre-populate batch tracking for pending batches
                 batch_id = f"pending_{len(self.batch_tracking)}"
+                estimated_cost = provider.estimate_cost(batch_jobs)
                 self.batch_tracking[batch_id] = {
                     'start_time': None,
                     'status': 'pending',
                     'total': len(batch_jobs),
                     'completed': 0,
                     'cost': 0.0,
+                    'estimated_cost': estimated_cost,
+                    'provider': provider_name,
                     'jobs': batch_jobs
                 }
         
@@ -440,6 +443,8 @@ class BatchRun:
                     'total': len(batch_jobs),
                     'completed': 0,
                     'cost': 0.0,
+                    'estimated_cost': estimated_cost,
+                    'provider': provider.__class__.__name__,
                     'jobs': batch_jobs
                 }
             
