@@ -173,11 +173,12 @@ Note: Provide either `messages` OR `file`+`prompt`, not both.
 
 **PDF Citation Validation**: When using Anthropic models with `enable_citations=True` on PDF files, Batchata automatically validates that the PDF contains extractable text. Image-only or scanned PDFs will raise a ValidationError since citations cannot be extracted from them. This validation is Anthropic-specific and doesn't affect other providers.
 
-#### `.run(wait: bool = False, on_progress: Callable = None)`
+#### `.run(wait: bool = False, on_progress: Callable = None, print_status: bool = False)`
 Execute the batch. Returns a `BatchRun` object.
 - `wait=True`: Block until all jobs complete
 - `wait=False`: Return immediately, process in background
-- `on_progress`: Optional progress callback function
+- `on_progress`: Optional progress callback function that receives `(stats_dict, elapsed_time, batch_data)`
+- `print_status=True`: Enable rich progress display with real-time updates
 
 ### BatchRun
 
@@ -189,20 +190,24 @@ Object returned by `batch.run()`:
 - `.on_progress(callback, interval=3.0)` - Set progress monitoring callback
 - `.shutdown(wait_for_active: bool = True)` - Gracefully shutdown
 
-The progress callback receives a dict with:
-- `batch_id`: Current batch identifier
-- `total`: Total number of jobs
-- `pending`: Jobs waiting to start
-- `active`: Jobs currently processing
-- `completed`: Successfully completed jobs
-- `failed`: Failed jobs
-- `cost_usd`: Current total cost
-- `cost_limit_usd`: Cost limit (if set)
-- `is_complete`: Whether batch is finished
-- `batches_completed`: Number of completed batches
-- `batches_total`: Total number of batches
-- `batches_pending`: Number of pending batches
-- `items_per_batch`: Items per batch setting
+The progress callback receives three parameters:
+1. `stats_dict`: Progress statistics containing:
+   - `batch_id`: Current batch identifier
+   - `total`: Total number of jobs
+   - `pending`: Jobs waiting to start
+   - `active`: Jobs currently processing
+   - `completed`: Successfully completed jobs
+   - `failed`: Failed jobs
+   - `cancelled`: Cancelled jobs (e.g., via Ctrl+C)
+   - `cost_usd`: Current total cost
+   - `cost_limit_usd`: Cost limit (if set)
+   - `is_complete`: Whether batch is finished
+   - `batches_completed`: Number of completed batches
+   - `batches_total`: Total number of batches
+   - `batches_pending`: Number of pending batches
+   - `items_per_batch`: Items per batch setting
+2. `elapsed_time`: Time elapsed since batch started (in seconds)
+3. `batch_data`: Dictionary mapping batch_id to batch information
 
 ### JobResult
 
