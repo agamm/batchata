@@ -69,9 +69,14 @@ class TestProviderRegistry:
             providers.clear()
             providers.update(original_providers)
     
-    def test_registry_auto_population(self):
-        """Test that providers are auto-registered on import."""
-        # The registry should already contain Anthropic models
+    def test_registry_lazy_initialization(self):
+        """Test that providers are initialized when first accessed."""
+        # Clear registry to test lazy initialization
+        providers.clear()
+        
+        # Registry should be empty initially
+        assert len(providers) == 0
+        
         # Check for some expected Anthropic models
         expected_models = [
             "claude-3-5-haiku-20241022",
@@ -79,11 +84,14 @@ class TestProviderRegistry:
             "claude-3-opus-20240229"
         ]
         
+        # First call should trigger initialization
+        provider = get_provider(expected_models[0])
+        assert provider.__class__.__name__ == "AnthropicProvider"
+        
+        # Now registry should be populated
         for model in expected_models:
             assert model in providers
-            provider = providers[model]
-            # Should be the same provider instance for all Anthropic models
-            assert provider.__class__.__name__ == "AnthropicProvider"
+            assert providers[model].__class__.__name__ == "AnthropicProvider"
         
         # Verify all registered models have the same provider instance
         anthropic_providers = [p for p in providers.values() 
