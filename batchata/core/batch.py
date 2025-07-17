@@ -27,7 +27,7 @@ class Batch:
         ...     .add_cost_limit(usd=15.0)
         ...     .add_job(messages=[{"role": "user", "content": "Hello"}])
         ...     .add_job(file="./path/to/file.pdf", prompt: "Generate summary of file")
-        >>> run = batch.run(wait=True)
+        >>> run = batch.run()
     """
     
     def __init__(self, results_dir: str, max_parallel_batches: int = 10, items_per_batch: int = 10, raw_files: Optional[bool] = None):
