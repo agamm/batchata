@@ -66,8 +66,7 @@ class InvoiceAnalysis(BaseModel):
     payment_status: str
 
 # Create batch configuration
-batch = (
-    Batch(
+batch = Batch(
         results_dir="./invoice_results",
         max_parallel_batches=1,
         items_per_batch=3
@@ -76,7 +75,6 @@ batch = (
     .set_default_params(model="claude-sonnet-4-20250514", temperature=0.0)
     .add_cost_limit(usd=5.0)
     .set_verbosity("warn") 
-)
 
 # Add jobs with structured output and citations
 invoice_files = ["path/to/invoice1.pdf", "path/to/invoice2.pdf", "path/to/invoice3.pdf"]
