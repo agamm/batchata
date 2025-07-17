@@ -13,13 +13,15 @@ from ...utils import to_dict, get_logger
 logger = get_logger(__name__)
 
 
-def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], debug_files_dir: str | None = None, batch_discount: float = 0.5) -> List[JobResult]:
+def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_files_dir: str | None = None, batch_discount: float = 0.5, batch_id: str | None = None) -> List[JobResult]:
     """Parse Anthropic batch results into JobResult objects.
     
     Args:
         results: Raw results from Anthropic API
         job_mapping: Mapping of job ID to Job object
-        debug_files_dir: Optional directory to save debug files
+        raw_files_dir: Optional directory to save debug files
+        batch_discount: Batch discount factor from provider
+        batch_id: Batch ID for mapping to raw files
         
     Returns:
         List of JobResult objects
@@ -35,8 +37,8 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], debug_files
             raise ValueError(f"Job {job_id} not found in mapping")
         
         # Save raw response to disk if directory is provided (before any error handling)
-        if debug_files_dir:
-            _save_raw_response(result, job_id, debug_files_dir)
+        if raw_files_dir:
+            _save_raw_response(result, job_id, raw_files_dir)
         
         # Handle failed results
         if result.result.type != "succeeded":
@@ -47,7 +49,8 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], debug_files
             job_results.append(JobResult(
                 job_id=job_id,
                 raw_response="",
-                error=error_message
+                error=error_message,
+                batch_id=batch_id
             ))
             continue
         
@@ -98,14 +101,16 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], debug_files
                 citation_mappings=citation_mappings,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
-                cost_usd=cost_usd
+                cost_usd=cost_usd,
+                batch_id=batch_id
             ))
             
         except Exception as e:
             job_results.append(JobResult(
                 job_id=job_id,
                 raw_response="",
-                error=f"Failed to parse result: {str(e)}"
+                error=f"Failed to parse result: {str(e)}",
+                batch_id=batch_id
             ))
     
     return job_results
@@ -180,11 +185,13 @@ def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel
         return None
 
 
-def _save_raw_response(result: Any, job_id: str, debug_files_dir: str) -> None:
+def _save_raw_response(result: Any, job_id: str, raw_files_dir: str) -> None:
     """Save raw API response to disk."""
     try:
-        debug_files_path = Path(debug_files_dir)
-        raw_response_file = debug_files_path / f"{job_id}_raw.json"
+        raw_files_path = Path(raw_files_dir)
+        responses_dir = raw_files_path / "responses"
+        responses_dir.mkdir(parents=True, exist_ok=True)
+        raw_response_file = responses_dir / f"{job_id}_raw.json"
         
         # Convert to dict using utility function
         raw_data = to_dict(result)

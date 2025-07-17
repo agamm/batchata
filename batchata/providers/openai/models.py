@@ -43,4 +43,30 @@ OPENAI_MODELS = {
         supports_structured_output=True,
         file_types=[".jpg", ".png", ".gif", ".webp", ".pdf"]
     ),
+    
+    # gpt-4.1-nano - cost-effective model for examples and testing
+    "gpt-4.1-nano-2025-04-14": ModelConfig(
+        name="gpt-4.1-nano-2025-04-14",
+        max_input_tokens=1000000,
+        max_output_tokens=32768,
+        batch_discount=0.5,
+        supports_images=True,
+        supports_files=True,
+        supports_citations=False,
+        supports_structured_output=True,
+        file_types=[".jpg", ".png", ".gif", ".webp", ".pdf"]
+    ),
+    
+    # gpt-4o-mini - cost-effective general purpose model  
+    "gpt-4o-mini-2024-07-18": ModelConfig(
+        name="gpt-4o-mini-2024-07-18",
+        max_input_tokens=128000,
+        max_output_tokens=16384,
+        batch_discount=0.5,
+        supports_images=True,
+        supports_files=True,
+        supports_citations=False,
+        supports_structured_output=True,
+        file_types=[".jpg", ".png", ".gif", ".webp", ".pdf"]
+    ),
 }

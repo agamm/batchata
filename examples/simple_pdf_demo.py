@@ -77,7 +77,7 @@ def main():
         batch = (
             Batch(results_dir="./examples/pdf_output", max_parallel_batches=3, items_per_batch=2)
             .set_state(file="./examples/demo_pdf_state.json", reuse_previous=False)
-            .set_default_params(model="gpt-4.1-2025-04-14", temperature=0.7)
+            .set_default_params(model="gpt-4o-mini-2024-07-18", temperature=0.7)
             .add_cost_limit(usd=5.0)
             .set_verbosity("warn")
         )
@@ -92,11 +92,7 @@ def main():
         
         # Execute batch
         print("Starting batch processing...")
-        run = batch.run(print_status=True, on_progress=lambda s, t, b: \
-                        print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
-                              f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
-                              f"Cost: ${round(s['cost_usd'],3)}/{s['cost_limit_usd']} | " \
-                              f"Items per batch: {s['items_per_batch']} | Time: {round(t, 2)}s", end=""))
+        run = batch.run(print_status=True)
         
         # Get results
         run.status(print_status=True)

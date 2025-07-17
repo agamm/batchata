@@ -1,6 +1,8 @@
 """Base Provider class."""
 
+import json
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Dict, List, Type, Optional
 
 from pydantic import BaseModel, field_validator
@@ -8,7 +10,10 @@ from pydantic import BaseModel, field_validator
 from ..core.job import Job
 from ..core.job_result import JobResult
 from ..exceptions import ValidationError
+from ..utils import get_logger
 from .model_config import ModelConfig
+
+logger = get_logger(__name__)
 
 
 class Provider(ABC):
@@ -72,7 +77,7 @@ class Provider(ABC):
         pass
     
     @abstractmethod
-    def create_batch(self, jobs: List[Job]) -> tuple[str, Dict[str, Job]]:
+    def create_batch(self, jobs: List[Job], raw_files_dir: Optional[str] = None) -> tuple[str, Dict[str, Job]]:
         """Create and submit a batch of jobs.
         
         Args:
@@ -152,6 +157,15 @@ class Provider(ABC):
         """
         return model in self.models
     
+    def get_polling_interval(self) -> float:
+        """Get the polling interval for batch status checks.
+        
+        Returns:
+            Interval in seconds between status checks
+        """
+        # Default to 1 second, providers can override
+        return 1.0
+    
     def get_model_config(self, model: str) -> Optional[ModelConfig]:
         """Get configuration for a model.
         
@@ -162,3 +176,76 @@ class Provider(ABC):
             ModelConfig if model is supported, None otherwise
         """
         return self.models.get(model)
+    
+    def _save_input_jsonl(self, batch_id: str, jsonl_content: str, raw_files_dir: str, provider_name: str) -> None:
+        """Save input JSONL file for debugging.
+        
+        Args:
+            batch_id: Batch ID for filename
+            jsonl_content: JSONL content to save
+            raw_files_dir: Directory to save to
+            provider_name: Provider name for filename prefix
+        """
+        try:
+            raw_files_path = Path(raw_files_dir)
+            input_dir = raw_files_path / "input"
+            input_dir.mkdir(parents=True, exist_ok=True)
+            jsonl_file = input_dir / f"{provider_name}_batch_{batch_id}_input.jsonl"
+            
+            with open(jsonl_file, 'w') as f:
+                f.write(jsonl_content)
+            
+            logger.debug(f"Saved input JSONL file for batch {batch_id} to {jsonl_file}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to save input JSONL file for batch {batch_id}: {e}")
+    
+    def _save_output_jsonl(self, batch_id: str, jsonl_content: str, raw_files_dir: str, provider_name: str) -> None:
+        """Save output JSONL file for debugging.
+        
+        Args:
+            batch_id: Batch ID for filename
+            jsonl_content: JSONL content to save
+            raw_files_dir: Directory to save to
+            provider_name: Provider name for filename prefix
+        """
+        try:
+            raw_files_path = Path(raw_files_dir)
+            output_dir = raw_files_path / "output"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            jsonl_file = output_dir / f"{provider_name}_batch_{batch_id}_results.jsonl"
+            
+            with open(jsonl_file, 'w') as f:
+                f.write(jsonl_content)
+            
+            logger.debug(f"Saved output JSONL file for batch {batch_id} to {jsonl_file}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to save output JSONL file for batch {batch_id}: {e}")
+    
+    def _save_raw_response(self, result: any, job_id: str, raw_files_dir: str) -> None:
+        """Save individual raw API response to disk.
+        
+        Args:
+            result: Raw response from API
+            job_id: Job ID for filename
+            raw_files_dir: Directory to save to
+        """
+        try:
+            from ..utils import to_dict
+            
+            raw_files_path = Path(raw_files_dir)
+            responses_dir = raw_files_path / "responses"
+            responses_dir.mkdir(parents=True, exist_ok=True)
+            raw_response_file = responses_dir / f"{job_id}_raw.json"
+            
+            # Convert to dict using utility function
+            raw_data = to_dict(result)
+            
+            with open(raw_response_file, 'w') as f:
+                json.dump(raw_data, f, indent=2)
+            
+            logger.debug(f"Saved raw response for job {job_id} to {raw_response_file}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to save raw response for job {job_id}: {e}")

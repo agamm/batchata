@@ -86,11 +86,15 @@ def prepare_messages(job: Job) -> Tuple[List[Dict], Optional[Dict]]:
     
     # Add response model schema if provided
     if job.response_model:
+        # Generate schema and ensure additionalProperties is set to false for OpenAI
+        schema = job.response_model.model_json_schema()
+        schema["additionalProperties"] = False
+        
         response_format = {
             "type": "json_schema",
             "json_schema": {
                 "name": "response",
-                "schema": job.response_model.model_json_schema(),
+                "schema": schema,
                 "strict": True
             }
         }

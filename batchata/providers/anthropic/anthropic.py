@@ -26,9 +26,6 @@ class AnthropicProvider(Provider):
     MAX_REQUESTS = 100_000
     MAX_TOTAL_SIZE_MB = 256
     
-    # Batch discount constant
-    BATCH_DISCOUNT = 0.5
-    
     def __init__(self, auto_register: bool = True):
         """Initialize Anthropic provider."""
         # Check API key
@@ -87,7 +84,7 @@ class AnthropicProvider(Provider):
             except Exception as e:
                 raise ValidationError(f"Invalid message format: {e}")
     
-    def create_batch(self, jobs: List[Job]) -> tuple[str, Dict[str, Job]]:
+    def create_batch(self, jobs: List[Job], raw_files_dir: Optional[str] = None) -> tuple[str, Dict[str, Job]]:
         """Create and submit a batch of jobs."""
         if not jobs:
             raise BatchSubmissionError("Cannot create empty batch")
@@ -194,11 +191,16 @@ class AnthropicProvider(Provider):
             logger.error(f"✗ Failed to cancel Anthropic batch {batch_id}: {e}")
             return False
     
-    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], debug_files_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_files_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch."""
         try:
             results = list(self.client.messages.batches.results(batch_id))
-            return parse_results(results, job_mapping, debug_files_dir, self.BATCH_DISCOUNT)
+            # Get batch discount from first job's model config (all jobs in batch use same model)
+            first_job = next(iter(job_mapping.values()))
+            model_config = self.get_model_config(first_job.model)
+            batch_discount = model_config.batch_discount
+            
+            return parse_results(results, job_mapping, raw_files_dir, batch_discount, batch_id)
         except Exception as e:
             raise ValidationError(f"Failed to get batch results: {e}")
     

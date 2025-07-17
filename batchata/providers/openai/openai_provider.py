@@ -28,9 +28,6 @@ class OpenAIProvider(Provider):
     MAX_REQUESTS = 50_000
     MAX_FILE_SIZE_MB = 200
     
-    # Batch discount constant
-    BATCH_DISCOUNT = 0.5
-    
     def __init__(self, auto_register: bool = True):
         """Initialize OpenAI provider."""
         # Check API key
@@ -44,6 +41,17 @@ class OpenAIProvider(Provider):
         self.client = OpenAI()
         super().__init__()
         self.models = OPENAI_MODELS
+    
+    def get_polling_interval(self) -> float:
+        """Get the polling interval for batch status checks.
+        
+        OpenAI uses 5 second intervals to avoid Cloudflare rate limiting errors
+        that were occurring with the default 1 second polling.
+        
+        Returns:
+            5.0 seconds between status checks
+        """
+        return 5.0
     
     def validate_job(self, job: Job) -> None:
         """Validate job constraints and message format."""
@@ -71,7 +79,7 @@ class OpenAIProvider(Provider):
             except Exception as e:
                 raise ValidationError(f"Invalid message format: {e}")
     
-    def create_batch(self, jobs: List[Job]) -> tuple[str, Dict[str, Job]]:
+    def create_batch(self, jobs: List[Job], raw_files_dir: Optional[str] = None) -> tuple[str, Dict[str, Job]]:
         """Create and submit a batch of jobs."""
         if not jobs:
             raise BatchSubmissionError("Cannot create empty batch")
@@ -128,6 +136,10 @@ class OpenAIProvider(Provider):
             provider_batch_id = batch_response.id
             logger.info(f"✓ OpenAI batch created successfully: {provider_batch_id}")
             
+            # Save input JSONL file for debugging if directory provided
+            if raw_files_dir:
+                self._save_input_jsonl(provider_batch_id, jsonl_content, raw_files_dir, "openai")
+            
         except Exception as e:
             # Clean up temp file if it exists
             if 'tmp_file_path' in locals():
@@ -181,23 +193,54 @@ class OpenAIProvider(Provider):
             logger.error(f"✗ Failed to cancel OpenAI batch {batch_id}: {e}")
             return False
     
-    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], debug_files_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_files_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch."""
         try:
-            # Get batch info to get output file ID
+            # Get batch info 
             batch_info = self.client.batches.retrieve(batch_id)
             
+            # Handle failed batches that have no output file
             if not batch_info.output_file_id:
-                raise ValidationError(f"Batch {batch_id} has no output file")
+                logger.warning(f"Batch {batch_id} has no output file - batch likely failed")
+                
+                # Check for error file
+                error_content = None
+                if hasattr(batch_info, 'error_file_id') and batch_info.error_file_id:
+                    try:
+                        logger.info(f"Downloading error file for failed batch {batch_id}")
+                        error_response = self.client.files.content(batch_info.error_file_id)
+                        error_content = error_response.text
+                        
+                        # Save error JSONL file
+                        if raw_files_dir:
+                            self._save_error_jsonl(batch_id, error_content, raw_files_dir)
+                            
+                    except Exception as e:
+                        logger.warning(f"Failed to download error file for batch {batch_id}: {e}")
+                
+                # Create failed results for all jobs in the batch
+                failed_results = []
+                batch_status = getattr(batch_info, 'status', 'failed')
+                error_message = f"Batch failed with status: {batch_status}"
+                
+                for job_id in job_mapping.keys():
+                    failed_results.append(JobResult(
+                        job_id=job_id,
+                        raw_response="",
+                        error=error_message,
+                        batch_id=batch_id
+                    ))
+                
+                return failed_results
             
-            # Download results file
+            # Download results file for successful batch
             logger.info(f"Downloading results for batch {batch_id}")
             file_response = self.client.files.content(batch_info.output_file_id)
             jsonl_content = file_response.text
             
             # Save JSONL debug file if directory provided
-            if debug_files_dir:
-                self._save_jsonl_debug_file(batch_id, jsonl_content, debug_files_dir)
+            if raw_files_dir:
+                self._save_output_jsonl(batch_id, jsonl_content, raw_files_dir, "openai")
             
             # Parse JSONL content
             results = []
@@ -205,8 +248,13 @@ class OpenAIProvider(Provider):
                 if line.strip():
                     results.append(json.loads(line))
             
+            # Get batch discount from first job's model config (all jobs in batch use same model)
+            first_job = next(iter(job_mapping.values()))
+            model_config = self.get_model_config(first_job.model)
+            batch_discount = model_config.batch_discount
+            
             # Parse results using our parser
-            return parse_results(results, job_mapping, debug_files_dir, self.BATCH_DISCOUNT)
+            return parse_results(results, job_mapping, raw_files_dir, batch_discount, batch_id)
             
         except Exception as e:
             raise ValidationError(f"Failed to get batch results: {e}")
@@ -261,13 +309,17 @@ class OpenAIProvider(Provider):
                     token_type="output"
                 ))
                 
+                # Get batch discount from model config
+                model_config = self.get_model_config(job.model)
+                batch_discount = model_config.batch_discount
+                
                 # Apply batch discount
-                job_cost = (input_cost + output_cost) * self.BATCH_DISCOUNT
+                job_cost = (input_cost + output_cost) * batch_discount
                 
                 logger.info(
                     f"Job {job.id}: ~{input_tokens} input tokens, "
                     f"{job.max_tokens} max output tokens, "
-                    f"cost: ${job_cost:.6f} (with {int(self.BATCH_DISCOUNT*100)}% batch discount)"
+                    f"cost: ${job_cost:.6f} (with {int(batch_discount*100)}% batch discount)"
                 )
                 
                 total_cost += job_cost
@@ -278,17 +330,19 @@ class OpenAIProvider(Provider):
         
         return total_cost
     
-    def _save_jsonl_debug_file(self, batch_id: str, jsonl_content: str, debug_files_dir: str) -> None:
-        """Save JSONL response file for debugging."""
+    def _save_error_jsonl(self, batch_id: str, error_content: str, raw_files_dir: str) -> None:
+        """Save error JSONL file for debugging."""
         try:
             from pathlib import Path
-            debug_path = Path(debug_files_dir)
-            jsonl_file = debug_path / f"openai_batch_{batch_id}_results.jsonl"
+            raw_files_path = Path(raw_files_dir)
+            errors_dir = raw_files_path / "errors"
+            errors_dir.mkdir(parents=True, exist_ok=True)
+            error_file = errors_dir / f"openai_batch_{batch_id}_errors.jsonl"
             
-            with open(jsonl_file, 'w') as f:
-                f.write(jsonl_content)
+            with open(error_file, 'w') as f:
+                f.write(error_content)
             
-            logger.debug(f"Saved JSONL debug file for batch {batch_id} to {jsonl_file}")
+            logger.debug(f"Saved error JSONL file for batch {batch_id} to {error_file}")
             
         except Exception as e:
-            logger.warning(f"Failed to save JSONL debug file for batch {batch_id}: {e}")
+            logger.warning(f"Failed to save error JSONL file for batch {batch_id}: {e}")

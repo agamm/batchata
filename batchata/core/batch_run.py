@@ -93,11 +93,11 @@ class BatchRun:
         
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
-        # Debug files directory (if enabled)
-        self.debug_files_dir = None
+        # Raw files directory (if enabled)
+        self.raw_files_dir = None
         if config.raw_files:
-            self.debug_files_dir = self.results_dir / "debug_files"
-            self.debug_files_dir.mkdir(parents=True, exist_ok=True)
+            self.raw_files_dir = self.results_dir / "raw_files"
+            self.raw_files_dir.mkdir(parents=True, exist_ok=True)
         
         # Try to resume from saved state
         self._resume_from_state()
@@ -350,12 +350,16 @@ class BatchRun:
         logger.info(f"Initial batch status: {status}")
         poll_count = 0
         
+        # Use provider-specific polling interval
+        provider_polling_interval = provider.get_polling_interval()
+        logger.debug(f"Using {provider_polling_interval}s polling interval for {provider.__class__.__name__}")
+        
         while status not in ["complete", "failed"]:
             poll_count += 1
             logger.debug(f"Polling attempt {poll_count}, current status: {status}")
             
             # Interruptible wait - will wake up immediately if shutdown event is set
-            if self._shutdown_event.wait(self._progress_interval):
+            if self._shutdown_event.wait(provider_polling_interval):
                 logger.info(f"Batch {batch_id} polling interrupted by shutdown")
                 raise KeyboardInterrupt("Batch cancelled by user")
             
@@ -368,7 +372,7 @@ class BatchRun:
                     batch_data = dict(self.batch_tracking)
                 self._progress_callback(stats, elapsed_time, batch_data)
             
-            elapsed_seconds = poll_count * self._progress_interval
+            elapsed_seconds = poll_count * provider_polling_interval
             logger.info(f"Batch {batch_id} status: {status} (polling for {elapsed_seconds:.1f}s)")
         
         return status, error_details
@@ -425,7 +429,8 @@ class BatchRun:
         try:
             # Create batch
             logger.info(f"Creating batch with {len(batch_jobs)} jobs...")
-            batch_id, job_mapping = provider.create_batch(batch_jobs)
+            raw_files_path = str(self.raw_files_dir) if self.raw_files_dir else None
+            batch_id, job_mapping = provider.create_batch(batch_jobs, raw_files_path)
             
             # Track batch creation
             with self._state_lock:
@@ -474,15 +479,15 @@ class BatchRun:
                     failed[job.id] = error_msg
                 
                 # Save error details if configured
-                if self.debug_files_dir and error_details:
+                if self.raw_files_dir and error_details:
                     self._save_batch_error_details(batch_id, error_details)
                 
                 return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
             
             # Get results
             logger.info(f"Getting results for batch {batch_id}")
-            debug_files_path = str(self.debug_files_dir) if self.debug_files_dir else None
-            results = provider.get_batch_results(batch_id, job_mapping, debug_files_path)
+            raw_files_path = str(self.raw_files_dir) if self.raw_files_dir else None
+            results = provider.get_batch_results(batch_id, job_mapping, raw_files_path)
             
             # Calculate actual cost and adjust reservation
             actual_cost = sum(r.cost_usd for r in results)
@@ -547,7 +552,7 @@ class BatchRun:
     def _save_batch_error_details(self, batch_id: str, error_details: Dict):
         """Save batch error details to debug files directory."""
         try:
-            error_file = self.debug_files_dir / f"batch_{batch_id}_error.json"
+            error_file = self.raw_files_dir / f"batch_{batch_id}_error.json"
             with open(error_file, 'w') as f:
                 json.dump({
                     "batch_id": batch_id,

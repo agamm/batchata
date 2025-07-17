@@ -21,6 +21,7 @@ class JobResult:
         output_tokens: Number of output tokens generated
         cost_usd: Total cost in USD
         error: Error message if job failed
+        batch_id: ID of the batch this job was part of (for mapping to raw files)
     """
     
     job_id: str
@@ -32,6 +33,7 @@ class JobResult:
     output_tokens: int = 0
     cost_usd: float = 0.0
     error: Optional[str] = None  # Error message if failed
+    batch_id: Optional[str] = None  # Batch ID for mapping to raw files
     
     @property
     def is_success(self) -> bool:
@@ -72,7 +74,8 @@ class JobResult:
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
             "cost_usd": self.cost_usd,
-            "error": self.error
+            "error": self.error,
+            "batch_id": self.batch_id
         }
     
     @classmethod
@@ -100,5 +103,6 @@ class JobResult:
             input_tokens=data.get("input_tokens", 0),
             output_tokens=data.get("output_tokens", 0),
             cost_usd=data.get("cost_usd", 0.0),
-            error=data.get("error")
+            error=data.get("error"),
+            batch_id=data.get("batch_id")
         )
