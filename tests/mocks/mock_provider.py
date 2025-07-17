@@ -124,7 +124,7 @@ class MockProvider(Provider):
         
         return batch["status"], None
     
-    def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, raw_files_dir: Optional[str] = None) -> List[JobResult]:
         """Get mock batch results."""
         self.call_history.append({"method": "get_batch_results", "batch_id": batch_id})
         

@@ -75,20 +75,20 @@ class TestBatch:
             assert batch.jobs[1].temperature == 0.2
             assert batch.jobs[1].model == "mock-model-basic"
     
-    @pytest.mark.parametrize("save_raw_responses,results_dir,expected", [
+    @pytest.mark.parametrize("raw_files,results_dir,expected", [
         (None, "/tmp/results", True),    # Auto-determined from results_dir
         (None, "", False),                # Empty results_dir
         (True, "/tmp/results", True),    # Explicitly set
         (False, "/tmp/results", False),   # Explicitly disabled
     ])
-    def test_save_raw_responses_configuration(self, temp_dir, save_raw_responses, results_dir, expected):
-        """Test save_raw_responses is correctly configured based on inputs."""
+    def test_raw_files_configuration(self, temp_dir, raw_files, results_dir, expected):
+        """Test raw_files is correctly configured based on inputs."""
         if results_dir:
             results_dir = str(temp_dir / "results")
         
         batch = Batch(
             results_dir=results_dir,
-            save_raw_responses=save_raw_responses
+            raw_files=raw_files
         )
         
-        assert batch.config.save_raw_responses == expected
+        assert batch.config.raw_files == expected

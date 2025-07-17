@@ -196,7 +196,7 @@ class TestBatchRun:
                 # Third batch: small estimate
                 return 20.0
         
-        def mock_create_batch(jobs):
+        def mock_create_batch(jobs, raw_files_dir=None):
             job_id = jobs[0].id
             execution_results.append(f"created_{job_id}")
             # Return tuple: (batch_id, job_mapping)
@@ -206,7 +206,7 @@ class TestBatchRun:
         def mock_get_batch_status(batch_id):
             return "complete", None
         
-        def mock_get_batch_results(batch_id, job_mapping, raw_responses_dir=None):
+        def mock_get_batch_results(batch_id, job_mapping, raw_files_dir=None):
             if "job-1" in batch_id:
                 # First batch: actual cost much lower than estimate
                 execution_results.append(f"completed_job-1_actual_30")

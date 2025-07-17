@@ -62,7 +62,7 @@ def batch_params(temp_dir) -> Dict[str, Any]:
         "max_parallel_batches": 5,
         "items_per_batch": 10,
         "reuse_state": True,
-        "save_raw_responses": True
+        "raw_files": True
     }
 
 

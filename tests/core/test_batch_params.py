@@ -67,7 +67,7 @@ class TestBatchParams:
             max_parallel_batches=5,
             items_per_batch=15,
             reuse_state=False,
-            save_raw_responses=True,
+            raw_files=True,
             cost_limit_usd=25.0,
             default_params={"model": "test-model", "temperature": 0.5}
         )
@@ -88,7 +88,7 @@ class TestBatchParams:
         assert restored.max_parallel_batches == original.max_parallel_batches
         assert restored.items_per_batch == original.items_per_batch
         assert restored.reuse_state == original.reuse_state
-        assert restored.save_raw_responses == original.save_raw_responses
+        assert restored.raw_files == original.raw_files
         assert restored.cost_limit_usd == original.cost_limit_usd
         assert restored.default_params == original.default_params
     
@@ -107,7 +107,7 @@ class TestBatchParams:
         assert params.max_parallel_batches == 5
         assert params.items_per_batch == 10  # Default value
         assert params.reuse_state is True
-        assert params.save_raw_responses is True
+        assert params.raw_files is True
         assert params.cost_limit_usd is None
         assert params.default_params == {}
         assert params.verbosity == "info"
