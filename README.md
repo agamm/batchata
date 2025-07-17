@@ -38,7 +38,6 @@ from batchata import Batch
 
 # Simple batch processing
 batch = Batch(results_dir="./output")
-    .set_state(file="./state.json")
     .set_default_params(model="claude-sonnet-4-20250514")  # or "gpt-4.1-2025-04-14"
     .add_cost_limit(usd=5.0)
 
