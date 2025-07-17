@@ -8,10 +8,8 @@ from typing import Generator, Dict, Any
 from unittest.mock import Mock, patch
 import os
 
-# Mock OpenAI API key for testing to avoid import errors
-with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-key-for-testing'}):
-    from batchata.types import Message
-    from batchata.core.job import Job
+from batchata.types import Message
+from batchata.core.job import Job
 
 
 @pytest.fixture
