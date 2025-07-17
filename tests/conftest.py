@@ -5,10 +5,13 @@ import tempfile
 import shutil
 from pathlib import Path
 from typing import Generator, Dict, Any
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+import os
 
-from batchata.types import Message
-from batchata.core.job import Job
+# Mock OpenAI API key for testing to avoid import errors
+with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-key-for-testing'}):
+    from batchata.types import Message
+    from batchata.core.job import Job
 
 
 @pytest.fixture
