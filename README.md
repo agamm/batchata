@@ -16,7 +16,8 @@ AI providers offer batch APIs that process requests asynchronously at 50% reduce
 - Set `max_cost_usd` limits for batch requests
 - State persistence in case of network interruption
 - Structured output `.json` format with Pydantic models
-- Citation support and field mapping (supported only by anthropic atm)
+- Citation support and field mapping (Anthropic only)
+- Multiple provider support (Anthropic, OpenAI)
 
 ## Installation
 
@@ -38,13 +39,13 @@ from batchata import Batch
 # Simple batch processing
 batch = Batch(results_dir="./output")
     .set_state(file="./state.json")
-    .set_default_params(model="claude-sonnet-4-20250514")
+    .set_default_params(model="claude-sonnet-4-20250514")  # or "gpt-4.1-2025-04-14"
     .add_cost_limit(usd=5.0)
 
 for file in files:
     batch.add_job(file=file, prompt="Summarize")
 
-run = batch.run(wait=True)
+run = batch.run()
 
 results = run.results()  # Dict[job_id, JobResult]
 ```
@@ -90,11 +91,10 @@ for invoice_file in invoice_files:
 
 # Execute with rich progress display
 print("Starting batch processing...")
-run = batch.run(wait=True, print_status=True)
+run = batch.run(print_status=True)
 
 # Or use custom progress callback
 run = batch.run(
-    wait=True,
     on_progress=lambda s, t, b: print(
         f"\rProgress: {s['completed']}/{s['total']} jobs | "
         f"Batches: {s['batches_completed']}/{s['batches_total']} | "
@@ -131,14 +131,14 @@ Batch(
     results_dir: str, 
     max_parallel_batches: int = 10,
     items_per_batch: int = 10,
-    save_raw_responses: Optional[bool] = None
+    raw_files: Optional[bool] = None
 )
 ```
 
 - `results_dir`: Directory to store individual job results  
 - `max_parallel_batches`: Maximum parallel batch requests (default: 10)
 - `items_per_batch`: Number of jobs per provider batch (affects cost tracking accuracy, default: 10)
-- `save_raw_responses`: Whether to save raw API responses in the results dir (default: True if results_dir is set)
+- `raw_files`: Whether to save debug files (raw API requests/responses) in the results dir (default: True if results_dir is set)
 
 **Methods:**
 
@@ -149,7 +149,7 @@ Set state file configuration for recovery in case of network interruption.
 
 #### `.set_default_params(**kwargs)`
 Set default parameters for all jobs. Common parameters:
-- `model`: Model name (e.g., "claude-sonnet-4-20250514", "gpt-4")
+- `model`: Model name (e.g., "claude-sonnet-4-20250514", "gpt-4.1-2025-04-14")
 - `temperature`: Sampling temperature 0.0-1.0 (default: 0.7)
 - `max_tokens`: Maximum tokens to generate (default: 1000)
 
@@ -176,10 +176,8 @@ Note: Provide either `messages` OR `file`+`prompt`, not both.
 
 **PDF Citation Validation**: When using Anthropic models with `enable_citations=True` on PDF files, Batchata automatically validates that the PDF contains extractable text. Image-only or scanned PDFs will raise a ValidationError since citations cannot be extracted from them. This validation is Anthropic-specific and doesn't affect other providers.
 
-#### `.run(wait: bool = False, on_progress: Callable = None, print_status: bool = False)`
+#### `.run(on_progress: Callable = None, print_status: bool = False)`
 Execute the batch. Returns a `BatchRun` object.
-- `wait=True`: Block until all jobs complete
-- `wait=False`: Return immediately, process in background
 - `on_progress`: Optional progress callback function that receives `(stats_dict, elapsed_time, batch_data)`
 - `print_status=True`: Enable rich progress display with real-time updates
 
@@ -248,13 +246,23 @@ Each Citation object contains:
 ./batch_state.json  # Batch state
 ```
 
+## Supported Providers
+
+| Feature | Anthropic | OpenAI |
+|---------|-----------|--------|
+| Models | Claude Sonnet 4, Haiku | GPT-4.1, GPT-4o-mini, o3, o4-mini |
+| Batch Discount | 50% | 50% |
+| Polling Interval | 1s | 5s |
+| Citations | ✅ | ❌ |
+| Structured Output | ✅ | ✅ |
+| File Types | PDF, Images | PDF, Images |
+
 ## Configuration
 
 Set your API keys as environment variables:
 ```bash
 export ANTHROPIC_API_KEY="your-key"
 export OPENAI_API_KEY="your-key"
-export GOOGLE_API_KEY="your-key"
 ```
 
 You can also use a `.env` file in your project root (requires python-dotenv):
@@ -270,7 +278,7 @@ from batchata import Batch
 
 - Field/citation mapping is heuristic, which means it isn't perfect.
 - Citation mapping only works with flat Pydantic models (no nested BaseModel fields).
-- Right now only Anthropic Batch requests are supported.
+- OpenAI and Anthropic providers are supported.
 - Cost tracking is not precise as the actual usage is only known after the batch is complete, try setting `items_per_batch` to a lower value for more accurate cost tracking.
 
 

@@ -41,7 +41,7 @@ class ConcreteProvider(Provider):
     def get_batch_status(self, batch_id: str) -> tuple[str, Optional[Dict]]:
         return "complete", None
     
-    def get_batch_results(self, batch_id: str, raw_responses_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, raw_files_dir: Optional[str] = None) -> List[JobResult]:
         return []
     
     def cancel_batch(self, batch_id: str) -> bool:

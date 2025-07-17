@@ -71,7 +71,7 @@ def main():
         
         # Execute batch
         print("Starting batch processing...")
-        run = batch.run(wait=True, on_progress=lambda s, t, b: \
+        run = batch.run(on_progress=lambda s, t, b: \
                         print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
                               f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
                               f"Cost: ${round(s['cost_usd'],3)}/{s['cost_limit_usd']} | " \
