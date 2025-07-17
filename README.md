@@ -270,7 +270,7 @@ from batchata import Batch
 
 - Field/citation mapping is heuristic, which means it isn't perfect.
 - Citation mapping only works with flat Pydantic models (no nested BaseModel fields).
-- Right now only Anthropic Batch requests are supported.
+- No Gemini or Groq support yet.
 - Cost tracking is not precise as the actual usage is only known after the batch is complete, try setting `items_per_batch` to a lower value for more accurate cost tracking.
 
 
