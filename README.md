@@ -4,44 +4,7 @@
 
 Unified Python API for AI Batch requests with cost tracking, Pydantic responses, citation mapping and parallel execution.
 
-```mermaid
-graph LR
-    %% Input Sources
-    A["📄 Files<br/>PDF, DOCX..."] --> D
-    B["🖼️ Images<br/>JPG, PNG..."] --> D
-    C["💭 Prompts<br/>Message format"] --> D
-    
-    %% AI Providers (positioned higher)
-    E["🤖 AI Providers<br/>• Anthropic<br/>• OpenAI<br/>..."]
-    
-    %% Core Processing
-    D["⚡ Batchata<br/>💰 Cost Tracking (50% savings)<br/>🔄 State Persistence<br/>📊 Parallel Execution"] 
-    
-    %% Bidirectional connection
-    D <--> E
-    
-    %% File System
-    F["💾 File System<br/>Storage"]
-    D --> F
-    
-    %% Output Types
-    G["🎯 Pydantic<br/>JSON Responses"]
-    H["🔗 Citations<br/>Validate sources"]
-    
-    %% Output connections
-    F --> G
-    F --> H
-    
-    %% Styling Classes
-    classDef neutralNode fill:#f9f9f9,stroke:#666,stroke-width:2px,color:#333
-    classDef coreNode fill:#e5e7eb,stroke:#374151,stroke-width:4px,color:#1f2937
-    classDef outputNode fill:#dbeafe,stroke:#1e40af,stroke-width:3px,color:#1e3a8a
-    
-    %% Apply styles
-    class A,B,C,E,F neutralNode
-    class D coreNode
-    class G,H outputNode
-```
+<img width="1328" height="598" alt="image" src="https://github.com/user-attachments/assets/b1b43070-f664-41a2-a85d-e2c589df556c" />
 
 *This library is currently in alpha - so there will be breaking changes*
 
