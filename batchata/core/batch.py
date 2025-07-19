@@ -244,7 +244,7 @@ class Batch:
     def run(self, on_progress: Optional[Callable[[Dict, float, Dict], None]] = None, progress_interval: float = 1.0, print_status: bool = False) -> 'BatchRun':
         """Execute the batch.
         
-        Creates a BatchRun instance and starts processing the jobs synchronously.
+        Creates a BatchRun instance and executes the jobs synchronously.
         
         Args:
             on_progress: Optional progress callback function that receives
@@ -305,7 +305,7 @@ class Batch:
         
         # Execute with proper cleanup
         try:
-            run.start()
+            run.execute()
             
             # Show final status with all batches completed
             stats = run.status()
@@ -355,7 +355,7 @@ class Batch:
         if on_progress:
             run.set_on_progress(on_progress, interval=progress_interval)
         
-        run.start()
+        run.execute()
         return run
     
     def __len__(self) -> int:

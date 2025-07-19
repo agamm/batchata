@@ -250,7 +250,7 @@ class TestBatchRun:
         # Mock the provider registry to return our mock
         with patch('batchata.core.batch_run.get_provider', return_value=mock_provider):
             # Start the batch run
-            run.start()
+            run.execute()
             
             # Verify execution patterns
             results = run.results()

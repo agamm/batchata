@@ -28,7 +28,7 @@ class BatchRun:
     Example:
         >>> config = BatchParams(...)
         >>> run = BatchRun(config, jobs)
-        >>> run.start()
+        >>> run.execute()
         >>> results = run.results()
     """
     
@@ -181,8 +181,8 @@ class BatchRun:
             }
         }
     
-    def start(self):
-        """Start synchronous batch execution."""
+    def execute(self):
+        """Execute synchronous batch run and wait for completion."""
         if self._started:
             raise RuntimeError("Batch run already started")
         
