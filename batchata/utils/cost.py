@@ -15,10 +15,12 @@ class CostTracker:
     detailed statistics.
     
     Example:
-        >>> tracker = CostTracker(limit_usd=100.0)
-        >>> if tracker.reserve_cost(5.0):
-        ...     # Do work
-        ...     tracker.adjust_reserved_cost(5.0, 4.8)
+        ```python
+        tracker = CostTracker(limit_usd=100.0)
+        if tracker.reserve_cost(5.0):
+            # Do work
+            tracker.adjust_reserved_cost(5.0, 4.8)
+        ```
     """
     
     def __init__(self, limit_usd: Optional[float] = None):

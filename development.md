@@ -179,13 +179,23 @@ uv run pytest tests/test_ai_batch.py
 uv run pytest tests/test_ai_batch.py::test_batch_empty_messages
 ```
 
+## Documentation Generation
+
+Generate API documentation using pdoc:
+
+```bash
+# Generate docs (run on each version)
+uv run pdoc -o docs/ batchata
+```
+
 ## Releasing a New Version
 
 ```bash
 # One-liner to update version, commit, push, and release
 VERSION=0.0.2 && \
 sed -i '' "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml && \
-git add pyproject.toml && \
+uv run pdoc -o docs/ batchata && \
+git add pyproject.toml docs/ && \
 git commit -m "Bump version to $VERSION" && \
 git push && \
 gh release create v$VERSION --title "v$VERSION" --generate-notes

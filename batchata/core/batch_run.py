@@ -28,10 +28,12 @@ class BatchRun:
     Simpler synchronous execution for clear logging and debugging.
     
     Example:
-        >>> config = BatchParams(...)
-        >>> run = BatchRun(config, jobs)
-        >>> run.execute()
-        >>> results = run.results()
+        ```python
+        config = BatchParams(...)
+        run = BatchRun(config, jobs)
+        run.execute()
+        results = run.results()
+        ```
     """
     
     def __init__(self, config: BatchParams, jobs: List[Job]):
@@ -240,7 +242,13 @@ class BatchRun:
             Self for chaining
             
         Example:
-            >>> run.set_on_progress(lambda stats, time, batch_data: print(f"Progress: {stats['completed']}/{stats['total']}, {time:.1f}s"))
+            ```python
+            run.set_on_progress(
+                lambda stats, time, batch_data: print(
+                    f"Progress: {stats['completed']}/{stats['total']}, {time:.1f}s"
+                )
+            )
+            ```
         """
         self._progress_callback = callback
         self._progress_interval = interval

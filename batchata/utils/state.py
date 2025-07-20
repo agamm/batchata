@@ -54,10 +54,12 @@ class StateManager:
     for batch state persistence. Thread-safe with atomic file operations.
     
     Example:
-        >>> manager = StateManager("./batch_state.json")
-        >>> manager.save(batch_state)
-        >>> resumed_state = manager.load()
-        >>> manager.clear()  # Remove state file
+        ```python
+        manager = StateManager("./batch_state.json")
+        manager.save(batch_state)
+        resumed_state = manager.load()
+        manager.clear()  # Remove state file
+        ```
     """
     
     def __init__(self, state_file: str):

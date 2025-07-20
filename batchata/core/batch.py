@@ -21,13 +21,16 @@ class Batch:
     and progress callbacks.
     
     Example:
-        >>> batch = Batch("./results", max_concurrent=10, items_per_batch=10)
-        ...     .set_state(file="./state.json", reuse_state=True)
-        ...     .set_default_params(model="claude-3-sonnet", temperature=0.7)
-        ...     .add_cost_limit(usd=15.0)
-        ...     .add_job(messages=[{"role": "user", "content": "Hello"}])
-        ...     .add_job(file="./path/to/file.pdf", prompt: "Generate summary of file")
-        >>> run = batch.run()
+        ```python
+        batch = Batch("./results", max_parallel_batches=10, items_per_batch=10)
+            .set_state(file="./state.json", reuse_previous=True)
+            .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
+            .add_cost_limit(usd=15.0)
+            .add_job(messages=[{"role": "user", "content": "Hello"}])
+            .add_job(file="./path/to/file.pdf", prompt="Generate summary of file")
+        
+        run = batch.run()
+        ```
     """
     
     def __init__(self, results_dir: str, max_parallel_batches: int = 10, items_per_batch: int = 10, raw_files: Optional[bool] = None):
@@ -66,7 +69,9 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.set_default_params(model="claude-3-sonnet", temperature=0.7)
+            ```python
+            batch.set_default_params(model="claude-3-sonnet", temperature=0.7)
+            ```
         """
         # Validate if model is provided
         if "model" in kwargs:
@@ -86,7 +91,9 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.set_state(file="./state.json", reuse_state=True)
+            ```python
+            batch.set_state(file="./state.json", reuse_state=True)
+            ```
         """
         self.config.state_file = file
         self.config.reuse_state = reuse_state
@@ -105,7 +112,9 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.add_cost_limit(usd=50.0)
+            ```python
+            batch.add_cost_limit(usd=50.0)
+            ```
         """
         if usd <= 0:
             raise ValueError("Cost limit must be positive")
@@ -126,7 +135,9 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.raw_files(True)
+            ```python
+            batch.raw_files(True)
+            ```
         """
         self.config.raw_files = enabled
         return self
@@ -141,8 +152,10 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.set_verbosity("error")  # For production
-            >>> batch.set_verbosity("debug")  # For debugging
+            ```python
+            batch.set_verbosity("error")  # For production
+            batch.set_verbosity("debug")  # For debugging
+            ```
         """
         valid_levels = {"debug", "info", "warn", "error"}
         if level.lower() not in valid_levels:
@@ -176,10 +189,12 @@ class Batch:
             - No exceptions are thrown when time limit is reached
             
         Example:
-            >>> batch.add_time_limit(seconds=30)  # 30 seconds
-            >>> batch.add_time_limit(minutes=5)   # 5 minutes
-            >>> batch.add_time_limit(hours=2)     # 2 hours
-            >>> batch.add_time_limit(hours=1, minutes=30, seconds=15)  # 5415 seconds total
+            ```python
+            batch.add_time_limit(seconds=30)  # 30 seconds
+            batch.add_time_limit(minutes=5)   # 5 minutes
+            batch.add_time_limit(hours=2)     # 2 hours
+            batch.add_time_limit(hours=1, minutes=30, seconds=15)  # 5415 seconds total
+            ```
         """
         time_limit_seconds = 0.0
         
@@ -228,10 +243,12 @@ class Batch:
             Self for chaining
             
         Example:
-            >>> batch.add_job(
-            ...     messages=[{"role": "user", "content": "Hello"}],
-            ...     model="gpt-4"
-            ... )
+            ```python
+            batch.add_job(
+                messages=[{"role": "user", "content": "Hello"}],
+                model="gpt-4"
+            )
+            ```
         """
         # Generate unique job ID
         job_id = f"job-{uuid.uuid4().hex[:8]}"

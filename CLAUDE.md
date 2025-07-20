@@ -77,6 +77,12 @@ bachata/
 - `bachata-pdf-example` - Run PDF extraction example
 
 
+## Documentation
+- Generate docs on each version
+```bash
+uv run pdoc -o docs/ batchata
+```
+
 ## Version and releaseing
 - Add good commit messages
 - Add good version description, remember to bump pyproject.toml
@@ -84,7 +90,8 @@ bachata/
 # One-liner to update version, commit, push, and release
 VERSION=0.0.2 && \
 sed -i '' "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml && \
-git add pyproject.toml && \
+uv run pdoc -o docs/ batchata && \
+git add pyproject.toml docs/ && \
 git commit -m "Bump version to $VERSION" && \
 git push && \
 gh release create v$VERSION --title "v$VERSION" --generate-notes

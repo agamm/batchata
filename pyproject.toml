@@ -40,6 +40,7 @@ dev = [
     "pytest>=8.4.1",
     "pytest-xdist>=3.6.1",
     "python-dotenv>=1.1.1",
+    "pdoc>=15.0.4",
 ]
 
 [tool.hatch.build.targets.wheel]
