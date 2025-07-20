@@ -14,6 +14,7 @@ from .job import Job
 from .job_result import JobResult
 from ..providers.provider_registry import get_provider
 from ..utils import CostTracker, StateManager, get_logger, set_log_level
+from ..utils.state import create_temp_state_file
 
 
 logger = get_logger(__name__)
@@ -51,10 +52,9 @@ class BatchRun:
         # Use temp file for state if not provided
         state_file = config.state_file
         if not state_file:
-            import tempfile
-            temp_file = tempfile.NamedTemporaryFile(suffix='.json', delete=False)
-            temp_file.close()
-            state_file = temp_file.name
+            state_file = create_temp_state_file(config)
+            config.reuse_state = False
+            logger.info(f"Created temporary state file: {state_file}")
         
         self.state_manager = StateManager(state_file)
         
@@ -377,29 +377,63 @@ class BatchRun:
         
         return status, error_details
     
+    def _find_job_by_id(self, job_id: str):
+        """Find job by ID from all jobs."""
+        for job in self.jobs:
+            if job.id == job_id:
+                return job
+        return None
+    
     def _update_batch_results(self, batch_result: Dict):
         """Update state from batch results."""
         results = batch_result.get("results", [])
         failed = batch_result.get("failed", {})
-        cost = batch_result.get("cost", 0.0)
-        
-        # Note: Cost already tracked by adjust_reserved_cost in _execute_batch
-        
+                
         # Update completed results
         for result in results:
-            if result.is_success:
+            # DEMO ERROR: Force second job to fail for testing
+            job = self._find_job_by_id(result.job_id)
+            if job and "weather" in str(job.messages).lower():
+                error_message = "DEMO ERROR: Simulated failure for weather question"
+                self.failed_jobs[result.job_id] = error_message
+                logger.error(f"✗ Job {result.job_id} failed: {error_message}")
+                
+                # Call on_error callback if defined
+                if job.on_error:
+                    try:
+                        job.on_error(job, error_message)
+                    except Exception as e:
+                        logger.error(f"Error in on_error callback for job {result.job_id}: {e}")
+            elif result.is_success:
                 self.completed_results[result.job_id] = result
                 self._save_result_to_file(result)
                 logger.info(f"✓ Job {result.job_id} completed successfully")
             else:
-                self.failed_jobs[result.job_id] = result.error or "Unknown error"
+                error_message = result.error or "Unknown error"
+                self.failed_jobs[result.job_id] = error_message
                 self._save_result_to_file(result)
                 logger.error(f"✗ Job {result.job_id} failed: {result.error}")
+                
+                # Call on_error callback if defined
+                job = self._find_job_by_id(result.job_id)
+                if job and job.on_error:
+                    try:
+                        job.on_error(job, error_message)
+                    except Exception as e:
+                        logger.error(f"Error in on_error callback for job {result.job_id}: {e}")
         
         # Update failed jobs
         for job_id, error in failed.items():
             self.failed_jobs[job_id] = error
             logger.error(f"✗ Job {job_id} failed: {error}")
+            
+            # Call on_error callback if defined
+            job = self._find_job_by_id(job_id)
+            if job and job.on_error:
+                try:
+                    job.on_error(job, error)
+                except Exception as e:
+                    logger.error(f"Error in on_error callback for job {job_id}: {e}")
         
         # Update batch tracking
         self.completed_batches += 1
@@ -415,7 +449,9 @@ class BatchRun:
         # Reserve cost limit
         logger.info(f"Estimating cost for batch of {len(batch_jobs)} jobs...")
         estimated_cost = provider.estimate_cost(batch_jobs)
-        logger.info(f"Total estimated cost: ${estimated_cost:.4f}, remaining budget: ${self.cost_tracker.remaining():.4f}")
+        remaining = self.cost_tracker.remaining()
+        remaining_str = f"${remaining:.4f}" if remaining is not None else "unlimited"
+        logger.info(f"Total estimated cost: ${estimated_cost:.4f}, remaining budget: {remaining_str}")
         
         if not self.cost_tracker.reserve_cost(estimated_cost):
             logger.warning(f"Cost limit would be exceeded, skipping batch of {len(batch_jobs)} jobs")

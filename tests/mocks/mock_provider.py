@@ -84,7 +84,7 @@ class MockProvider(Provider):
                 if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
                     raise ValidationError("Invalid message format")
     
-    def create_batch(self, jobs: List[Job]) -> str:
+    def create_batch(self, jobs: List[Job], raw_files_dir: Optional[str] = None) -> tuple[str, Dict[str, Job]]:
         """Create a mock batch."""
         self.call_history.append({"method": "create_batch", "job_count": len(jobs)})
         
@@ -101,7 +101,10 @@ class MockProvider(Provider):
             "results": []
         }
         
-        return batch_id
+        # Create job mapping
+        job_mapping = {job.id: job for job in jobs}
+        
+        return batch_id, job_mapping
     
     def get_batch_status(self, batch_id: str) -> tuple[str, Optional[Dict]]:
         """Get mock batch status."""
@@ -124,7 +127,7 @@ class MockProvider(Provider):
         
         return batch["status"], None
     
-    def get_batch_results(self, batch_id: str, raw_files_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_files_dir: Optional[str] = None) -> List[JobResult]:
         """Get mock batch results."""
         self.call_history.append({"method": "get_batch_results", "batch_id": batch_id})
         

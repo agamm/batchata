@@ -12,7 +12,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
-from batchata.utils.state import BatchState, StateManager
+from batchata.utils.state import BatchState, StateManager, create_temp_state_file
 from batchata.exceptions import StateError
 from batchata.core.job import Job
 from batchata.core.job_result import JobResult

@@ -2,6 +2,7 @@
 
 import json
 import os
+import tempfile
 import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -134,4 +135,45 @@ class StateManager:
         with self._lock:
             if self.state_file.exists():
                 self.state_file.unlink()
+
+
+def create_temp_state_file(config) -> str:
+    """Create a temporary state file initialized with empty state.
+    
+    Args:
+        config: Batch configuration object (will be converted to dict)
+        
+    Returns:
+        Path to the created temporary state file
+        
+    Raises:
+        StateError: If file creation fails
+    """
+    try:
+        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        
+        # Convert config to dict
+        if hasattr(config, 'to_dict'):
+            config_dict = config.to_dict()
+        else:
+            config_dict = asdict(config)
+        
+        # Initialize with empty state
+        empty_state = {
+            "created_at": datetime.now().isoformat(),
+            "pending_jobs": [],
+            "active_batches": [],
+            "completed_results": [],
+            "failed_jobs": [],
+            "total_cost_usd": 0.0,
+            "config": config_dict
+        }
+        
+        json.dump(empty_state, temp_file, indent=2)
+        temp_file.close()
+        
+        return temp_file.name
+        
+    except Exception as e:
+        raise StateError(f"Failed to create temporary state file: {e}")
     
