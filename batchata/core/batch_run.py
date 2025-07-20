@@ -41,7 +41,7 @@ class BatchRun:
             jobs: List of jobs to execute
         """
         self.config = config
-        self.jobs = jobs
+        self.jobs = {job.id: job for job in jobs}
         
         # Set logging level based on config
         set_log_level(level=config.verbosity.upper())
@@ -109,13 +109,13 @@ class BatchRun:
         if not self.config.reuse_state:
             # Clear any existing state and start fresh
             self.state_manager.clear()
-            self.pending_jobs = list(self.jobs)
+            self.pending_jobs = list(self.jobs.values())
             return
             
         state = self.state_manager.load()
         if state is None:
             # No saved state, use jobs passed to constructor
-            self.pending_jobs = list(self.jobs)
+            self.pending_jobs = list(self.jobs.values())
             return
         
         logger.info("Resuming batch run from saved state")
@@ -377,12 +377,6 @@ class BatchRun:
         
         return status, error_details
     
-    def _find_job_by_id(self, job_id: str):
-        """Find job by ID from all jobs."""
-        for job in self.jobs:
-            if job.id == job_id:
-                return job
-        return None
     
     def _update_batch_results(self, batch_result: Dict):
         """Update state from batch results."""
@@ -391,20 +385,7 @@ class BatchRun:
                 
         # Update completed results
         for result in results:
-            # DEMO ERROR: Force second job to fail for testing
-            job = self._find_job_by_id(result.job_id)
-            if job and "weather" in str(job.messages).lower():
-                error_message = "DEMO ERROR: Simulated failure for weather question"
-                self.failed_jobs[result.job_id] = error_message
-                logger.error(f"✗ Job {result.job_id} failed: {error_message}")
-                
-                # Call on_error callback if defined
-                if job.on_error:
-                    try:
-                        job.on_error(job, error_message)
-                    except Exception as e:
-                        logger.error(f"Error in on_error callback for job {result.job_id}: {e}")
-            elif result.is_success:
+            if result.is_success:
                 self.completed_results[result.job_id] = result
                 self._save_result_to_file(result)
                 logger.info(f"✓ Job {result.job_id} completed successfully")
@@ -415,7 +396,7 @@ class BatchRun:
                 logger.error(f"✗ Job {result.job_id} failed: {result.error}")
                 
                 # Call on_error callback if defined
-                job = self._find_job_by_id(result.job_id)
+                job = self.jobs.get(result.job_id)
                 if job and job.on_error:
                     try:
                         job.on_error(job, error_message)
@@ -428,7 +409,7 @@ class BatchRun:
             logger.error(f"✗ Job {job_id} failed: {error}")
             
             # Call on_error callback if defined
-            job = self._find_job_by_id(job_id)
+            job = self.jobs.get(job_id)
             if job and job.on_error:
                 try:
                     job.on_error(job, error)
