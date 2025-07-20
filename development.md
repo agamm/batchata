@@ -7,7 +7,7 @@ classDiagram
     class Batch {
         +BatchParams config
         +List~Job~ jobs
-        +set_state(file, reuse_previous) Batch
+        +set_state(file, reuse_state) Batch
         +set_default_params(**kwargs) Batch
         +add_cost_limit(usd) Batch
         +set_verbosity(level) Batch

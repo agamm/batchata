@@ -106,13 +106,13 @@ class Provider(ABC):
         pass
     
     @abstractmethod
-    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], debug_files_dir: Optional[str] = None) -> List[JobResult]:
+    def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_files_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve results for a completed batch.
         
         Args:
             batch_id: Provider's batch identifier
             job_mapping: Job mapping for this specific batch
-            debug_files_dir: Optional directory to save debug files
+            raw_files_dir: Optional directory to save raw debug files
             
         Returns:
             List of JobResult objects

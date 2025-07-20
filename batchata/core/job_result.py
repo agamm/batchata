@@ -13,7 +13,7 @@ class JobResult:
     
     Attributes:
         job_id: ID of the job this result is for
-        raw_response: Raw text response from the model
+        raw_response: Raw text response from the model (None for failed jobs)
         parsed_response: Structured output (if response_model was used)
         citations: Extracted citations (if enable_citations was True)
         citation_mappings: Maps field names to relevant citations (if response_model used)
@@ -25,7 +25,7 @@ class JobResult:
     """
     
     job_id: str
-    raw_response: str  # Raw text response
+    raw_response: Optional[str] = None  # Raw text response (None for failed jobs)
     parsed_response: Optional[Union[BaseModel, Dict]] = None  # Structured output or error dict
     citations: Optional[List[Citation]] = None  # Extracted citations
     citation_mappings: Optional[Dict[str, List[Citation]]] = None  # Field -> citations mapping

@@ -74,7 +74,7 @@ batch = Batch(
         max_parallel_batches=1,
         items_per_batch=3
     )
-    .set_state(file="./invoice_state.json", reuse_previous=False)
+    .set_state(file="./invoice_state.json", reuse_state=False)
     .set_default_params(model="claude-sonnet-4-20250514", temperature=0.0)
     .add_cost_limit(usd=5.0)
     .add_time_limit(minutes=10)  # Time limit of 10 minutes
@@ -126,128 +126,22 @@ for result in results["cancelled"]:
 ```
 
 
-## API
+## Interactive Progress Display
 
-### Batch
+Batchata provides an interactive real-time progress display when using `print_status=True`:
 
 ```python
-Batch(
-    results_dir: str, 
-    max_parallel_batches: int = 10,
-    items_per_batch: int = 10,
-    raw_files: Optional[bool] = None
-)
+run = batch.run(print_status=True)
 ```
-
-- `results_dir`: Directory to store individual job results  
-- `max_parallel_batches`: Maximum parallel batch requests (default: 10)
-- `items_per_batch`: Number of jobs per provider batch (affects cost tracking accuracy, default: 10)
-- `raw_files`: Whether to save debug files (raw API requests/responses) in the results dir (default: True if results_dir is set)
-
-**Methods:**
-
-#### `.set_state(file: Optional[str] = None, reuse_previous: bool = True)`
-Set state file configuration for recovery in case of network interruption.
-- `file`: Path to save batch state (default: None, uses temp file)
-- `reuse_previous`: Whether to resume from existing state file (default: True)
-
-#### `.set_default_params(**kwargs)`
-Set default parameters for all jobs. Common parameters:
-- `model`: Model name (e.g., "claude-sonnet-4-20250514", "gpt-4.1-2025-04-14")
-- `temperature`: Sampling temperature 0.0-1.0 (default: 0.7)
-- `max_tokens`: Maximum tokens to generate (default: 1000)
-
-#### `.add_cost_limit(usd: float)`
-Set maximum spend limit. Batch will stop accepting new jobs when limit is reached.
-
-#### `.set_verbosity(level: str)`
-Set logging verbosity level. Useful for production environments.
-- Levels: "debug", "info" (default), "warn", "error"
-- Example: `batch.set_verbosity("error")` for production
-
-#### `.add_time_limit(seconds=, minutes=, hours=)`
-Set maximum execution time for the entire batch. When time limit is reached, all active provider batches are cancelled and remaining jobs are marked as failed.
-- `seconds`: Time limit in seconds (optional)
-- `minutes`: Time limit in minutes (optional) 
-- `hours`: Time limit in hours (optional)
-- Minimum: 10 seconds, Maximum: 24 hours
-- Can combine units: `.add_time_limit(hours=1, minutes=30, seconds=15)`
-- **No exceptions thrown** - jobs that exceed time limit appear in failed results
-
-#### `.add_job(...)`
-Add a job to the batch. Parameters:
-- `messages`: Chat messages (list of dicts with "role" and "content")
-- `file`: Path to file for file-based input (supports string paths, Path objects, and PDF files)
-- `prompt`: Prompt to use with file input
-- `model`: Override default model
-- `temperature`: Override default temperature (0.0-1.0)
-- `max_tokens`: Override default max tokens
-- `response_model`: Pydantic model for structured output
-- `enable_citations`: Extract citations from response (default: False)
-
-Note: Provide either `messages` OR `file`+`prompt`, not both.
-
-**PDF Citation Validation**: When using Anthropic models with `enable_citations=True` on PDF files, Batchata automatically validates that the PDF contains extractable text. Image-only or scanned PDFs will raise a ValidationError since citations cannot be extracted from them. This validation is Anthropic-specific and doesn't affect other providers.
-
-#### `.run(on_progress: Callable = None, print_status: bool = False)`
-Execute the batch. Returns a `BatchRun` object.
-- `on_progress`: Optional progress callback function that receives `(stats_dict, elapsed_time, batch_data)`
-- `print_status=True`: Enable rich progress display with real-time updates
 
 <img width="2230" height="222" alt="image" src="https://github.com/user-attachments/assets/caf549a6-92a1-4ee0-8ac7-eda2d0f280a7" />
 
-
-### BatchRun
-
-Object returned by `batch.run()`:
-
-- `.status(print_status: bool = False)` - Get current batch status
-- `.results()` - Get all results organized by status: `{"completed": [JobResult], "failed": [JobResult], "cancelled": [JobResult]}`
-- `.get_failed_jobs()` - Get failed jobs as Dict[str, str] (deprecated, use `.results()["failed"]` instead)
-- `.wait(timeout: float = None)` - Wait for batch completion
-- `.on_progress(callback, interval=3.0)` - Set progress monitoring callback
-- `.shutdown(wait_for_active: bool = True)` - Gracefully shutdown
-
-The progress callback receives three parameters:
-1. `stats_dict`: Progress statistics containing:
-   - `batch_id`: Current batch identifier
-   - `total`: Total number of jobs
-   - `pending`: Jobs waiting to start
-   - `active`: Jobs currently processing
-   - `completed`: Successfully completed jobs
-   - `failed`: Failed jobs
-   - `cancelled`: Cancelled jobs (e.g., via Ctrl+C)
-   - `cost_usd`: Current total cost
-   - `cost_limit_usd`: Cost limit (if set)
-   - `is_complete`: Whether batch is finished
-   - `batches_completed`: Number of completed batches
-   - `batches_total`: Total number of batches
-   - `batches_pending`: Number of pending batches
-   - `items_per_batch`: Items per batch setting
-2. `elapsed_time`: Time elapsed since batch started (in seconds)
-3. `batch_data`: Dictionary mapping batch_id to batch information
-
-### JobResult
-
-- `job_id`: Unique identifier
-- `raw_response`: Raw text response
-- `parsed_response`: Structured data (if response_model used)
-- `citations`: List of Citation objects (if enabled)
-- `citation_mappings`: Dict[str, List[Citation]] - Maps field names to relevant citations (not 100% accurate, only with response_model)
-- `input_tokens`: Input token count
-- `output_tokens`: Output token count
-- `cost_usd`: Cost for this job
-- `error`: Error message (if failed)
-- `is_success`: Property that returns True if job completed successfully
-- `total_tokens`: Property that returns total tokens used (input + output)
-
-### Citation
-
-Each Citation object contains:
-- `text`: The cited text
-- `source`: Source identifier (e.g., file name)
-- `page`: Page number if applicable (for PDFs)
-- `metadata`: Additional metadata dict
+The interactive display shows:
+- **Job Progress**: Completed/total jobs with progress bar
+- **Batch Status**: Provider batch completion status  
+- **Real-time Cost**: Current spend vs limit (if set)
+- **Elapsed Time**: Time since batch started
+- **Live Updates**: Refreshes automatically as jobs complete
 
 ## File Structure
 

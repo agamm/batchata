@@ -23,7 +23,7 @@ class Batch:
     Example:
         ```python
         batch = Batch("./results", max_parallel_batches=10, items_per_batch=10)
-            .set_state(file="./state.json", reuse_previous=True)
+            .set_state(file="./state.json", reuse_state=True)
             .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=15.0)
             .add_job(messages=[{"role": "user", "content": "Hello"}])
@@ -125,7 +125,7 @@ class Batch:
         """Enable or disable saving debug files from providers.
         
         When enabled, debug files (raw API responses, JSONL files) will be saved
-        in a 'debug_files' subdirectory within the results directory.
+        in a 'raw_files' subdirectory within the results directory.
         This is useful for debugging, auditing, or accessing provider-specific metadata.
         
         Args:

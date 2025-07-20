@@ -86,13 +86,14 @@ def is_textual_pdf(
     """
     Classify a PDF as textual (machine‑readable) using pypdf.
     
+    Args:
+        path: Path to the PDF file to analyze
+        text_page_thresh: max fraction of pages allowed to lack text
+        min_chars_per_page: minimum characters per page to consider it textual
+        
     Returns:
         float: textual score from 0.0 (no text) to 1.0 (fully textual)
                0.8+ is pretty textual, <0.1 shows warning, 0.0 raises error with citations
-    
-    Args:
-        text_page_thresh: max fraction of pages allowed to lack text
-        min_chars_per_page: minimum characters per page to consider it textual
     """
     try:
         reader = pypdf.PdfReader(str(path))
