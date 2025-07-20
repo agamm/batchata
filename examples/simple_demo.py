@@ -53,15 +53,22 @@ def main():
     
     # Display results
     print("\nResults:")
-    for job_id, result in results.items():
-        if result.is_success:
-            analysis = result.parsed_response
-            print(f"\nJob {job_id}:")
-            print(f"  Summary: {analysis.summary}")
-            print(f"  Sentiment: {analysis.sentiment}")
-            print(f"  Key points: {', '.join(analysis.key_points)}")
-        else:
-            print(f"\nJob {job_id} failed: {result.error}")
+    
+    # Show successful results
+    for result in results["completed"]:
+        analysis = result.parsed_response
+        print(f"\nJob {result.job_id}:")
+        print(f"  Summary: {analysis.summary}")
+        print(f"  Sentiment: {analysis.sentiment}")
+        print(f"  Key points: {', '.join(analysis.key_points)}")
+    
+    # Show failed results
+    for result in results["failed"]:
+        print(f"\nJob {result.job_id} failed: {result.error}")
+    
+    # Show cancelled results
+    for result in results["cancelled"]:
+        print(f"\nJob {result.job_id} was cancelled: {result.error}")
     
 
 

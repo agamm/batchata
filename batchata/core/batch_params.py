@@ -21,6 +21,7 @@ class BatchParams:
         reuse_state: Whether to resume from existing state file
         raw_files: Whether to save debug files (raw responses, JSONL files) from providers
         verbosity: Logging verbosity level ("debug", "info", "warn", "error")
+        time_limit_seconds: Optional time limit in seconds for the entire batch (min 10s, max 24h)
     """
     
     state_file: Optional[str]
@@ -32,6 +33,7 @@ class BatchParams:
     reuse_state: bool = True
     raw_files: bool = True
     verbosity: str = "info"
+    time_limit_seconds: Optional[float] = None
     
     def __post_init__(self):
         """Validate parameters after initialization."""
@@ -43,6 +45,12 @@ class BatchParams:
         
         if self.cost_limit_usd is not None and self.cost_limit_usd < 0:
             raise ValueError("cost_limit_usd must be non-negative")
+        
+        if self.time_limit_seconds is not None:
+            if self.time_limit_seconds < 10:
+                raise ValueError("time_limit_seconds must be at least 10 seconds")
+            if self.time_limit_seconds > 86400:  # 24 hours
+                raise ValueError("time_limit_seconds must be at most 24 hours (86400 seconds)")
     
     def validate_default_params(self, model: str) -> None:
         """Validate default parameters for a model."""

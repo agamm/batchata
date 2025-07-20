@@ -76,7 +76,7 @@ def main():
         # Create batch configuration
         batch = (
             Batch(results_dir="./examples/pdf_output", max_parallel_batches=3, items_per_batch=2)
-            .set_state(file="./examples/demo_pdf_state.json", reuse_previous=False)
+            .set_state(file="./examples/demo_pdf_state.json", reuse_state=False)
             # .set_default_params(model="gpt-4o-mini-2024-07-18", temperature=0.7)
             .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=5.0)
@@ -88,7 +88,8 @@ def main():
             batch.add_job(
                 file=invoice_file,
                 prompt="Extract the invoice number, total amount, vendor name, and payment status.",
-                response_model=InvoiceAnalysis
+                response_model=InvoiceAnalysis,
+                # enable_citations=True
             )
         
         # Execute batch
@@ -101,19 +102,26 @@ def main():
         
         # Display results
         print("\nResults:")
-        for job_id, result in results.items():
-            if result.is_success:
-                analysis = result.parsed_response
-                print(f"\nJob {job_id}:")
-                print(f"  Invoice: {analysis.invoice_number}")
-                print(f"  Vendor: {analysis.vendor}")
-                print(f"  Total: ${analysis.total_amount:.2f}")
-                print(f"  Status: {analysis.payment_status}")
-                
-                print(f"  Tokens: {result.input_tokens} input, {result.output_tokens} output")
-                print(f"  Cost: ${result.cost_usd:.6f}")
-            else:
-                print(f"\nJob {job_id} failed: {result.error}")
+        
+        # Show successful results
+        for result in results["completed"]:
+            analysis = result.parsed_response
+            print(f"\nJob {result.job_id}:")
+            print(f"  Invoice: {analysis.invoice_number}")
+            print(f"  Vendor: {analysis.vendor}")
+            print(f"  Total: ${analysis.total_amount:.2f}")
+            print(f"  Status: {analysis.payment_status}")
+            
+            print(f"  Tokens: {result.input_tokens} input, {result.output_tokens} output")
+            print(f"  Cost: ${result.cost_usd:.6f}")
+        
+        # Show failed results
+        for result in results["failed"]:
+            print(f"\nJob {result.job_id} failed: {result.error}")
+        
+        # Show cancelled results
+        for result in results["cancelled"]:
+            print(f"\nJob {result.job_id} was cancelled: {result.error}")
     
     finally:
         # Clean up temporary files

@@ -150,6 +150,52 @@ class Batch:
         self.config.verbosity = level.lower()
         return self
     
+    def add_time_limit(self, seconds: Optional[float] = None, minutes: Optional[float] = None, hours: Optional[float] = None) -> 'Batch':
+        """Add time limit for the entire batch execution.
+        
+        When time limit is reached, all active provider batches are cancelled and 
+        remaining unprocessed jobs are marked as failed. The batch execution 
+        completes normally without throwing exceptions.
+        
+        Args:
+            seconds: Time limit in seconds (optional)
+            minutes: Time limit in minutes (optional)
+            hours: Time limit in hours (optional)
+            
+        Returns:
+            Self for chaining
+            
+        Raises:
+            ValueError: If no time units specified, or if total time is outside 
+                       valid range (min: 10 seconds, max: 24 hours)
+            
+        Note:
+            - Can combine multiple time units
+            - Time limit is checked every second by a background watchdog thread
+            - Jobs that exceed time limit appear in results()["failed"] with time limit error message
+            - No exceptions are thrown when time limit is reached
+            
+        Example:
+            >>> batch.add_time_limit(seconds=30)  # 30 seconds
+            >>> batch.add_time_limit(minutes=5)   # 5 minutes
+            >>> batch.add_time_limit(hours=2)     # 2 hours
+            >>> batch.add_time_limit(hours=1, minutes=30, seconds=15)  # 5415 seconds total
+        """
+        time_limit_seconds = 0.0
+        
+        if seconds is not None:
+            time_limit_seconds += seconds
+        if minutes is not None:
+            time_limit_seconds += minutes * 60
+        if hours is not None:
+            time_limit_seconds += hours * 3600
+            
+        if time_limit_seconds == 0:
+            raise ValueError("Must specify at least one of seconds, minutes, or hours")
+            
+        self.config.time_limit_seconds = time_limit_seconds
+        return self
+    
     def add_job(
         self,
         messages: Optional[List[Message]] = None,
@@ -160,7 +206,6 @@ class Batch:
         max_tokens: Optional[int] = None,
         response_model: Optional[Type[BaseModel]] = None,
         enable_citations: bool = False,
-        on_error: Optional[Callable[['Job', str], None]] = None,
         **kwargs
     ) -> 'Batch':
         """Add a job to the batch.
@@ -177,7 +222,6 @@ class Batch:
             max_tokens: Max tokens to generate (overrides default)
             response_model: Pydantic model for structured output
             enable_citations: Whether to extract citations
-            on_error: Callback function called when job fails (job, error_message)
             **kwargs: Additional parameters
             
         Returns:
@@ -228,7 +272,6 @@ class Batch:
             prompt=prompt,
             response_model=response_model,
             enable_citations=enable_citations,
-            on_error=on_error,
             **params
         )
         
