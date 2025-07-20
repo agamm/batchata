@@ -47,5 +47,5 @@ class ParseError(BatchataError):
 
 
 class TimeoutError(BatchataError):
-    """Raised when batch execution exceeds timeout limit."""
+    """Raised when batch execution exceeds time limit."""
     pass

@@ -16,6 +16,7 @@ AI providers offer batch APIs that process requests asynchronously at 50% reduce
 
 - Native batch processing (50% cost savings via provider APIs)
 - Set `max_cost_usd` limits for batch requests
+- **Time limit control** with `.add_time_limit(seconds=, minutes=, hours=)`
 - State persistence in case of network interruption
 - Structured output `.json` format with Pydantic models
 - Citation support and field mapping (Anthropic only)
@@ -48,7 +49,7 @@ for file in files:
 
 run = batch.run()
 
-results = run.results()  # Dict[job_id, JobResult]
+results = run.results()  # {"completed": {job_id: JobResult}, "failed": {job_id: JobResult}, "cancelled": {job_id: JobResult}}
 ```
 
 ## Complete Example
@@ -76,6 +77,7 @@ batch = Batch(
     .set_state(file="./invoice_state.json", reuse_previous=False)
     .set_default_params(model="claude-sonnet-4-20250514", temperature=0.0)
     .add_cost_limit(usd=5.0)
+    .add_time_limit(minutes=10)  # Time limit of 10 minutes
     .set_verbosity("warn") 
 
 # Add jobs with structured output and citations
@@ -106,18 +108,21 @@ run = batch.run(
 # Get results
 results = run.results()
 
-# Process results
-for job_id, result in results.items():
-    if result.is_success:
-        analysis = result.parsed_response
-        citations = result.citation_mappings
-        print(f"\nInvoice: {analysis.invoice_number} (page: {citations.get("invoice_number").page})")
-        print(f"  Vendor: {analysis.vendor} (page: {citations.get("vendor").page})")
-        print(f"  Total: ${analysis.total_amount:.2f} (page: {citations.get("total_amount").page})")
-        print(f"  Status: {analysis.payment_status} (page: {citations.get("payment_status").page})")
+# Process successful results
+for job_id, result in results["completed"].items():
+    analysis = result.parsed_response
+    citations = result.citation_mappings
+    print(f"\nInvoice: {analysis.invoice_number} (page: {citations.get("invoice_number").page})")
+    print(f"  Vendor: {analysis.vendor} (page: {citations.get("vendor").page})")
+    print(f"  Total: ${analysis.total_amount:.2f} (page: {citations.get("total_amount").page})")
+    print(f"  Status: {analysis.payment_status} (page: {citations.get("payment_status").page})")
 
-    else:
-        print(f"\nJob {job_id} failed: {result.error}")
+# Process failed/cancelled results  
+for job_id, result in results["failed"].items():
+    print(f"\nJob {job_id} failed: {result.error}")
+
+for job_id, result in results["cancelled"].items():
+    print(f"\nJob {job_id} was cancelled: {result.error}")
 ```
 
 
@@ -160,6 +165,15 @@ Set logging verbosity level. Useful for production environments.
 - Levels: "debug", "info" (default), "warn", "error"
 - Example: `batch.set_verbosity("error")` for production
 
+#### `.add_time_limit(seconds=, minutes=, hours=)`
+Set maximum execution time for the entire batch. When time limit is reached, all active provider batches are cancelled and remaining jobs are marked as failed.
+- `seconds`: Time limit in seconds (optional)
+- `minutes`: Time limit in minutes (optional) 
+- `hours`: Time limit in hours (optional)
+- Minimum: 10 seconds, Maximum: 24 hours
+- Can combine units: `.add_time_limit(hours=1, minutes=30, seconds=15)`
+- **No exceptions thrown** - jobs that exceed time limit appear in failed results
+
 #### `.add_job(...)`
 Add a job to the batch. Parameters:
 - `messages`: Chat messages (list of dicts with "role" and "content")
@@ -188,7 +202,8 @@ Execute the batch. Returns a `BatchRun` object.
 Object returned by `batch.run()`:
 
 - `.status(print_status: bool = False)` - Get current batch status
-- `.results()` - Get completed results as Dict[str, JobResult]
+- `.results()` - Get all results organized by status: `{"completed": {job_id: JobResult}, "failed": {job_id: JobResult}, "cancelled": {job_id: JobResult}}`
+- `.get_failed_jobs()` - Get failed jobs as Dict[str, str] (deprecated, use `.results()["failed"]` instead)
 - `.wait(timeout: float = None)` - Wait for batch completion
 - `.on_progress(callback, interval=3.0)` - Set progress monitoring callback
 - `.shutdown(wait_for_active: bool = True)` - Gracefully shutdown

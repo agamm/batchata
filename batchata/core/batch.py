@@ -150,36 +150,50 @@ class Batch:
         self.config.verbosity = level.lower()
         return self
     
-    def set_timeout(self, seconds: Optional[float] = None, minutes: Optional[float] = None, hours: Optional[float] = None) -> 'Batch':
-        """Set timeout for the entire batch execution.
+    def add_time_limit(self, seconds: Optional[float] = None, minutes: Optional[float] = None, hours: Optional[float] = None) -> 'Batch':
+        """Add time limit for the entire batch execution.
+        
+        When time limit is reached, all active provider batches are cancelled and 
+        remaining unprocessed jobs are marked as failed. The batch execution 
+        completes normally without throwing exceptions.
         
         Args:
-            seconds: Timeout in seconds
-            minutes: Timeout in minutes
-            hours: Timeout in hours
+            seconds: Time limit in seconds (optional)
+            minutes: Time limit in minutes (optional)
+            hours: Time limit in hours (optional)
             
         Returns:
             Self for chaining
             
+        Raises:
+            ValueError: If no time units specified, or if total time is outside 
+                       valid range (min: 10 seconds, max: 24 hours)
+            
+        Note:
+            - Can combine multiple time units
+            - Time limit is checked every second by a background watchdog thread
+            - Jobs that exceed time limit appear in results()["failed"] with time limit error message
+            - No exceptions are thrown when time limit is reached
+            
         Example:
-            >>> batch.set_timeout(seconds=30)  # 30 seconds
-            >>> batch.set_timeout(minutes=5)   # 5 minutes
-            >>> batch.set_timeout(hours=2)     # 2 hours
-            >>> batch.set_timeout(minutes=5, seconds=30)  # 5.5 minutes
+            >>> batch.add_time_limit(seconds=30)  # 30 seconds
+            >>> batch.add_time_limit(minutes=5)   # 5 minutes
+            >>> batch.add_time_limit(hours=2)     # 2 hours
+            >>> batch.add_time_limit(hours=1, minutes=30, seconds=15)  # 5415 seconds total
         """
-        timeout_seconds = 0.0
+        time_limit_seconds = 0.0
         
         if seconds is not None:
-            timeout_seconds += seconds
+            time_limit_seconds += seconds
         if minutes is not None:
-            timeout_seconds += minutes * 60
+            time_limit_seconds += minutes * 60
         if hours is not None:
-            timeout_seconds += hours * 3600
+            time_limit_seconds += hours * 3600
             
-        if timeout_seconds == 0:
+        if time_limit_seconds == 0:
             raise ValueError("Must specify at least one of seconds, minutes, or hours")
             
-        self.config.timeout_seconds = timeout_seconds
+        self.config.time_limit_seconds = time_limit_seconds
         return self
     
     def add_job(

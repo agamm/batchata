@@ -294,16 +294,16 @@ class TestBatchRun:
             failed = run.get_failed_jobs()
             
             # Job-1 should have executed (reserved 70, used 30)
-            assert "job-1" in results
-            assert results["job-1"].cost_usd == 30.0
+            assert "job-1" in results["completed"]
+            assert results["completed"]["job-1"].cost_usd == 30.0
             
             # Job-2 should have executed after job-1 freed budget
-            assert "job-2" in results
-            assert results["job-2"].cost_usd == 40.0
+            assert "job-2" in results["completed"]
+            assert results["completed"]["job-2"].cost_usd == 40.0
             
             # Job-3 should have executed after job-2
-            assert "job-3" in results
-            assert results["job-3"].cost_usd == 20.0
+            assert "job-3" in results["completed"]
+            assert results["completed"]["job-3"].cost_usd == 20.0
             
             # Final cost should be 30 + 40 + 20 = 90
             assert run.cost_tracker.used_usd == 90.0
