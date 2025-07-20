@@ -15,6 +15,7 @@ from .job_result import JobResult
 from ..providers.provider_registry import get_provider
 from ..utils import CostTracker, StateManager, get_logger, set_log_level
 from ..utils.state import create_temp_state_file
+from ..exceptions import TimeoutError
 
 
 logger = get_logger(__name__)
@@ -73,6 +74,7 @@ class BatchRun:
         # Execution control
         self._started = False
         self._start_time: Optional[datetime] = None
+        self._timeout_exceeded = False
         self._progress_callback: Optional[Callable[[Dict, float], None]] = None
         self._progress_interval: float = 1.0  # Default to 1 second
         
@@ -200,6 +202,9 @@ class BatchRun:
         try:
             logger.info("Starting batch run")
             
+            # Start timeout watchdog if configured
+            self._start_timeout_watchdog()
+            
             # Call initial progress
             if self._progress_callback:
                 stats = self.status()
@@ -237,6 +242,35 @@ class BatchRun:
         self._progress_interval = interval
         return self
     
+    def _start_timeout_watchdog(self):
+        """Start a background thread to check for timeout every second."""
+        if not self.config.timeout_seconds:
+            return
+        
+        def timeout_watchdog():
+            """Check for timeout every second and trigger shutdown if exceeded."""
+            while not self._shutdown_event.is_set():
+                if self._check_timeout():
+                    logger.warning("Batch execution timeout exceeded")
+                    with self._state_lock:
+                        self._timeout_exceeded = True
+                    self._shutdown_event.set()
+                    break
+                time.sleep(1.0)
+        
+        # Start watchdog as daemon thread
+        watchdog_thread = threading.Thread(target=timeout_watchdog, daemon=True)
+        watchdog_thread.start()
+        logger.debug(f"Started timeout watchdog thread (timeout: {self.config.timeout_seconds}s)")
+    
+    def _check_timeout(self) -> bool:
+        """Check if batch execution has exceeded timeout."""
+        if not self.config.timeout_seconds or not self._start_time:
+            return False
+        
+        elapsed = (datetime.now() - self._start_time).total_seconds()
+        return elapsed >= self.config.timeout_seconds
+    
     def _process_all_jobs(self):
         """Process all jobs with parallel execution."""
         # Prepare all batches
@@ -250,7 +284,7 @@ class BatchRun:
             
             try:
                 for future in as_completed(futures):
-                    # Stop if shutdown event detected
+                    # Stop if shutdown event detected (includes timeout)
                     if self._shutdown_event.is_set():
                         break
                     future.result()  # Re-raise any exceptions
@@ -260,6 +294,30 @@ class BatchRun:
                 for future in futures:
                     future.cancel()
                 raise
+            finally:
+                # Handle timeout or cancellation - mark remaining jobs appropriately
+                with self._state_lock:
+                    if self._shutdown_event.is_set():
+                        # Mark any unprocessed jobs based on reason for shutdown
+                        for _, _, batch_jobs in batches:
+                            for job in batch_jobs:
+                                # Skip jobs already processed
+                                if (job.id in self.completed_results or 
+                                    job.id in self.failed_jobs or 
+                                    job.id in self.cancelled_jobs):
+                                    continue
+                                
+                                # Mark based on shutdown reason
+                                if self._timeout_exceeded:
+                                    self.failed_jobs[job.id] = "Timeout: batch execution time limit exceeded"
+                                else:
+                                    self.cancelled_jobs[job.id] = "Cancelled by user"
+                                
+                                if job in self.pending_jobs:
+                                    self.pending_jobs.remove(job)
+                        
+                        # Save state
+                        self.state_manager.save(self)
     
     def _execute_batch_wrapped(self, provider, batch_jobs):
         """Thread-safe wrapper for _execute_batch."""
@@ -272,9 +330,19 @@ class BatchRun:
                 for job in jobs_to_remove:
                     if job in self.pending_jobs:
                         self.pending_jobs.remove(job)
+        except TimeoutError:
+            # Handle timeout - mark jobs as failed
+            with self._state_lock:
+                for job in batch_jobs:
+                    self.failed_jobs[job.id] = "Timeout: batch execution time limit exceeded"
+                    if job in self.pending_jobs:
+                        self.pending_jobs.remove(job)
+                self.state_manager.save(self)
+            # Don't re-raise, just return the result
+            return
         except KeyboardInterrupt:
             self._shutdown_event.set()
-            # Handle cancelled jobs with proper locking
+            # Handle user cancellation
             with self._state_lock:
                 for job in batch_jobs:
                     self.cancelled_jobs[job.id] = "Cancelled by user"
@@ -358,10 +426,18 @@ class BatchRun:
             poll_count += 1
             logger.debug(f"Polling attempt {poll_count}, current status: {status}")
             
-            # Interruptible wait - will wake up immediately if shutdown event is set
+            # Interruptible wait - will wake up immediately if shutdown event is set (includes timeout)
             if self._shutdown_event.wait(provider_polling_interval):
-                logger.info(f"Batch {batch_id} polling interrupted by shutdown")
-                raise KeyboardInterrupt("Batch cancelled by user")
+                # Check if it's timeout or user cancellation
+                with self._state_lock:
+                    is_timeout = self._timeout_exceeded
+                
+                if is_timeout:
+                    logger.info(f"Batch {batch_id} polling interrupted by timeout")
+                    raise TimeoutError("Batch cancelled due to timeout")
+                else:
+                    logger.info(f"Batch {batch_id} polling interrupted by user")
+                    raise KeyboardInterrupt("Batch cancelled by user")
             
             status, error_details = provider.get_batch_status(batch_id)
             
@@ -394,27 +470,11 @@ class BatchRun:
                 self.failed_jobs[result.job_id] = error_message
                 self._save_result_to_file(result)
                 logger.error(f"✗ Job {result.job_id} failed: {result.error}")
-                
-                # Call on_error callback if defined
-                job = self.jobs.get(result.job_id)
-                if job and job.on_error:
-                    try:
-                        job.on_error(job, error_message)
-                    except Exception as e:
-                        logger.error(f"Error in on_error callback for job {result.job_id}: {e}")
         
         # Update failed jobs
         for job_id, error in failed.items():
             self.failed_jobs[job_id] = error
             logger.error(f"✗ Job {job_id} failed: {error}")
-            
-            # Call on_error callback if defined
-            job = self.jobs.get(job_id)
-            if job and job.on_error:
-                try:
-                    job.on_error(job, error)
-                except Exception as e:
-                    logger.error(f"Error in on_error callback for job {job_id}: {e}")
         
         # Update batch tracking
         self.completed_batches += 1
@@ -525,6 +585,20 @@ class BatchRun:
             )
             
             return {"results": results, "failed": {}, "cost": actual_cost, "jobs_to_remove": list(batch_jobs)}
+            
+        except TimeoutError:
+            logger.info(f"Timeout occurred for batch{f' {batch_id}' if batch_id else ''}")
+            if batch_id:
+                provider.cancel_batch(batch_id)
+                # Update batch tracking for timeout
+                with self._state_lock:
+                    if batch_id in self.batch_tracking:
+                        self.batch_tracking[batch_id]['status'] = 'failed'
+                        self.batch_tracking[batch_id]['error'] = 'Timeout: batch execution time limit exceeded'
+            # Release the reservation since batch timed out
+            self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
+            # Re-raise to be handled by wrapper
+            raise
             
         except KeyboardInterrupt:
             logger.warning(f"\nCancelling batch{f' {batch_id}' if batch_id else ''}...")

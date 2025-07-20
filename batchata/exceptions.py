@@ -44,3 +44,8 @@ class StateError(BatchataError):
 class ParseError(BatchataError):
     """Raised when response parsing fails."""
     pass
+
+
+class TimeoutError(BatchataError):
+    """Raised when batch execution exceeds timeout limit."""
+    pass

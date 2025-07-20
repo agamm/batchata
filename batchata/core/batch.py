@@ -150,6 +150,38 @@ class Batch:
         self.config.verbosity = level.lower()
         return self
     
+    def set_timeout(self, seconds: Optional[float] = None, minutes: Optional[float] = None, hours: Optional[float] = None) -> 'Batch':
+        """Set timeout for the entire batch execution.
+        
+        Args:
+            seconds: Timeout in seconds
+            minutes: Timeout in minutes
+            hours: Timeout in hours
+            
+        Returns:
+            Self for chaining
+            
+        Example:
+            >>> batch.set_timeout(seconds=30)  # 30 seconds
+            >>> batch.set_timeout(minutes=5)   # 5 minutes
+            >>> batch.set_timeout(hours=2)     # 2 hours
+            >>> batch.set_timeout(minutes=5, seconds=30)  # 5.5 minutes
+        """
+        timeout_seconds = 0.0
+        
+        if seconds is not None:
+            timeout_seconds += seconds
+        if minutes is not None:
+            timeout_seconds += minutes * 60
+        if hours is not None:
+            timeout_seconds += hours * 3600
+            
+        if timeout_seconds == 0:
+            raise ValueError("Must specify at least one of seconds, minutes, or hours")
+            
+        self.config.timeout_seconds = timeout_seconds
+        return self
+    
     def add_job(
         self,
         messages: Optional[List[Message]] = None,
@@ -160,7 +192,6 @@ class Batch:
         max_tokens: Optional[int] = None,
         response_model: Optional[Type[BaseModel]] = None,
         enable_citations: bool = False,
-        on_error: Optional[Callable[['Job', str], None]] = None,
         **kwargs
     ) -> 'Batch':
         """Add a job to the batch.
@@ -177,7 +208,6 @@ class Batch:
             max_tokens: Max tokens to generate (overrides default)
             response_model: Pydantic model for structured output
             enable_citations: Whether to extract citations
-            on_error: Callback function called when job fails (job, error_message)
             **kwargs: Additional parameters
             
         Returns:
@@ -228,7 +258,6 @@ class Batch:
             prompt=prompt,
             response_model=response_model,
             enable_citations=enable_citations,
-            on_error=on_error,
             **params
         )
         
