@@ -173,7 +173,18 @@ class RichBatchProgressDisplay:
                 # Calculate elapsed time
                 start_time = batch_info.get('start_time')
                 if start_time and status in ['running', 'complete', 'failed', 'cancelled']:
-                    elapsed = (datetime.now() - start_time).total_seconds()
+                    # For completed batches, use completion time to freeze the timer
+                    if status in ['complete', 'failed', 'cancelled']:
+                        completion_time = batch_info.get('completion_time')
+                        if completion_time:
+                            elapsed = (completion_time - start_time).total_seconds()
+                        else:
+                            # Fallback if completion_time not available
+                            elapsed = (datetime.now() - start_time).total_seconds()
+                    else:
+                        # For running batches, use current time
+                        elapsed = (datetime.now() - start_time).total_seconds()
+                    
                     elapsed_hours = int(elapsed // 3600)
                     elapsed_minutes = int((elapsed % 3600) // 60)
                     elapsed_seconds = int(elapsed % 60)

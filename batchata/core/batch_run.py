@@ -578,6 +578,7 @@ class BatchRun:
                     if batch_id in self.batch_tracking:
                         self.batch_tracking[batch_id]['status'] = 'failed'
                         self.batch_tracking[batch_id]['error'] = error_msg
+                        self.batch_tracking[batch_id]['completion_time'] = datetime.now()
                 
                 # Release the reservation since batch failed
                 self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
@@ -607,6 +608,7 @@ class BatchRun:
                     self.batch_tracking[batch_id]['status'] = 'complete'
                     self.batch_tracking[batch_id]['completed'] = len(results)
                     self.batch_tracking[batch_id]['cost'] = actual_cost
+                    self.batch_tracking[batch_id]['completion_time'] = datetime.now()
             
             # Remove from active batches tracking
             with self._active_batches_lock:
@@ -629,6 +631,7 @@ class BatchRun:
                     if batch_id in self.batch_tracking:
                         self.batch_tracking[batch_id]['status'] = 'failed'
                         self.batch_tracking[batch_id]['error'] = 'Time limit exceeded: batch execution time limit exceeded'
+                        self.batch_tracking[batch_id]['completion_time'] = datetime.now()
                 # NOTE: Don't remove from _active_batches - let centralized cancellation handle it
             # Release the reservation since batch exceeded time limit
             self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
@@ -643,6 +646,7 @@ class BatchRun:
                     if batch_id in self.batch_tracking:
                         self.batch_tracking[batch_id]['status'] = 'cancelled'
                         self.batch_tracking[batch_id]['error'] = 'Cancelled by user'
+                        self.batch_tracking[batch_id]['completion_time'] = datetime.now()
                 # Remove from active batches tracking
                 with self._active_batches_lock:
                     self._active_batches.pop(batch_id, None)
@@ -659,6 +663,7 @@ class BatchRun:
                     if batch_id in self.batch_tracking:
                         self.batch_tracking[batch_id]['status'] = 'failed'
                         self.batch_tracking[batch_id]['error'] = str(e)
+                        self.batch_tracking[batch_id]['completion_time'] = datetime.now()
                 # Remove from active batches tracking
                 with self._active_batches_lock:
                     self._active_batches.pop(batch_id, None)

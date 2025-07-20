@@ -89,7 +89,7 @@ def main():
                 file=invoice_file,
                 prompt="Extract the invoice number, total amount, vendor name, and payment status.",
                 response_model=InvoiceAnalysis,
-                enable_citations=True
+                # enable_citations=True
             )
         
         # Execute batch
