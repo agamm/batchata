@@ -39,8 +39,10 @@ def test_time_limit_basic():
             job_id = batch.jobs[0].id
             
             # Check if job is in failed results
-            assert job_id in results["failed"], "Job should be in failed results"
-            assert "Time limit" in results["failed"][job_id].error
+            assert len(results["failed"]) == 1, "Job should be in failed results"
+            failed_result = results["failed"][0]
+            assert failed_result.job_id == job_id, "Failed job should match expected job ID"
+            assert "Time limit" in failed_result.error
 
 
 def test_add_time_limit_fluent_api():
@@ -136,9 +138,9 @@ def test_time_limit_watchdog_timing():
             
             # Check error messages
             all_errors = []
-            for job_result in results["failed"].values():
+            for job_result in results["failed"]:
                 all_errors.append(job_result.error or "")
-            for job_result in results["cancelled"].values():
+            for job_result in results["cancelled"]:
                 all_errors.append(job_result.error or "")
             
             assert any("time limit" in err.lower() for err in all_errors), f"Expected time limit error, got: {all_errors}"
@@ -179,9 +181,9 @@ def test_time_limit_during_polling():
             
             # Check error messages
             all_errors = []
-            for job_result in results["failed"].values():
+            for job_result in results["failed"]:
                 all_errors.append(job_result.error or "")
-            for job_result in results["cancelled"].values():
+            for job_result in results["cancelled"]:
                 all_errors.append(job_result.error or "")
             
             assert any("time limit" in err.lower() for err in all_errors)
@@ -232,5 +234,5 @@ def test_multi_batch_time_limit_cancellation():
             assert len(results["failed"]) == 3, "All 3 jobs should be failed due to time limit"
             
             # All errors should be time limit-related
-            for job_result in results["failed"].values():
+            for job_result in results["failed"]:
                 assert "time limit" in job_result.error.lower(), f"Expected time limit error, got: {job_result.error}"

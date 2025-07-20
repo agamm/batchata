@@ -49,7 +49,7 @@ for file in files:
 
 run = batch.run()
 
-results = run.results()  # {"completed": {job_id: JobResult}, "failed": {job_id: JobResult}, "cancelled": {job_id: JobResult}}
+results = run.results()  # {"completed": [JobResult], "failed": [JobResult], "cancelled": [JobResult]}
 ```
 
 ## Complete Example
@@ -109,7 +109,7 @@ run = batch.run(
 results = run.results()
 
 # Process successful results
-for job_id, result in results["completed"].items():
+for result in results["completed"]:
     analysis = result.parsed_response
     citations = result.citation_mappings
     print(f"\nInvoice: {analysis.invoice_number} (page: {citations.get("invoice_number").page})")
@@ -118,11 +118,11 @@ for job_id, result in results["completed"].items():
     print(f"  Status: {analysis.payment_status} (page: {citations.get("payment_status").page})")
 
 # Process failed/cancelled results  
-for job_id, result in results["failed"].items():
-    print(f"\nJob {job_id} failed: {result.error}")
+for result in results["failed"]:
+    print(f"\nJob {result.job_id} failed: {result.error}")
 
-for job_id, result in results["cancelled"].items():
-    print(f"\nJob {job_id} was cancelled: {result.error}")
+for result in results["cancelled"]:
+    print(f"\nJob {result.job_id} was cancelled: {result.error}")
 ```
 
 
@@ -202,7 +202,7 @@ Execute the batch. Returns a `BatchRun` object.
 Object returned by `batch.run()`:
 
 - `.status(print_status: bool = False)` - Get current batch status
-- `.results()` - Get all results organized by status: `{"completed": {job_id: JobResult}, "failed": {job_id: JobResult}, "cancelled": {job_id: JobResult}}`
+- `.results()` - Get all results organized by status: `{"completed": [JobResult], "failed": [JobResult], "cancelled": [JobResult]}`
 - `.get_failed_jobs()` - Get failed jobs as Dict[str, str] (deprecated, use `.results()["failed"]` instead)
 - `.wait(timeout: float = None)` - Wait for batch completion
 - `.on_progress(callback, interval=3.0)` - Set progress monitoring callback

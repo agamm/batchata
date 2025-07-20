@@ -22,14 +22,13 @@ run = batch.run(print_status=True)
 
 # Check results
 results = run.results()
-failed = run.get_failed_jobs()
 
-print(f"\nCompleted: {len(results)} jobs")
-print(f"Failed: {len(failed)} jobs")
+print(f"\nCompleted: {len(results['completed'])} jobs")
+print(f"Failed: {len(results['failed'])} jobs")
 
 # Show time limit failures
-time_limit_failures = {job_id: error for job_id, error in failed.items() if "Time limit" in error}
+time_limit_failures = [result for result in results["failed"] if "Time limit" in result.error]
 if time_limit_failures:
     print(f"\nJobs that failed due to time limit:")
-    for job_id, error in time_limit_failures.items():
-        print(f"  {job_id}: {error}")
+    for result in time_limit_failures:
+        print(f"  {result.job_id}: {result.error}")

@@ -741,18 +741,18 @@ class BatchRun:
         
         return stats
     
-    def results(self) -> Dict[str, Dict[str, JobResult]]:
+    def results(self) -> Dict[str, List[JobResult]]:
         """Get all results organized by status.
         
         Returns:
             {
-                "completed": {job_id: JobResult},
-                "failed": {job_id: JobResult},
-                "cancelled": {job_id: JobResult}
+                "completed": [JobResult],
+                "failed": [JobResult],
+                "cancelled": [JobResult]
             }
         """
         return {
-            "completed": dict(self.completed_results),
+            "completed": list(self.completed_results.values()),
             "failed": self._create_failed_results(),
             "cancelled": self._create_cancelled_results()
         }
@@ -764,11 +764,11 @@ class BatchRun:
         """
         return dict(self.failed_jobs)
     
-    def _create_failed_results(self) -> Dict[str, JobResult]:
+    def _create_failed_results(self) -> List[JobResult]:
         """Convert failed jobs to JobResult objects."""
-        failed_results = {}
+        failed_results = []
         for job_id, error_msg in self.failed_jobs.items():
-            failed_results[job_id] = JobResult(
+            failed_results.append(JobResult(
                 job_id=job_id,
                 raw_response=None,
                 parsed_response=None,
@@ -776,14 +776,14 @@ class BatchRun:
                 cost_usd=0.0,
                 input_tokens=0,
                 output_tokens=0
-            )
+            ))
         return failed_results
     
-    def _create_cancelled_results(self) -> Dict[str, JobResult]:
+    def _create_cancelled_results(self) -> List[JobResult]:
         """Convert cancelled jobs to JobResult objects."""
-        cancelled_results = {}
+        cancelled_results = []
         for job_id, reason in self.cancelled_jobs.items():
-            cancelled_results[job_id] = JobResult(
+            cancelled_results.append(JobResult(
                 job_id=job_id,
                 raw_response=None,
                 parsed_response=None,
@@ -791,7 +791,7 @@ class BatchRun:
                 cost_usd=0.0,
                 input_tokens=0,
                 output_tokens=0
-            )
+            ))
         return cancelled_results
     
     def shutdown(self):

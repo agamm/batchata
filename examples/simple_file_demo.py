@@ -83,22 +83,29 @@ def main():
         
         # Display results
         print("\nResults:")
-        for job_id, result in results.items():
-            if result.is_success:
-                analysis = result.parsed_response
-                print(f"\nJob {job_id}:")
-                print(f"  Invoice: {analysis.invoice_number}")
-                print(f"  Vendor: {analysis.vendor}")
-                print(f"  Total: ${analysis.total_amount:.2f}")
-                print(f"  Status: {analysis.payment_status}")
-                
-                # Show citations if available
-                if result.citations:
-                    print(f"  Citations found: {len(result.citations)}")
-                    for i, citation in enumerate(result.citations[:2]):
-                        print(f"    - {citation.text[:50]}...")
-            else:
-                print(f"\nJob {job_id} failed: {result.error}")
+        
+        # Show successful results
+        for result in results["completed"]:
+            analysis = result.parsed_response
+            print(f"\nJob {result.job_id}:")
+            print(f"  Invoice: {analysis.invoice_number}")
+            print(f"  Vendor: {analysis.vendor}")
+            print(f"  Total: ${analysis.total_amount:.2f}")
+            print(f"  Status: {analysis.payment_status}")
+            
+            # Show citations if available
+            if result.citations:
+                print(f"  Citations found: {len(result.citations)}")
+                for i, citation in enumerate(result.citations[:2]):
+                    print(f"    - {citation.text[:50]}...")
+        
+        # Show failed results
+        for result in results["failed"]:
+            print(f"\nJob {result.job_id} failed: {result.error}")
+        
+        # Show cancelled results  
+        for result in results["cancelled"]:
+            print(f"\nJob {result.job_id} was cancelled: {result.error}")
     
     finally:
         # Clean up temporary files
