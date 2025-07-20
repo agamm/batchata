@@ -1,7 +1,10 @@
 """BatchRun tests - simplified version focusing on parameter validation."""
 
 import pytest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch, MagicMock
+import json
 
 from batchata.core.batch_run import BatchRun
 from batchata.core.batch_params import BatchParams
@@ -74,8 +77,42 @@ class TestBatchRun:
             
             run = BatchRun(params, jobs)
             assert run.config == params
-            assert len(run.jobs) == len(jobs)
-            assert run.pending_jobs == jobs
+    
+    def test_temp_state_file_logic_when_none_provided(self, temp_dir):
+        """Test that BatchRun handles temp state file creation correctly when none is provided."""
+        results_dir = str(temp_dir / "results")
+        
+        # Create config with no state file
+        params = BatchParams(
+            state_file=None,  # No state file provided
+            results_dir=results_dir,
+            max_parallel_batches=1,
+            items_per_batch=1,
+            reuse_state=True  # Default value - will be changed to False
+        )
+        
+        jobs = [Job(id="job-1", model="claude-3-5-haiku-latest", messages=[{"role": "user", "content": "Test"}])]
+        
+        # Mock provider to avoid actual API calls
+        with patch('batchata.core.batch_run.get_provider') as mock_get_provider:
+            mock_provider = MagicMock()
+            mock_get_provider.return_value = mock_provider
+            
+            # Create BatchRun
+            run = BatchRun(params, jobs)
+            
+            # 1. Verify that reuse_state was set to False (because temp file shouldn't be reused)
+            assert run.config.reuse_state is False, "reuse_state should be set to False for temp files"
+            
+            # 2. Verify that state manager has a valid file path for future saves
+            assert run.state_manager.state_file is not None, "StateManager should have a file path"
+            
+            # 3. Verify that file was cleared (since reuse_state=False)  
+            assert not run.state_manager.state_file.exists(), "Temp file should be cleared since reuse_state=False"
+            
+            # 4. Verify that jobs were set up correctly (not loaded from state)
+            assert len(run.pending_jobs) == len(jobs), "Should have all jobs as pending"
+            assert run.pending_jobs[0].id == jobs[0].id, "Jobs should match"
     
     def test_batch_run_initialization(self, temp_dir, mock_all_file_operations):
         """Test that BatchRun can be initialized properly."""

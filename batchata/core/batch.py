@@ -22,7 +22,7 @@ class Batch:
     
     Example:
         >>> batch = Batch("./results", max_concurrent=10, items_per_batch=10)
-        ...     .set_state(file="./state.json", reuse_previous=True)
+        ...     .set_state(file="./state.json", reuse_state=True)
         ...     .set_default_params(model="claude-3-sonnet", temperature=0.7)
         ...     .add_cost_limit(usd=15.0)
         ...     .add_job(messages=[{"role": "user", "content": "Hello"}])
@@ -75,21 +75,21 @@ class Batch:
         self.config.default_params.update(kwargs)
         return self
     
-    def set_state(self, file: Optional[str] = None, reuse_previous: bool = True) -> 'Batch':
+    def set_state(self, file: Optional[str] = None, reuse_state: bool = True) -> 'Batch':
         """Set state file configuration.
         
         Args:
             file: Path to state file for persistence (default: None)
-            reuse_previous: Whether to resume from existing state file (default: True)
+            reuse_state: Whether to resume from existing state file (default: True)
             
         Returns:
             Self for chaining
             
         Example:
-            >>> batch.set_state(file="./state.json", reuse_previous=True)
+            >>> batch.set_state(file="./state.json", reuse_state=True)
         """
         self.config.state_file = file
-        self.config.reuse_state = reuse_previous
+        self.config.reuse_state = reuse_state
         return self
     
     def add_cost_limit(self, usd: float) -> 'Batch':
@@ -160,6 +160,7 @@ class Batch:
         max_tokens: Optional[int] = None,
         response_model: Optional[Type[BaseModel]] = None,
         enable_citations: bool = False,
+        on_error: Optional[Callable[['Job', str], None]] = None,
         **kwargs
     ) -> 'Batch':
         """Add a job to the batch.
@@ -176,6 +177,7 @@ class Batch:
             max_tokens: Max tokens to generate (overrides default)
             response_model: Pydantic model for structured output
             enable_citations: Whether to extract citations
+            on_error: Callback function called when job fails (job, error_message)
             **kwargs: Additional parameters
             
         Returns:
@@ -226,6 +228,7 @@ class Batch:
             prompt=prompt,
             response_model=response_model,
             enable_citations=enable_citations,
+            on_error=on_error,
             **params
         )
         

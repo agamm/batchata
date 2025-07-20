@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Type, Optional
+from typing import Any, Dict, List, Type, Optional, Callable
 from pydantic import BaseModel
 
 from ..types import Message
@@ -35,6 +35,7 @@ class Job:
     max_tokens: int = 1000
     response_model: Optional[Type[BaseModel]] = None  # For structured output
     enable_citations: bool = False
+    on_error: Optional[Callable[['Job', str], None]] = None
     
     def __post_init__(self):
         """Validate job configuration."""
