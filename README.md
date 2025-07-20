@@ -255,7 +255,12 @@ Each Citation object contains:
 ./results/
 ├── job-abc123.json
 ├── job-def456.json
-└── job-ghi789.json
+├── job-ghi789.json
+└── raw_files/
+    └── responses/
+        ├── job-abc123_raw.json
+        ├── job-def456_raw.json
+        └── job-ghi789_raw.json
 
 ./batch_state.json  # Batch state
 ```
@@ -264,12 +269,12 @@ Each Citation object contains:
 
 | Feature | Anthropic | OpenAI |
 |---------|-----------|--------|
-| Models | Claude Sonnet 4, Haiku | GPT-4.1, GPT-4o-mini, o3, o4-mini |
+| Models | [All Claude models](https://github.com/agamm/batchata/blob/main/batchata/providers/anthropic/models.py) | [All GPT models](https://github.com/agamm/batchata/blob/main/batchata/providers/openai/models.py) |
 | Batch Discount | 50% | 50% |
 | Polling Interval | 1s | 5s |
 | Citations | ✅ | ❌ |
 | Structured Output | ✅ | ✅ |
-| File Types | PDF, Images | PDF, Images |
+| File Types | PDF, TXT, DOCX, Images | PDF, Images |
 
 ## Configuration
 
