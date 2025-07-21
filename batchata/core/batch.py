@@ -287,8 +287,8 @@ class Batch:
             file_str = str(file)
             if "/tmp/" in file_str or "/var/folders/" in file_str or "temp" in file_str.lower():
                 logger = logging.getLogger("batchata")
-                logger.warning(f"File path appears to be in a temporary directory: {file}")
-                logger.warning("This may cause issues when resuming from state if temp files are cleaned up")
+                logger.debug(f"File path appears to be in a temporary directory: {file}")
+                logger.debug("This may cause issues when resuming from state if temp files are cleaned up")
         
         # Create job
         job = Job(
