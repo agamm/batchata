@@ -523,10 +523,15 @@ class BatchRun:
                 self.failed_jobs[result.job_id] = error_message
                 self._save_result_to_file(result)
                 logger.error(f"✗ Job {result.job_id} failed: {result.error}")
+            
+            # Remove completed/failed job from pending
+            self.pending_jobs = [job for job in self.pending_jobs if job.id != result.job_id]
         
         # Update failed jobs
         for job_id, error in failed.items():
             self.failed_jobs[job_id] = error
+            # Remove failed job from pending
+            self.pending_jobs = [job for job in self.pending_jobs if job.id != job_id]
             logger.error(f"✗ Job {job_id} failed: {error}")
         
         # Update batch tracking
