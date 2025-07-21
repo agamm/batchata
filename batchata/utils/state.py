@@ -22,7 +22,7 @@ class BatchState:
         created_at: When the batch was created
         pending_jobs: Jobs that haven't been submitted yet
         active_batches: Currently running batch IDs
-        completed_results: Results from completed jobs
+        completed_results: File references to completed job results
         failed_jobs: Jobs that failed with errors
         total_cost_usd: Total cost incurred so far
         config: Original batch configuration
@@ -31,7 +31,7 @@ class BatchState:
     created_at: str  # ISO format datetime
     pending_jobs: List[Dict[str, Any]]  # Serialized Job objects
     active_batches: List[str]  # Provider batch IDs
-    completed_results: List[Dict[str, Any]]  # Serialized JobResult objects
+    completed_results: List[Dict[str, str]]  # File references: [{"job_id": "job_123", "file_path": "/path/to/result.json"}]
     failed_jobs: List[Dict[str, Any]]  # Jobs with error info
     total_cost_usd: float
     config: Dict[str, Any]  # Batch configuration

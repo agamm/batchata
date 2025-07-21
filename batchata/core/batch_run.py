@@ -132,12 +132,27 @@ class BatchRun:
         self.pending_jobs = []
         for job_data in state.pending_jobs:
             job = Job.from_dict(job_data)
-            self.pending_jobs.append(job)
+            # Check if file exists (if job has a file)
+            if job.file and not job.file.exists():
+                logger.error(f"File not found for job {job.id}: {job.file}")
+                logger.error("This may happen if files were in temporary directories that were cleaned up")
+                self.failed_jobs[job.id] = f"File not found: {job.file}"
+            else:
+                self.pending_jobs.append(job)
         
-        # Restore completed results
-        for result_data in state.completed_results:
-            result = JobResult.from_dict(result_data)
-            self.completed_results[result.job_id] = result
+        # Restore completed results from file references
+        for result_ref in state.completed_results:
+            job_id = result_ref["job_id"]
+            file_path = result_ref["file_path"]
+            try:
+                with open(file_path, 'r') as f:
+                    result_data = json.load(f)
+                result = JobResult.from_dict(result_data)
+                self.completed_results[job_id] = result
+            except Exception as e:
+                logger.error(f"Failed to load result for {job_id} from {file_path}: {e}")
+                # Move to failed jobs if we can't load the result
+                self.failed_jobs[job_id] = f"Failed to load result file: {e}"
         
         # Restore failed jobs
         for job_data in state.failed_jobs:
@@ -162,7 +177,10 @@ class BatchRun:
         return {
             "created_at": datetime.now().isoformat(),
             "pending_jobs": [job.to_dict() for job in self.pending_jobs],
-            "completed_results": [result.to_dict() for result in self.completed_results.values()],
+            "completed_results": [
+                {"job_id": job_id, "file_path": str(self.results_dir / f"{job_id}.json")}
+                for job_id in self.completed_results.keys()
+            ],
             "failed_jobs": [
                 {
                     "id": job_id, 

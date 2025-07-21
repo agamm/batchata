@@ -35,8 +35,7 @@ class TestStatePersistence:
             ],
             active_batches=["batch-123"],
             completed_results=[
-                {"job_id": "job-0", "content": "A0", "cost": 0.01, 
-                 "input_tokens": 10, "output_tokens": 20}
+                {"job_id": "job-0", "file_path": "/tmp/job-0.json"}
             ],
             failed_jobs=[],
             total_cost_usd=0.01,
@@ -57,6 +56,7 @@ class TestStatePersistence:
         assert loaded.active_batches[0] == "batch-123"
         assert len(loaded.completed_results) == 1
         assert loaded.completed_results[0]["job_id"] == "job-0"
+        assert loaded.completed_results[0]["file_path"] == "/tmp/job-0.json"
         assert loaded.total_cost_usd == 0.01
         assert loaded.config["max_parallel_batches"] == 10
     
