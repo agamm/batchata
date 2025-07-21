@@ -136,9 +136,9 @@ class OpenAIProvider(Provider):
             provider_batch_id = batch_response.id
             logger.info(f"✓ OpenAI batch created successfully: {provider_batch_id}")
             
-            # Save input JSONL file for debugging if directory provided
+            # Save raw requests for debugging if directory provided
             if raw_files_dir:
-                self._save_input_jsonl(provider_batch_id, jsonl_content, raw_files_dir, "openai")
+                self._save_raw_requests(provider_batch_id, jsonl_content, raw_files_dir, "openai")
             
         except Exception as e:
             # Clean up temp file if it exists
@@ -238,9 +238,9 @@ class OpenAIProvider(Provider):
             file_response = self.client.files.content(batch_info.output_file_id)
             jsonl_content = file_response.text
             
-            # Save JSONL debug file if directory provided
+            # Save raw responses for debugging if directory provided
             if raw_files_dir:
-                self._save_output_jsonl(batch_id, jsonl_content, raw_files_dir, "openai")
+                self._save_raw_responses(batch_id, jsonl_content, raw_files_dir, "openai")
             
             # Parse JSONL content
             results = []

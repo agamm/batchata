@@ -214,15 +214,13 @@ When `raw_files=True` (default), debug files are saved to help with troubleshoot
 ```
 results_dir/
 ├── raw_files/
-│   ├── input/           # Batch input files
-│   │   ├── anthropic_batch_{id}_input.jsonl
-│   │   └── openai_batch_{id}_input.jsonl
-│   ├── output/          # Batch output files
-│   │   ├── anthropic_batch_{id}_results.jsonl
-│   │   └── openai_batch_{id}_results.jsonl
-│   └── responses/       # Individual job responses
-│       ├── {job_id}_raw.json
-│       └── {job_id}_raw.json
+│   ├── requests/        # Batch request files
+│   │   ├── anthropic_batch_{id}.json      # Anthropic requests (JSON)
+│   │   └── openai_batch_{id}.jsonl        # OpenAI requests (JSONL)
+│   └── responses/       # Batch response files
+│       ├── anthropic_batch_{id}.json      # Anthropic responses (JSON)
+│       ├── openai_batch_{id}.jsonl        # OpenAI responses (JSONL)
+│       └── {job_id}_raw.json              # Individual job responses
 └── [job results]        # Processed JobResult files
 ```
 
