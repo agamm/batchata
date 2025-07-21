@@ -1,8 +1,10 @@
 """Tests for batch validation with citations."""
 
 import pytest
+import os
 from pydantic import BaseModel
 from typing import Optional
+from unittest.mock import patch
 
 from batchata import Batch
 
@@ -28,6 +30,15 @@ class NestedInvoice(BaseModel):
 
 class TestBatchCitationValidation:
     """Test early validation of citation compatibility."""
+    
+    @pytest.fixture(autouse=True)
+    def mock_api_keys(self):
+        """Provide mock API keys for provider initialization."""
+        with patch.dict(os.environ, {
+            'ANTHROPIC_API_KEY': 'test-anthropic-key',
+            'OPENAI_API_KEY': 'test-openai-key'
+        }):
+            yield
     
     def test_flat_model_with_citations_allowed(self):
         """Test that flat models work with citations."""

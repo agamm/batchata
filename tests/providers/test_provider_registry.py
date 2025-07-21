@@ -7,6 +7,7 @@ Testing:
 """
 
 import pytest
+import os
 from unittest.mock import patch, MagicMock
 
 from batchata.providers import get_provider
@@ -17,6 +18,15 @@ from tests.mocks.mock_provider import MockProvider
 
 class TestProviderRegistry:
     """Test provider registry functionality."""
+    
+    @pytest.fixture(autouse=True)
+    def mock_api_keys(self):
+        """Provide mock API keys for provider initialization."""
+        with patch.dict(os.environ, {
+            'ANTHROPIC_API_KEY': 'test-anthropic-key',
+            'OPENAI_API_KEY': 'test-openai-key'
+        }):
+            yield
     
     def test_provider_lookup_by_model(self):
         """Test looking up providers by model name."""
