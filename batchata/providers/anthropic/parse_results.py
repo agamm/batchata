@@ -44,7 +44,11 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_files_d
         if result.result.type != "succeeded":
             error_message = f"Request failed: {result.result.type}"
             if hasattr(result.result, 'error') and result.result.error:
-                error_message = f"Request failed: {result.result.error.message}"
+                # Try to get nested error message first, fall back to direct message
+                if hasattr(result.result.error, 'error') and hasattr(result.result.error.error, 'message'):
+                    error_message = f"Request failed: {result.result.error.error.message}"
+                elif hasattr(result.result.error, 'message'):
+                    error_message = f"Request failed: {result.result.error.message}"
             
             job_results.append(JobResult(
                 job_id=job_id,

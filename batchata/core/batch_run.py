@@ -574,32 +574,16 @@ class BatchRun:
             status, error_details = self._poll_batch_status(provider, batch_id)
             
             if status == "failed":
-                error_msg = f"Batch failed: {batch_id}"
                 if error_details:
-                    error_msg = f"Batch failed: {error_details.get('error', error_details.get('reason', 'Unknown error'))}"
                     logger.error(f"Batch {batch_id} failed with details: {error_details}")
                 else:
                     logger.error(f"Batch {batch_id} failed")
-                
-                # Update batch tracking for failure
-                with self._state_lock:
-                    if batch_id in self.batch_tracking:
-                        self.batch_tracking[batch_id]['status'] = 'failed'
-                        self.batch_tracking[batch_id]['error'] = error_msg
-                        self.batch_tracking[batch_id]['completion_time'] = datetime.now()
-                
-                # Release the reservation since batch failed
-                self.cost_tracker.adjust_reserved_cost(estimated_cost, 0.0)
-                
-                failed = {}
-                for job in batch_jobs:
-                    failed[job.id] = error_msg
                 
                 # Save error details if configured
                 if self.raw_files_dir and error_details:
                     self._save_batch_error_details(batch_id, error_details)
                 
-                return {"results": [], "failed": failed, "cost": 0.0, "jobs_to_remove": list(batch_jobs)}
+                # Continue to get individual results - some jobs might have succeeded
             
             # Get results
             logger.info(f"Getting results for batch {batch_id}")
@@ -611,21 +595,31 @@ class BatchRun:
             self.cost_tracker.adjust_reserved_cost(estimated_cost, actual_cost)
             
             # Update batch tracking for completion
+            success_count = len([r for r in results if r.is_success])
+            failed_count = len([r for r in results if not r.is_success])
+            batch_status = 'complete' if failed_count == 0 else 'failed'
+            
             with self._state_lock:
                 if batch_id in self.batch_tracking:
-                    self.batch_tracking[batch_id]['status'] = 'complete'
-                    self.batch_tracking[batch_id]['completed'] = len(results)
+                    self.batch_tracking[batch_id]['status'] = batch_status
+                    self.batch_tracking[batch_id]['completed'] = success_count
+                    self.batch_tracking[batch_id]['failed'] = failed_count
                     self.batch_tracking[batch_id]['cost'] = actual_cost
                     self.batch_tracking[batch_id]['completion_time'] = datetime.now()
+                    if batch_status == 'failed' and failed_count > 0:
+                        # Use the first job's error as the batch error summary
+                        first_error = next((r.error for r in results if not r.is_success), 'Some jobs failed')
+                        self.batch_tracking[batch_id]['error'] = first_error
             
             # Remove from active batches tracking
             with self._active_batches_lock:
                 self._active_batches.pop(batch_id, None)
             
+            status_symbol = "✓" if batch_status == 'complete' else "⚠"
             logger.info(
-                f"✓ Batch {batch_id} completed: "
-                f"{len([r for r in results if r.is_success])} success, "
-                f"{len([r for r in results if not r.is_success])} failed, "
+                f"{status_symbol} Batch {batch_id} completed: "
+                f"{success_count} success, "
+                f"{failed_count} failed, "
                 f"cost: ${actual_cost:.6f}"
             )
             
