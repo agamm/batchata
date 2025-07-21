@@ -125,6 +125,11 @@ class AnthropicProvider(Provider):
             batch_response = self.client.messages.batches.create(requests=batch_requests)
             provider_batch_id = batch_response.id
             logger.info(f"✓ Anthropic batch created successfully: {provider_batch_id}")
+            
+            # Save raw requests for debugging if directory provided
+            if raw_files_dir:
+                self._save_raw_requests(provider_batch_id, batch_requests, raw_files_dir, "anthropic")
+                
         except Exception as e:
             logger.error(f"✗ Failed to create Anthropic batch: {e}")
             raise BatchSubmissionError(f"Failed to create batch: {e}")

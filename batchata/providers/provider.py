@@ -177,51 +177,67 @@ class Provider(ABC):
         """
         return self.models.get(model)
     
-    def _save_input_jsonl(self, batch_id: str, jsonl_content: str, raw_files_dir: str, provider_name: str) -> None:
-        """Save input JSONL file for debugging.
+    def _save_raw_requests(self, batch_id: str, content: any, raw_files_dir: str, provider_name: str) -> None:
+        """Save raw request data for debugging.
         
         Args:
             batch_id: Batch ID for filename
-            jsonl_content: JSONL content to save
+            content: Request content to save (string for JSONL, dict/list for JSON)
             raw_files_dir: Directory to save to
             provider_name: Provider name for filename prefix
         """
         try:
             raw_files_path = Path(raw_files_dir)
-            input_dir = raw_files_path / "input"
-            input_dir.mkdir(parents=True, exist_ok=True)
-            jsonl_file = input_dir / f"{provider_name}_batch_{batch_id}_input.jsonl"
+            requests_dir = raw_files_path / "requests"
+            requests_dir.mkdir(parents=True, exist_ok=True)
             
-            with open(jsonl_file, 'w') as f:
-                f.write(jsonl_content)
+            # Determine format based on content type
+            if isinstance(content, str):
+                # JSONL content
+                file_path = requests_dir / f"{provider_name}_batch_{batch_id}.jsonl"
+                with open(file_path, 'w') as f:
+                    f.write(content)
+            else:
+                # JSON content (dict/list)
+                file_path = requests_dir / f"{provider_name}_batch_{batch_id}.json"
+                with open(file_path, 'w') as f:
+                    json.dump(content, f, indent=2)
             
-            logger.debug(f"Saved input JSONL file for batch {batch_id} to {jsonl_file}")
+            logger.debug(f"Saved raw requests for batch {batch_id} to {file_path}")
             
         except Exception as e:
-            logger.warning(f"Failed to save input JSONL file for batch {batch_id}: {e}")
+            logger.warning(f"Failed to save raw requests for batch {batch_id}: {e}")
     
-    def _save_output_jsonl(self, batch_id: str, jsonl_content: str, raw_files_dir: str, provider_name: str) -> None:
-        """Save output JSONL file for debugging.
+    def _save_raw_responses(self, batch_id: str, content: any, raw_files_dir: str, provider_name: str) -> None:
+        """Save raw response data for debugging.
         
         Args:
             batch_id: Batch ID for filename
-            jsonl_content: JSONL content to save
+            content: Response content to save (string for JSONL, dict/list for JSON)
             raw_files_dir: Directory to save to
             provider_name: Provider name for filename prefix
         """
         try:
             raw_files_path = Path(raw_files_dir)
-            output_dir = raw_files_path / "output"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            jsonl_file = output_dir / f"{provider_name}_batch_{batch_id}_results.jsonl"
+            responses_dir = raw_files_path / "responses"
+            responses_dir.mkdir(parents=True, exist_ok=True)
             
-            with open(jsonl_file, 'w') as f:
-                f.write(jsonl_content)
+            # Determine format based on content type
+            if isinstance(content, str):
+                # JSONL content
+                file_path = responses_dir / f"{provider_name}_batch_{batch_id}.jsonl"
+                with open(file_path, 'w') as f:
+                    f.write(content)
+            else:
+                # JSON content (dict/list)
+                file_path = responses_dir / f"{provider_name}_batch_{batch_id}.json"
+                with open(file_path, 'w') as f:
+                    json.dump(content, f, indent=2)
             
-            logger.debug(f"Saved output JSONL file for batch {batch_id} to {jsonl_file}")
+            logger.debug(f"Saved raw responses for batch {batch_id} to {file_path}")
             
         except Exception as e:
-            logger.warning(f"Failed to save output JSONL file for batch {batch_id}: {e}")
+            logger.warning(f"Failed to save raw responses for batch {batch_id}: {e}")
     
     def _save_raw_response(self, result: any, job_id: str, raw_files_dir: str) -> None:
         """Save individual raw API response to disk.

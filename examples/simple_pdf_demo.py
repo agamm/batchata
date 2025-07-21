@@ -8,17 +8,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from batchata import Batch
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from batchata.utils.pdf import create_pdf
 
 
 
 class InvoiceAnalysis(BaseModel):
     """Structured output for invoice analysis."""
-    invoice_number: str
-    total_amount: float
-    vendor: str
-    payment_status: str
+    invoice_number: str = Field(description="The invoice number (e.g., INV-2024-001)")
+    total_amount: float = Field(description="The total amount due on the invoice")
+    vendor: str = Field(description="The name of the vendor/company issuing the invoice")
+    payment_status: str = Field(description="Payment status: paid, pending, or overdue (always lowercase)")
 
 
 def generate_invoice_pages(invoice_num: int) -> list[str]:
@@ -75,12 +75,13 @@ def main():
     try:
         # Create batch configuration
         batch = (
-            Batch(results_dir="./examples/pdf_output", max_parallel_batches=3, items_per_batch=2)
+            Batch(results_dir="./examples/pdf_output", max_parallel_batches=3, items_per_batch=2, raw_files=True)
             .set_state(file="./examples/demo_pdf_state.json", reuse_state=False)
             # .set_default_params(model="gpt-4o-mini-2024-07-18", temperature=0.7)
             .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
             .add_cost_limit(usd=5.0)
             .set_verbosity("warn")
+            
         )
         
         # Add jobs using file and prompt
