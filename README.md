@@ -1,6 +1,6 @@
 # Batchata
 
-<img alt="Batchata AI Batch Build Status" src="https://github.com/agamm/batchata/workflows/Tests/badge.svg" /><img alt="Batchata AI Batch PyPI version" src="https://badge.fury.io/py/batchata.svg" />
+<img alt="Batchata AI Batch Build Status" src="https://github.com/agamm/batchata/workflows/Tests/badge.svg" /><a href="https://pypi.org/project/batchata/"><img alt="Batchata AI Batch PyPI version" src="https://badge.fury.io/py/batchata.svg" /></a>
 
 Unified Python API for AI Batch requests with cost tracking, Pydantic responses, citation mapping and parallel execution.
 
