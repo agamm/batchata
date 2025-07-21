@@ -56,10 +56,7 @@ class TestParseResults:
         # Mock error result
         mock_result = MagicMock()
         mock_result.result.type = "errored"
-        mock_result.result.error = MagicMock(
-            type="invalid_request",
-            message="Invalid model parameter"
-        )
+        mock_result.result.error.error.message = "Invalid model parameter"
         mock_result.custom_id = "error-job"
         
         job = Job(
