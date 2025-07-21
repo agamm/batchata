@@ -120,6 +120,15 @@ def _get_media_type(file_path: Path) -> str:
     media_types = {
         '.pdf': 'application/pdf',
         '.txt': 'text/plain',
+        '.md': 'text/plain',
+        '.markdown': 'text/plain',
+        '.json': 'text/plain',
+        '.yaml': 'text/plain',
+        '.yml': 'text/plain',
+        '.csv': 'text/plain',
+        '.xml': 'text/plain',
+        '.html': 'text/plain',
+        '.htm': 'text/plain',
         '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         '.jpg': 'image/jpeg',
         '.jpeg': 'image/jpeg',
@@ -127,4 +136,4 @@ def _get_media_type(file_path: Path) -> str:
         '.gif': 'image/gif',
         '.webp': 'image/webp'
     }
-    return media_types.get(ext, 'application/octet-stream')
+    return media_types.get(ext, 'text/plain')
