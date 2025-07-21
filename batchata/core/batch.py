@@ -1,5 +1,6 @@
 """Batch builder."""
 
+import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -280,6 +281,14 @@ class Batch:
         # Convert file path if string
         if isinstance(file, str):
             file = Path(file)
+        
+        # Warn about temporary file paths that may not persist
+        if file:
+            file_str = str(file)
+            if "/tmp/" in file_str or "/var/folders/" in file_str or "temp" in file_str.lower():
+                logger = logging.getLogger("batchata")
+                logger.debug(f"File path appears to be in a temporary directory: {file}")
+                logger.debug("This may cause issues when resuming from state if temp files are cleaned up")
         
         # Create job
         job = Job(
