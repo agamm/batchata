@@ -5,21 +5,48 @@ build-backend = "hatchling.build"
 [project]
 name = "batchata"
 version = "0.3.8"
-description = "Batch processing for AI models with cost tracking and state persistence"
+description = "Unified Python API for AI batch requests with 50% cost savings on OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Agam More"},
 ]
-homepage = "https://github.com/agamm/batchata"
-repository = "https://github.com/agamm/batchata"
+keywords = [
+    "ai",
+    "batch",
+    "batch-processing",
+    "ai-batch",
+    "openai",
+    "anthropic",
+    "claude",
+    "gpt",
+    "llm",
+    "llms",
+    "machine-learning",
+    "api",
+    "cost-optimization",
+    "async",
+    "batch-api",
+    "openai-batch",
+    "anthropic-batch",
+    "ai-tools",
+    "batch-requests",
+    "llm-batch",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+    "Typing :: Typed",
 ]
 dependencies = [
     "anthropic>=0.57.1",
@@ -29,6 +56,13 @@ dependencies = [
     "pypdf>=5.8.0",
     "rich>=14.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/agamm/batchata"
+Repository = "https://github.com/agamm/batchata"
+Documentation = "https://agamm.github.io/batchata/"
+Issues = "https://github.com/agamm/batchata/issues"
+Changelog = "https://github.com/agamm/batchata/releases"
 
 [project.scripts]
 batchata-example = "examples.spam_detection:main"
