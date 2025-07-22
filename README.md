@@ -95,15 +95,7 @@ print("Starting batch processing...")
 run = batch.run(print_status=True)
 
 # Or use custom progress callback
-run = batch.run(
-    on_progress=lambda s, t, b: print(
-        f"\rProgress: {s['completed']}/{s['total']} jobs | "
-        f"Batches: {s['batches_completed']}/{s['batches_total']} | "
-        f"Cost: ${s['cost_usd']:.3f}/{s['cost_limit_usd']} | "
-        f"Time: {t:.1f}s", 
-        end=""
-    )
-)
+run = batch.run(print_status=True)
 
 # Get results
 results = run.results()
