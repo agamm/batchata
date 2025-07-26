@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 import google.genai as genai_lib
-import google.generativeai as genai
 
 from ...core.job import Job
 from ...core.job_result import JobResult
@@ -38,9 +37,8 @@ class GeminiProvider(Provider):
                 "Please set it with your Google API key."
             )
         
-        # Configure both clients
-        genai.configure(api_key=api_key)  # For legacy compatibility
-        self.client = genai_lib.Client(api_key=api_key)  # For batch processing
+        # Configure the client for batch processing
+        self.client = genai_lib.Client(api_key=api_key)
         
         super().__init__()
         self.models = GEMINI_MODELS
@@ -93,16 +91,15 @@ class GeminiProvider(Provider):
                 contents, generation_config = prepare_messages(job)
                 
                 # Create configuration for the batch request
-                config_dict = {
-                    "temperature": generation_config.temperature,
-                    "max_output_tokens": generation_config.max_output_tokens,
-                }
+                config_dict = {}
+                if generation_config:
+                    config_dict.update(generation_config)
                 
-                # Add response format for structured output
-                if hasattr(generation_config, 'response_mime_type') and generation_config.response_mime_type:
-                    config_dict["response_mime_type"] = generation_config.response_mime_type
-                if hasattr(generation_config, 'response_schema') and generation_config.response_schema:
-                    config_dict["response_schema"] = generation_config.response_schema
+                # Ensure we have required fields with defaults
+                if "temperature" not in config_dict:
+                    config_dict["temperature"] = job.temperature if job.temperature is not None else 0.7
+                if "max_output_tokens" not in config_dict:
+                    config_dict["max_output_tokens"] = job.max_tokens if job.max_tokens is not None else 1000
                 
                 # Create InlinedRequest
                 request = genai_lib.types.InlinedRequest(

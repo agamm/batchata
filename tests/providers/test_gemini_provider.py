@@ -22,14 +22,27 @@ class TestGeminiProvider:
     @pytest.fixture
     def provider(self, mock_api_key):
         """Create a Gemini provider instance."""
-        with patch('google.generativeai.configure'):
+        with patch('google.genai.Client') as mock_client_class:
+            # Create a mock client instance
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            
+            # Mock batch operations
+            mock_batch_job = MagicMock()
+            mock_batch_job.name = "test_batch_123456"
+            mock_batch_job.state = MagicMock()
+            mock_batch_job.state.__str__ = lambda: "JOB_STATE_SUCCEEDED"
+            
+            mock_client.batches.create.return_value = mock_batch_job
+            mock_client.batches.get.return_value = mock_batch_job
+            
             return GeminiProvider()
     
     def test_provider_initialization(self, mock_api_key):
         """Test provider can be initialized with API key."""
-        with patch('google.generativeai.configure') as mock_configure:
+        with patch('google.genai.Client') as mock_client:
             provider = GeminiProvider()
-            mock_configure.assert_called_once_with(api_key='test-key')
+            mock_client.assert_called_once_with(api_key='test-key')
             assert len(provider.models) == len(GEMINI_MODELS)
     
     def test_provider_initialization_no_api_key(self):
@@ -50,7 +63,7 @@ class TestGeminiProvider:
         config = provider.get_model_config("gemini-1.5-flash")
         assert config is not None
         assert config.name == "gemini-1.5-flash"
-        assert config.batch_discount == 0.0  # No batch discount for Gemini
+        assert config.batch_discount == 0.5  # Gemini has batch processing support
         assert config.supports_structured_output is True
         
         # Non-existent model
