@@ -10,8 +10,9 @@ def _initialize_providers():
     """Initialize all providers and populate registry."""
     from .anthropic import AnthropicProvider
     from .openai import OpenAIProvider
+    from .gemini import GeminiProvider
     
-    for provider_class in [AnthropicProvider, OpenAIProvider]:
+    for provider_class in [AnthropicProvider, OpenAIProvider, GeminiProvider]:
         try:
             provider = provider_class(auto_register=False)
             for model_name in provider.models:

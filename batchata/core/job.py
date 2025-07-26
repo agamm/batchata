@@ -12,13 +12,13 @@ from ..types import Message
 class Job:
     """Configuration for a single AI job.
     
-    Either provide messages OR file+prompt, not both.
+    Either provide messages OR prompt (with optional file), not both.
     
     Attributes:
         id: Unique identifier for the job
         messages: Chat messages for direct message input
-        file: File path for file-based input
-        prompt: Prompt to use with file input
+        file: Optional file path for file-based input
+        prompt: Prompt text (can be used alone or with file)
         model: Model name (e.g., "claude-3-sonnet")
         temperature: Sampling temperature (0.0-1.0)
         max_tokens: Maximum tokens to generate
@@ -44,8 +44,8 @@ class Job:
         if self.file and not self.prompt:
             raise ValueError("File input requires a prompt")
         
-        if not self.messages and not (self.file and self.prompt):
-            raise ValueError("Must provide either messages or file+prompt")
+        if not self.messages and not self.prompt:
+            raise ValueError("Must provide either messages or prompt")
     
     def to_dict(self) -> Dict[str, Any]:
         """Serialize for state persistence."""
