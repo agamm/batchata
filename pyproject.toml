@@ -67,6 +67,7 @@ Changelog = "https://github.com/agamm/batchata/releases"
 [project.scripts]
 batchata-example = "examples.spam_detection:main"
 batchata-pdf-example = "examples.pdf_extraction:main"
+batchata-mcp = "batchata.cli.mcp:main"
 
 [dependency-groups]
 dev = [
