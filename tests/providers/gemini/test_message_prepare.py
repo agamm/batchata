@@ -197,3 +197,137 @@ class TestMessagePrepare:
         
         with pytest.raises(ValueError, match="DOCX files are not supported"):
             prepare_messages(job)
+    
+    def test_multimodal_content_in_messages(self):
+        """Test handling multimodal content within messages."""
+        job = Job(
+            id="test-1",
+            model="gemini-2.5-flash",
+            messages=[
+                {
+                    "role": "user", 
+                    "content": [
+                        {"type": "text", "text": "What's in this image?"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+        
+        contents, generation_config = prepare_messages(job)
+        
+        assert len(contents) == 1
+        assert contents[0]["role"] == "user"
+        assert len(contents[0]["parts"]) == 2
+        
+        # Check text part
+        assert contents[0]["parts"][0]["text"] == "What's in this image?"
+        
+        # Check image part
+        assert "inline_data" in contents[0]["parts"][1]
+        assert contents[0]["parts"][1]["inline_data"]["mime_type"] == "image/jpeg"
+        assert contents[0]["parts"][1]["inline_data"]["data"] == "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+    
+    def test_system_message_handling(self):
+        """Test that system messages are converted properly."""
+        job = Job(
+            id="test-1",
+            model="gemini-2.5-flash",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant"},
+                {"role": "user", "content": "Hello"}
+            ]
+        )
+        
+        contents, generation_config = prepare_messages(job)
+        
+        assert len(contents) == 2
+        # System message should be converted to user message with prefix
+        assert contents[0]["role"] == "user"
+        assert "[System]:" in contents[0]["parts"][0]["text"]
+        assert "helpful assistant" in contents[0]["parts"][0]["text"]
+        
+        # Regular user message
+        assert contents[1]["role"] == "user"
+        assert contents[1]["parts"][0]["text"] == "Hello"
+    
+    def test_large_file_handling(self):
+        """Test handling of large files (simulated)."""
+        # Simulate a large PDF file
+        job = Job(
+            id="test-1",
+            model="gemini-2.5-flash",
+            prompt="Summarize this large document",
+            file=Path("/fake/large_document.pdf")
+        )
+        
+        # Mock large file content
+        with patch('batchata.providers.gemini.message_prepare._read_as_base64') as mock_read:
+            mock_read.return_value = "x" * 1000000  # 1MB of data
+            
+            contents, generation_config = prepare_messages(job)
+            
+            assert len(contents) == 1
+            assert len(contents[0]["parts"]) == 2
+            assert "inline_data" in contents[0]["parts"][0]
+            assert len(contents[0]["parts"][0]["inline_data"]["data"]) == 1000000
+    
+    def test_empty_content_handling(self):
+        """Test handling of edge cases with empty content."""
+        # Test with minimal valid content - empty string is now rejected by Job validation
+        job = Job(
+            id="test-1",
+            model="gemini-2.5-flash",
+            prompt="  "  # Whitespace-only prompt
+        )
+        
+        contents, generation_config = prepare_messages(job)
+        
+        assert len(contents) == 1
+        assert contents[0]["parts"][0]["text"] == "  "
+        
+    def test_special_characters_in_content(self):
+        """Test handling of special characters and Unicode."""
+        job = Job(
+            id="test-1",
+            model="gemini-2.5-flash",
+            prompt="Test with émojis 🚀 and spëcial chàracters ñ 中文"
+        )
+        
+        contents, generation_config = prepare_messages(job)
+        
+        assert contents[0]["parts"][0]["text"] == "Test with émojis 🚀 and spëcial chàracters ñ 中文"
+    
+    def test_generation_config_defaults(self):
+        """Test that default generation config values are set correctly."""
+        job = Job(
+            id="test-1",
+            model="gemini-2.5-flash",
+            prompt="Test defaults"
+            # Using Job defaults: temperature=0.7, max_tokens=1000
+        )
+        
+        contents, generation_config = prepare_messages(job)
+        
+        assert generation_config["temperature"] == 0.7
+        assert generation_config["max_output_tokens"] == 1000
+    
+    def test_generation_config_overrides(self):
+        """Test that custom generation config values override defaults."""
+        job = Job(
+            id="test-1",
+            model="gemini-2.5-flash",
+            prompt="Test overrides",
+            temperature=0.2,
+            max_tokens=500
+        )
+        
+        contents, generation_config = prepare_messages(job)
+        
+        assert generation_config["temperature"] == 0.2
+        assert generation_config["max_output_tokens"] == 500

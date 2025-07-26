@@ -141,3 +141,138 @@ class TestGeminiProvider:
         # Now test with empty mapping - should return empty list due to early exit
         result = provider.get_batch_results(batch_id, {})
         assert result == []
+    
+    def test_google_specific_validation(self, provider):
+        """Test Google-specific validation constraints."""
+        # Test model validation
+        with pytest.raises(Exception, match="Unsupported model"):
+            job = Job(
+                id="bad-model",
+                model="gpt-4",  # Not a Gemini model
+                messages=[{"role": "user", "content": "Hello"}]
+            )
+            provider.validate_job(job)
+    
+    def test_batch_size_limits(self, provider):
+        """Test Google batch size limitations."""
+        # Test maximum batch size
+        large_jobs = [
+            Job(id=f"job-{i}", model="gemini-2.5-flash", messages=[{"role": "user", "content": f"Test {i}"}])
+            for i in range(provider.MAX_REQUESTS + 1)
+        ]
+        
+        with pytest.raises(Exception, match="Too many jobs"):
+            provider.create_batch(large_jobs)
+    
+    def test_token_counting_integration(self, provider):
+        """Test Google's token counting API integration."""
+        job = Job(
+            id="token-test",
+            model="gemini-2.5-flash", 
+            messages=[{"role": "user", "content": "Count my tokens"}]
+        )
+        
+        # Mock the token counting response
+        mock_response = MagicMock()
+        mock_response.total_tokens = 42
+        provider.client.models.count_tokens.return_value = mock_response
+        
+        # Test token counting
+        token_count = provider._count_tokens(job)
+        assert token_count == 42
+        
+        # Verify the API was called correctly
+        provider.client.models.count_tokens.assert_called_once()
+        call_args = provider.client.models.count_tokens.call_args
+        assert call_args[1]["model"] == "gemini-2.5-flash"
+    
+    def test_cost_estimation_with_real_api(self, provider):
+        """Test cost estimation using actual Google token counting."""
+        jobs = [
+            Job(id="cost-1", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Short"}]),
+            Job(id="cost-2", model="gemini-2.5-pro", messages=[{"role": "user", "content": "Longer message"}])
+        ]
+        
+        # Mock token counting responses
+        mock_response_1 = MagicMock()
+        mock_response_1.total_tokens = 10
+        mock_response_2 = MagicMock()
+        mock_response_2.total_tokens = 20
+        
+        provider.client.models.count_tokens.side_effect = [mock_response_1, mock_response_2]
+        
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.001):
+            cost = provider.estimate_cost(jobs)
+            
+            # Should apply 50% batch discount
+            expected_cost = 0.001 * 2 * 0.5  # 2 jobs * cost * discount
+            assert cost == expected_cost
+    
+    def test_batch_state_transitions(self, provider):
+        """Test different Google batch job state transitions."""
+        jobs = [Job(id="state-test", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test"}])]
+        batch_id, _ = provider.create_batch(jobs)
+        
+        # Test different state transitions
+        states_to_test = [
+            ("JOB_STATE_PENDING", "running"),
+            ("JOB_STATE_QUEUED", "running"), 
+            ("JOB_STATE_RUNNING", "running"),
+            ("BATCH_STATE_RUNNING", "running"),  # Google's actual state
+            ("JOB_STATE_SUCCEEDED", "complete"),
+            ("JOB_STATE_FAILED", "failed"),
+            ("JOB_STATE_CANCELLED", "cancelled")
+        ]
+        
+        for google_state, expected_status in states_to_test:
+            # Mock the batch job state
+            mock_batch_job = provider._batches[batch_id]["batch_job"]
+            mock_batch_job.state.name = google_state
+            
+            if google_state == "JOB_STATE_FAILED":
+                mock_batch_job.error = MagicMock()
+                mock_batch_job.error.message = "Test error message"
+            
+            status, error_details = provider.get_batch_status(batch_id)
+            assert status == expected_status
+            
+            if expected_status == "failed":
+                assert error_details is not None
+                assert "error" in error_details
+    
+    def test_batch_results_with_real_google_format(self, provider):
+        """Test getting batch results with real Google inline response format."""
+        jobs = [Job(id="format-test", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test"}])]
+        batch_id, job_mapping = provider.create_batch(jobs)
+        
+        # Mock a completed batch with Google's real response format
+        mock_batch_job = provider._batches[batch_id]["batch_job"]
+        mock_batch_job.state.name = "JOB_STATE_SUCCEEDED"
+        
+        # Create mock destination with inlined responses (real Google format)
+        mock_dest = MagicMock()
+        mock_inline_response = MagicMock()
+        mock_inline_response.response = MagicMock()
+        mock_inline_response.response.text = "Test response from Google"
+        mock_inline_response.response.usage_metadata = MagicMock()
+        mock_inline_response.response.usage_metadata.prompt_token_count = 10
+        mock_inline_response.response.usage_metadata.candidates_token_count = 5
+        mock_inline_response.error = None
+        
+        mock_dest.inlined_responses = [mock_inline_response]
+        mock_batch_job.dest = mock_dest
+        
+        # Get results
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.001):
+            results = provider.get_batch_results(batch_id, job_mapping)
+        
+        assert len(results) == 1
+        result = results[0]
+        assert result.job_id == "format-test"
+        assert result.raw_response == "Test response from Google"
+        assert result.input_tokens == 10
+        assert result.output_tokens == 5
+        assert result.error is None
+        
+        # Verify batch was cleaned up
+        assert batch_id not in provider._batches

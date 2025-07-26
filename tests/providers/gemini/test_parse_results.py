@@ -245,3 +245,130 @@ class TestParseResults:
         assert len(job_results) == 1
         assert job_results[0].parsed_response is None
         assert job_results[0].raw_response == "Invalid JSON content that cannot be parsed"
+    
+    def test_real_google_batch_response_format(self):
+        """Test parsing actual Google batch API response format."""
+        # This simulates the actual structure from Google's batch API
+        # Based on the format: batch_job.dest.inlined_responses
+        results = [
+            {
+                "job_id": "job-1",
+                "response": MagicMock(
+                    text="Response from Google",
+                    candidates=[
+                        MagicMock(
+                            content=MagicMock(
+                                parts=[MagicMock(text="Response from Google")]
+                            ),
+                            finish_reason="STOP"
+                        )
+                    ],
+                    usage_metadata=MagicMock(
+                        prompt_token_count=25,
+                        candidates_token_count=15,
+                        total_token_count=40
+                    )
+                ),
+                "error": None
+            }
+        ]
+        
+        job_mapping = {
+            "job-1": Job(
+                id="job-1",
+                model="gemini-2.5-flash",
+                messages=[{"role": "user", "content": "Test Google response"}]
+            )
+        }
+        
+        job_results = parse_results(results, job_mapping, batch_discount=0.5)
+        
+        assert len(job_results) == 1
+        result = job_results[0]
+        assert result.raw_response == "Response from Google"
+        assert result.input_tokens == 25
+        assert result.output_tokens == 15
+        assert result.error is None
+        
+    def test_google_api_error_scenarios(self):
+        """Test various Google API error scenarios."""
+        # Test quota exceeded error
+        quota_error = {
+            "job_id": "quota-job",
+            "response": None,
+            "error": "Quota exceeded for model gemini-2.5-flash"
+        }
+        
+        # Test safety filter error
+        safety_error = {
+            "job_id": "safety-job",
+            "response": None,
+            "error": "Response blocked by safety filters"
+        }
+        
+        # Test rate limit error
+        rate_limit_error = {
+            "job_id": "rate-job",
+            "response": None,
+            "error": "Rate limit exceeded"
+        }
+        
+        results = [quota_error, safety_error, rate_limit_error]
+        
+        job_mapping = {
+            f"{error['job_id'].split('-')[0]}-job": Job(
+                id=error["job_id"],
+                model="gemini-2.5-flash",
+                messages=[{"role": "user", "content": "Test"}]
+            )
+            for error in results
+        }
+        
+        job_results = parse_results(results, job_mapping)
+        
+        assert len(job_results) == 3
+        
+        # Check specific error handling
+        assert "Quota exceeded" in job_results[0].error
+        assert "safety filters" in job_results[1].error
+        assert "Rate limit" in job_results[2].error
+        
+        # All should have empty responses and zero tokens
+        for result in job_results:
+            assert result.raw_response == ""
+            assert result.input_tokens == 0
+            assert result.output_tokens == 0
+    
+    def test_batch_discount_calculation(self):
+        """Test that batch discount is applied correctly."""
+        results = [
+            {
+                "job_id": "discount-job",
+                "response": MagicMock(
+                    text="Test response",
+                    usage_metadata=MagicMock(
+                        prompt_token_count=100,
+                        candidates_token_count=50
+                    )
+                ),
+                "error": None
+            }
+        ]
+        
+        job_mapping = {
+            "discount-job": Job(
+                id="discount-job",
+                model="gemini-2.5-flash",
+                messages=[{"role": "user", "content": "Test discount"}]
+            )
+        }
+        
+        # Test with different batch discounts
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.10):
+            # 50% discount
+            job_results_50 = parse_results(results, job_mapping, batch_discount=0.5)
+            assert abs(job_results_50[0].cost_usd - 0.05) < 0.001  # 0.10 * (1 - 0.5)
+            
+            # 25% discount
+            job_results_25 = parse_results(results, job_mapping, batch_discount=0.25)
+            assert abs(job_results_25[0].cost_usd - 0.075) < 0.001  # 0.10 * (1 - 0.25)
