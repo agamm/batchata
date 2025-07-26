@@ -46,7 +46,7 @@ class TestParseResults:
         }
         
         # Parse results with mocked cost calculation
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.002):
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.001):
             job_results = parse_results(results, job_mapping, batch_discount=0.5, batch_id="batch-123")
         
         # Verify parsed results
@@ -56,7 +56,7 @@ class TestParseResults:
         assert result.raw_response == "The answer is 42"
         assert result.input_tokens == 50
         assert result.output_tokens == 25
-        assert result.cost_usd == 0.001  # 0.002 * (1 - 0.5) batch discount
+        assert result.cost_usd == 0.001  # (0.001 + 0.001) * (1 - 0.5) batch discount
         assert result.error is None
         assert result.batch_id == "batch-123"
         assert result.citations is None  # Gemini doesn't support citations yet
@@ -207,7 +207,8 @@ class TestParseResults:
             )
         }
         
-        job_results = parse_results(results, job_mapping)
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
+            job_results = parse_results(results, job_mapping)
         
         assert len(job_results) == 1
         assert job_results[0].raw_response == "Response from candidate"
@@ -239,7 +240,8 @@ class TestParseResults:
             )
         }
         
-        job_results = parse_results(results, job_mapping)
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
+            job_results = parse_results(results, job_mapping)
         
         # Should fall back to text response when JSON parsing fails
         assert len(job_results) == 1
@@ -281,7 +283,8 @@ class TestParseResults:
             )
         }
         
-        job_results = parse_results(results, job_mapping, batch_discount=0.5)
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
+            job_results = parse_results(results, job_mapping, batch_discount=0.5)
         
         assert len(job_results) == 1
         result = job_results[0]
@@ -364,11 +367,11 @@ class TestParseResults:
         }
         
         # Test with different batch discounts
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.10):
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.05):
             # 50% discount
             job_results_50 = parse_results(results, job_mapping, batch_discount=0.5)
-            assert abs(job_results_50[0].cost_usd - 0.05) < 0.001  # 0.10 * (1 - 0.5)
+            assert abs(job_results_50[0].cost_usd - 0.05) < 0.001  # (0.05 + 0.05) * (1 - 0.5)
             
             # 25% discount
             job_results_25 = parse_results(results, job_mapping, batch_discount=0.25)
-            assert abs(job_results_25[0].cost_usd - 0.075) < 0.001  # 0.10 * (1 - 0.25)
+            assert abs(job_results_25[0].cost_usd - 0.075) < 0.001  # (0.05 + 0.05) * (1 - 0.25)

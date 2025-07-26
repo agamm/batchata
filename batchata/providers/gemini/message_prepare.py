@@ -123,5 +123,6 @@ def _pydantic_to_schema(model) -> Dict:
             "properties": schema.get("properties", {}),
             "required": schema.get("required", [])
         }
-    except Exception:
+    except (KeyError, ValueError, AttributeError):
+        # If schema extraction fails, return minimal object schema
         return {"type": "object"}

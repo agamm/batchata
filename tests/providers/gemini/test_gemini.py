@@ -201,12 +201,14 @@ class TestGeminiProvider:
         
         provider.client.models.count_tokens.side_effect = [mock_response_1, mock_response_2]
         
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.001):
+        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0005):
             cost = provider.estimate_cost(jobs)
             
             # Should apply 50% batch discount
-            expected_cost = 0.001 * 2 * 0.5  # 2 jobs * cost * discount
-            assert cost == expected_cost
+            # Each job: (0.0005 input + 0.0005 output) * 0.5 discount = 0.0005
+            # Total: 2 jobs * 0.0005 = 0.001
+            expected_cost = 0.001
+            assert abs(cost - expected_cost) < 0.0001
     
     def test_batch_state_transitions(self, provider):
         """Test different Google batch job state transitions."""

@@ -139,8 +139,10 @@ class GeminiProvider(Provider):
                 # Handle running states (including BATCH_STATE_RUNNING)
                 return "running", None
                 
-        except Exception as e:
+        except (ValueError, AttributeError, ConnectionError) as e:
             return "failed", {"batch_id": batch_id, "error": str(e)}
+        except Exception as e:
+            return "failed", {"batch_id": batch_id, "error": f"Unexpected error: {str(e)}"}
     
     def get_batch_results(self, batch_id: str, job_mapping: Dict[str, Job], raw_files_dir: Optional[str] = None) -> List[JobResult]:
         """Retrieve batch results from Google."""
@@ -192,12 +194,19 @@ class GeminiProvider(Provider):
                         "response": None,
                         "error": "No inline responses found in batch result"
                     })
-        except Exception as e:
+        except (AttributeError, KeyError, IndexError) as e:
             for job_id in job_ids:
                 results.append({
                     "job_id": job_id,
                     "response": None,
                     "error": f"Could not retrieve result: {e}"
+                })
+        except Exception as e:
+            for job_id in job_ids:
+                results.append({
+                    "job_id": job_id,
+                    "response": None,
+                    "error": f"Unexpected error retrieving result: {e}"
                 })
         
         # Save raw responses for debugging
@@ -230,7 +239,7 @@ class GeminiProvider(Provider):
         try:
             self.client.batches.cancel(name=batch_id)
             return True
-        except Exception:
+        except (ConnectionError, ValueError, AttributeError):
             return False
     
     def estimate_cost(self, jobs: List[Job]) -> float:
@@ -247,14 +256,23 @@ class GeminiProvider(Provider):
             
             try:
                 import tokencost
-                cost = tokencost.calculate_cost_by_tokens(
+                
+                # Calculate input and output costs separately
+                input_cost = tokencost.calculate_cost_by_tokens(
+                    num_tokens=input_tokens,
                     model=job.model,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens
+                    token_type='input'
                 )
+                output_cost = tokencost.calculate_cost_by_tokens(
+                    num_tokens=output_tokens,
+                    model=job.model,
+                    token_type='output'
+                )
+                
+                cost = float(input_cost + output_cost)
                 total_cost += cost * (1 - batch_discount)
-            except Exception:
-                # Fallback with rough pricing estimates
+            except (ImportError, ModuleNotFoundError, AttributeError) as e:
+                # Fallback with rough pricing estimates when tokencost unavailable
                 if "pro" in job.model.lower():
                     cost = (input_tokens * 0.00125 + output_tokens * 0.005) / 1000
                 else:
@@ -276,8 +294,8 @@ class GeminiProvider(Provider):
             )
             return getattr(response, 'total_tokens', 0)
             
-        except Exception:
-            # Fallback to rough estimation
+        except (ConnectionError, ValueError, AttributeError):
+            # Fallback to rough estimation when Google API fails
             input_text = job.prompt or ""
             if job.file:
                 file_size = job.file.stat().st_size

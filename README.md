@@ -160,7 +160,7 @@ The interactive display shows:
 | Polling Interval | 1s | 5s | 2s |
 | Citations | ✅ | ❌ | ❌ |
 | Structured Output | ✅ | ✅ | ✅ |
-| File Types | PDF, TXT, DOCX, Images | PDF, Images | PDF, TXT, DOCX, Images |
+| File Types | PDF, TXT, DOCX, Images | PDF, Images | PDF, TXT, Images |
 
 ## Configuration
 

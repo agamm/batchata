@@ -113,13 +113,24 @@ def _calculate_cost(model: str, input_tokens: int, output_tokens: int, batch_dis
     """Calculate cost with batch discount."""
     try:
         import tokencost
-        cost = tokencost.calculate_cost_by_tokens(
+        
+        # Calculate input and output costs separately using correct signature
+        input_cost = tokencost.calculate_cost_by_tokens(
+            num_tokens=input_tokens,
             model=model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens
+            token_type='input'
         )
-        return cost * (1 - batch_discount)
-    except Exception:
+        output_cost = tokencost.calculate_cost_by_tokens(
+            num_tokens=output_tokens,
+            model=model,
+            token_type='output'
+        )
+        
+        total_cost = float(input_cost + output_cost)
+        return total_cost * (1 - batch_discount)
+        
+    except (ImportError, ModuleNotFoundError, AttributeError, ValueError):
+        # Return zero cost if tokencost library unavailable or calculation fails
         return 0.0
 
 
@@ -131,5 +142,6 @@ def _save_raw_response(result, job_id: str, raw_files_dir: str) -> None:
         
         with open(responses_dir / f"{job_id}_raw.json", 'w') as f:
             json.dump(to_dict(result), f, indent=2)
-    except Exception:
+    except (OSError, PermissionError, json.JSONEncodeError):
+        # Ignore file saving errors - not critical for functionality
         pass
