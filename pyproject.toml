@@ -21,6 +21,8 @@ keywords = [
     "anthropic",
     "claude",
     "gpt",
+    "gemini",
+    "google",
     "llm",
     "llms",
     "machine-learning",
@@ -30,6 +32,7 @@ keywords = [
     "batch-api",
     "openai-batch",
     "anthropic-batch",
+    "gemini-batch",
     "ai-tools",
     "batch-requests",
     "llm-batch",
@@ -51,10 +54,12 @@ classifiers = [
 dependencies = [
     "anthropic>=0.57.1",
     "openai>=1.97.0",
+    "google-generativeai>=0.8.0",
     "tokencost>=0.1.24",
     "pydantic>=2.0",
     "pypdf>=5.8.0",
     "rich>=14.0.0",
+    "pytest-asyncio>=1.1.0",
 ]
 
 [project.urls]
