@@ -1,174 +1,135 @@
-"""Result parsing for Google Gemini API responses."""
+"""Simple result parsing for Google Gemini API responses."""
 
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Type, Optional
-from pydantic import BaseModel
+from typing import Dict, List, Optional
 
 from ...core.job_result import JobResult
-from ...utils import to_dict, get_logger
+from ...utils import to_dict
 
 
-logger = get_logger(__name__)
-
-
-def parse_results(results: List[Dict], job_mapping: Dict[str, 'Job'], raw_files_dir: str | None = None, batch_discount: float = 0.0, batch_id: str | None = None) -> List[JobResult]:
-    """Parse Gemini API responses into JobResult objects.
-    
-    Args:
-        results: List of response dictionaries from async processing
-        job_mapping: Mapping of job ID to Job object
-        raw_files_dir: Optional directory to save debug files
-        batch_discount: Batch discount factor (0.5 for Gemini batch processing)
-        batch_id: Batch ID for mapping to raw files
-        
-    Returns:
-        List of JobResult objects
-    """
+def parse_results(results: List[Dict], job_mapping: Dict[str, 'Job'], raw_files_dir: Optional[str] = None, batch_discount: float = 0.5, batch_id: Optional[str] = None) -> List[JobResult]:
+    """Parse Gemini batch responses into JobResult objects."""
     job_results = []
     
     for result_data in results:
-        job_id = result_data.get("job_id")
-        job = job_mapping.get(job_id)
+        job_id = result_data["job_id"]
+        job = job_mapping[job_id]
         
-        # Job must exist in mapping
-        if not job:
-            raise ValueError(f"Job {job_id} not found in mapping")
-        
-        # Save raw response to disk if directory is provided (before any error handling)
+        # Save raw response for debugging
         if raw_files_dir:
             _save_raw_response(result_data, job_id, raw_files_dir)
         
-        # Handle failed results
-        if result_data.get("error"):
-            error_message = result_data["error"]
-            
+        # Handle errors
+        if error := result_data.get("error"):
             job_results.append(JobResult(
-                job_id=job_id,
-                status="failed",
-                content="",
-                error=error_message,
-                usage={},
-                cost_usd=0.0,
-                provider="gemini",
-                model=job.model,
-                parsed_response=None,
-                citation_mappings={}
+                job_id=job_id, raw_response="", parsed_response=None,
+                citations=None, citation_mappings=None,
+                input_tokens=0, output_tokens=0, cost_usd=0.0,
+                error=error, batch_id=batch_id
             ))
             continue
         
-        # Extract the response content
+        # Extract response
         response = result_data.get("response")
         if not response:
             job_results.append(JobResult(
-                job_id=job_id,
-                status="failed",
-                content="",
-                error="No response in result",
-                usage={},
-                cost_usd=0.0,
-                provider="gemini",
-                model=job.model,
-                parsed_response=None,
-                citation_mappings={}
+                job_id=job_id, raw_response="", parsed_response=None,
+                citations=None, citation_mappings=None,
+                input_tokens=0, output_tokens=0, cost_usd=0.0,
+                error="No response in result", batch_id=batch_id
             ))
             continue
         
-        # Extract text content from Gemini response
-        content = ""
-        if hasattr(response, 'text'):
-            content = response.text
-        elif hasattr(response, 'candidates') and response.candidates:
-            candidate = response.candidates[0]
-            if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                for part in candidate.content.parts:
-                    if hasattr(part, 'text'):
-                        content += part.text
+        # Get text content
+        content = _extract_text(response)
         
-        # Parse structured output if response model is specified
+        # Parse structured output
         parsed_response = None
         if job.response_model and content:
-            try:
-                # Try to parse as JSON first
-                if content.strip().startswith('{') or content.strip().startswith('['):
-                    parsed_data = json.loads(content.strip())
-                    parsed_response = job.response_model(**parsed_data)
-                else:
-                    # If not JSON, try to extract JSON from text
-                    json_start = content.find('{')
-                    json_end = content.rfind('}') + 1
-                    if json_start != -1 and json_end > json_start:
-                        json_text = content[json_start:json_end]
-                        parsed_data = json.loads(json_text)
-                        parsed_response = job.response_model(**parsed_data)
-            except (json.JSONDecodeError, TypeError, ValueError) as e:
-                logger.warning(f"Failed to parse structured output for job {job_id}: {e}")
-                # Continue with plain text response
+            parsed_response = _parse_structured(content, job.response_model)
         
-        # Calculate usage and cost
-        usage = {}
-        cost_usd = 0.0
+        # Extract usage
+        input_tokens, output_tokens = _extract_usage(response)
         
-        if hasattr(response, 'usage_metadata'):
-            usage_meta = response.usage_metadata
-            usage = {
-                "prompt_tokens": getattr(usage_meta, 'prompt_token_count', 0),
-                "completion_tokens": getattr(usage_meta, 'candidates_token_count', 0),
-                "total_tokens": getattr(usage_meta, 'total_token_count', 0),
-            }
-            
-            # Estimate cost using tokencost (if available)
-            try:
-                import tokencost
-                cost_usd = tokencost.calculate_cost(
-                    model_name=job.model,
-                    prompt_tokens=usage.get("prompt_tokens", 0),
-                    completion_tokens=usage.get("completion_tokens", 0)
-                )
-                # Apply batch discount for Gemini
-                if batch_discount > 0:
-                    cost *= (1 - batch_discount)
-            except (ImportError, Exception) as e:
-                logger.debug(f"Could not calculate cost for job {job_id}: {e}")
+        # Calculate cost
+        cost_usd = _calculate_cost(job.model, input_tokens, output_tokens, batch_discount)
         
-        # Create JobResult
         job_results.append(JobResult(
-            job_id=job_id,
-            status="completed",
-            content=content,
-            error=None,
-            usage=usage,
-            cost_usd=cost_usd,
-            provider="gemini",
-            model=job.model,
-            parsed_response=parsed_response,
-            citation_mappings={}  # TODO: Implement citations if needed
+            job_id=job_id, raw_response=content, parsed_response=parsed_response,
+            citations=None, citation_mappings=None,
+            input_tokens=input_tokens, output_tokens=output_tokens,
+            cost_usd=cost_usd, error=None, batch_id=batch_id
         ))
     
     return job_results
 
 
-def _save_raw_response(result: Any, job_id: str, raw_files_dir: str) -> None:
-    """Save individual raw API response to disk.
+def _extract_text(response) -> str:
+    """Extract text from Gemini response."""
+    if hasattr(response, 'text') and response.text:
+        return response.text
     
-    Args:
-        result: Raw response from API
-        job_id: Job ID for filename
-        raw_files_dir: Directory to save to
-    """
+    if hasattr(response, 'candidates') and response.candidates:
+        candidate = response.candidates[0]
+        if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+            return "".join(part.text for part in candidate.content.parts if hasattr(part, 'text'))
+    
+    return ""
+
+
+def _parse_structured(content: str, response_model):
+    """Parse structured output from content."""
     try:
-        raw_files_path = Path(raw_files_dir)
-        responses_dir = raw_files_path / "responses"
+        content = content.strip()
+        
+        # Try direct JSON parsing
+        if content.startswith(('{', '[')):
+            return response_model(**json.loads(content))
+        
+        # Extract JSON from text
+        if (start := content.find('{')) != -1 and (end := content.rfind('}') + 1) > start:
+            json_text = content[start:end]
+            return response_model(**json.loads(json_text))
+    
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    
+    return None
+
+
+def _extract_usage(response) -> tuple[int, int]:
+    """Extract token usage from response."""
+    if hasattr(response, 'usage_metadata'):
+        usage = response.usage_metadata
+        return (
+            getattr(usage, 'prompt_token_count', 0),
+            getattr(usage, 'candidates_token_count', 0)
+        )
+    return 0, 0
+
+
+def _calculate_cost(model: str, input_tokens: int, output_tokens: int, batch_discount: float) -> float:
+    """Calculate cost with batch discount."""
+    try:
+        import tokencost
+        cost = tokencost.calculate_cost_by_tokens(
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens
+        )
+        return cost * (1 - batch_discount)
+    except Exception:
+        return 0.0
+
+
+def _save_raw_response(result, job_id: str, raw_files_dir: str) -> None:
+    """Save raw response for debugging."""
+    try:
+        responses_dir = Path(raw_files_dir) / "responses"
         responses_dir.mkdir(parents=True, exist_ok=True)
-        raw_response_file = responses_dir / f"{job_id}_raw.json"
         
-        # Convert to dict using utility function
-        raw_data = to_dict(result)
-        
-        with open(raw_response_file, 'w') as f:
-            json.dump(raw_data, f, indent=2)
-        
-        logger.debug(f"Saved raw response for job {job_id} to {raw_response_file}")
-        
-    except Exception as e:
-        logger.warning(f"Failed to save raw response for job {job_id}: {e}")
+        with open(responses_dir / f"{job_id}_raw.json", 'w') as f:
+            json.dump(to_dict(result), f, indent=2)
+    except Exception:
+        pass

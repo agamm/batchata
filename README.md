@@ -41,7 +41,7 @@ from batchata import Batch
 
 # Simple batch processing
 batch = Batch(results_dir="./output")
-    .set_default_params(model="claude-sonnet-4-20250514")  # or "gpt-4.1-2025-04-14" or "gemini-1.5-flash"
+    .set_default_params(model="claude-sonnet-4-20250514")  # or "gpt-4.1-2025-04-14" or "gemini-2.5-flash"
     .add_cost_limit(usd=5.0)
 
 for file in files:

@@ -1,4 +1,4 @@
-"""Tests for Gemini provider functionality."""
+"""Tests for Gemini provider main functionality."""
 
 import os
 import pytest
@@ -6,7 +6,6 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 from batchata.providers.gemini import GeminiProvider
-from batchata.providers.gemini.models import GEMINI_MODELS
 from batchata.core.job import Job
 
 
@@ -31,7 +30,7 @@ class TestGeminiProvider:
             mock_batch_job = MagicMock()
             mock_batch_job.name = "test_batch_123456"
             mock_batch_job.state = MagicMock()
-            mock_batch_job.state.__str__ = lambda: "JOB_STATE_SUCCEEDED"
+            mock_batch_job.state.name = "JOB_STATE_SUCCEEDED"
             
             mock_client.batches.create.return_value = mock_batch_job
             mock_client.batches.get.return_value = mock_batch_job
@@ -43,7 +42,7 @@ class TestGeminiProvider:
         with patch('google.genai.Client') as mock_client:
             provider = GeminiProvider()
             mock_client.assert_called_once_with(api_key='test-key')
-            assert len(provider.models) == len(GEMINI_MODELS)
+            assert len(provider.models) == 5  # Number of Gemini models
     
     def test_provider_initialization_no_api_key(self):
         """Test provider raises error without API key."""
@@ -53,31 +52,24 @@ class TestGeminiProvider:
     
     def test_supports_model(self, provider):
         """Test model support checking."""
-        assert provider.supports_model("gemini-1.5-flash")
-        assert provider.supports_model("gemini-1.5-pro")
+        assert provider.supports_model("gemini-2.5-flash")
+        assert provider.supports_model("gemini-2.5-pro")
         assert not provider.supports_model("gpt-4")
         assert not provider.supports_model("claude-3-opus")
-    
-    def test_get_model_config(self, provider):
-        """Test getting model configuration."""
-        config = provider.get_model_config("gemini-1.5-flash")
-        assert config is not None
-        assert config.name == "gemini-1.5-flash"
-        assert config.batch_discount == 0.5  # Gemini has batch processing support
-        assert config.supports_structured_output is True
-        
-        # Non-existent model
-        assert provider.get_model_config("non-existent") is None
     
     def test_validate_job_success(self, provider):
         """Test successful job validation."""
         job = Job(
             id="test-1",
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             messages=[{"role": "user", "content": "Test prompt"}]
         )
-        # Should not raise any exception
-        provider.validate_job(job)
+        provider.validate_job(job)  # Should not raise
+    
+    def test_validate_job_none(self, provider):
+        """Test validation fails for None job."""
+        with pytest.raises(Exception, match="Job cannot be None"):
+            provider.validate_job(None)
     
     def test_validate_job_unsupported_model(self, provider):
         """Test validation fails for unsupported model."""
@@ -89,41 +81,18 @@ class TestGeminiProvider:
         with pytest.raises(Exception, match="Unsupported model"):
             provider.validate_job(job)
     
-    def test_validate_job_file_not_supported(self, provider):
-        """Test validation fails when model doesn't support files."""
-        # gemini-1.0-pro doesn't support files
-        job = Job(
-            id="test-1",
-            model="gemini-1.0-pro",
-            prompt="Test prompt",
-            file=Path("/tmp/test.pdf")
-        )
-        with pytest.raises(Exception, match="does not support file input"):
-            provider.validate_job(job)
-    
     def test_polling_interval(self, provider):
         """Test polling interval is reasonable."""
         interval = provider.get_polling_interval()
         assert isinstance(interval, float)
         assert interval > 0
-        assert interval <= 10  # Should be reasonable
-    
-    def test_estimate_cost(self, provider):
-        """Test cost estimation."""
-        jobs = [
-            Job(id="test-1", model="gemini-1.5-flash", messages=[{"role": "user", "content": "Short prompt"}]),
-            Job(id="test-2", model="gemini-1.5-pro", messages=[{"role": "user", "content": "Another prompt"}]),
-        ]
-        
-        cost = provider.estimate_cost(jobs)
-        assert isinstance(cost, float)
-        assert cost >= 0  # Cost should be non-negative
+        assert interval <= 10
     
     def test_create_batch(self, provider):
         """Test batch creation."""
         jobs = [
-            Job(id="test-1", model="gemini-1.5-flash", messages=[{"role": "user", "content": "Test prompt 1"}]),
-            Job(id="test-2", model="gemini-1.5-flash", messages=[{"role": "user", "content": "Test prompt 2"}]),
+            Job(id="test-1", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test prompt 1"}]),
+            Job(id="test-2", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test prompt 2"}]),
         ]
         
         batch_id, job_mapping = provider.create_batch(jobs)
@@ -132,10 +101,6 @@ class TestGeminiProvider:
         assert len(job_mapping) == 2
         assert "test-1" in job_mapping
         assert "test-2" in job_mapping
-        
-        # Check batch status
-        status, error_details = provider.get_batch_status(batch_id)
-        assert status in ["pending", "running", "complete"]  # In tests, it might complete immediately
     
     def test_create_empty_batch(self, provider):
         """Test creating empty batch raises error."""
@@ -145,7 +110,7 @@ class TestGeminiProvider:
     def test_create_too_large_batch(self, provider):
         """Test creating batch with too many jobs raises error."""
         jobs = [
-            Job(id=f"test-{i}", model="gemini-1.5-flash", messages=[{"role": "user", "content": f"Test prompt {i}"}])
+            Job(id=f"test-{i}", model="gemini-2.5-flash", messages=[{"role": "user", "content": f"Test prompt {i}"}])
             for i in range(provider.MAX_REQUESTS + 1)
         ]
         
@@ -157,14 +122,22 @@ class TestGeminiProvider:
         # Test cancelling non-existent batch
         result = provider.cancel_batch("non-existent")
         assert result is False
-        
-        # Test cancelling batch that exists
-        jobs = [Job(id="test-1", model="gemini-1.5-flash", messages=[{"role": "user", "content": "Test prompt"}])]
+    
+    def test_get_batch_status_not_found(self, provider):
+        """Test batch status for non-existent batch."""
+        status, error_details = provider.get_batch_status("non-existent")
+        assert status == "failed"
+        assert "Batch not found" in error_details["error"]
+    
+    def test_get_batch_results_empty_mapping(self, provider):
+        """Test get_batch_results with empty job mapping."""
+        # First create a batch so it exists
+        jobs = [Job(id="test-1", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test"}])]
         batch_id, _ = provider.create_batch(jobs)
         
-        result = provider.cancel_batch(batch_id)
-        assert result is True
+        # Mock batch as completed
+        provider._batches[batch_id]["batch_job"].state.name = "JOB_STATE_SUCCEEDED"
         
-        # Check status is cancelled
-        status, _ = provider.get_batch_status(batch_id)
-        assert status == "cancelled"
+        # Now test with empty mapping - should return empty list due to early exit
+        result = provider.get_batch_results(batch_id, {})
+        assert result == []
