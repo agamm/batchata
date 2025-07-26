@@ -156,13 +156,11 @@ The interactive display shows:
 | Feature | Anthropic | OpenAI | Google Gemini |
 |---------|-----------|--------|---------------|
 | Models | [All Claude models](https://github.com/agamm/batchata/blob/main/batchata/providers/anthropic/models.py) | [All GPT models](https://github.com/agamm/batchata/blob/main/batchata/providers/openai/models.py) | [Gemini models](https://github.com/agamm/batchata/blob/main/batchata/providers/gemini/models.py) |
-| Batch Discount | 50% | 50% | None* |
+| Batch Discount | 50% | 50% | 50% |
 | Polling Interval | 1s | 5s | 2s |
 | Citations | ✅ | ❌ | ❌ |
 | Structured Output | ✅ | ✅ | ✅ |
 | File Types | PDF, TXT, DOCX, Images | PDF, Images | PDF, TXT, DOCX, Images |
-
-*Gemini doesn't have true batch processing. Uses async processing to simulate batch behavior.
 
 ## Configuration
 
@@ -186,7 +184,6 @@ from batchata import Batch
 
 - Field/citation mapping is heuristic, which means it isn't perfect.
 - Citation mapping only works with flat Pydantic models (no nested BaseModel fields).
-- **Gemini**: No true batch processing available - uses async processing instead, so no cost savings compared to real-time API.
 - Cost tracking is not precise as the actual usage is only known after the batch is complete, try setting `items_per_batch` to a lower value for more accurate cost tracking.
 
 

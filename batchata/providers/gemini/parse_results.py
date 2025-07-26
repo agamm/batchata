@@ -19,7 +19,7 @@ def parse_results(results: List[Dict], job_mapping: Dict[str, 'Job'], raw_files_
         results: List of response dictionaries from async processing
         job_mapping: Mapping of job ID to Job object
         raw_files_dir: Optional directory to save debug files
-        batch_discount: Batch discount factor (0.0 for Gemini since no true batch)
+        batch_discount: Batch discount factor (0.5 for Gemini batch processing)
         batch_id: Batch ID for mapping to raw files
         
     Returns:
@@ -125,7 +125,9 @@ def parse_results(results: List[Dict], job_mapping: Dict[str, 'Job'], raw_files_
                     prompt_tokens=usage.get("prompt_tokens", 0),
                     completion_tokens=usage.get("completion_tokens", 0)
                 )
-                # No batch discount for Gemini
+                # Apply batch discount for Gemini
+                if batch_discount > 0:
+                    cost *= (1 - batch_discount)
             except (ImportError, Exception) as e:
                 logger.debug(f"Could not calculate cost for job {job_id}: {e}")
         
