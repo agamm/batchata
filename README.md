@@ -179,6 +179,50 @@ from batchata import Batch
 # Your API keys will now be loaded from .env
 ```
 
+## MCP CLI
+
+Batchata includes an MCP (Model Context Protocol) command-line interface for managing batch requests:
+
+```bash
+# Create a batch with messages
+batchata-mcp create --model claude-sonnet-4-20250514 --messages '[{"role": "user", "content": "Hello"}]'
+
+# Create a batch with file and prompt
+batchata-mcp create --model gpt-4o-2024-08-06 --file document.pdf --prompt "Summarize this document"
+
+# Add model parameters
+batchata-mcp create --model claude-sonnet-4-20250514 --messages '[{"role": "user", "content": "Hello"}]' --temperature 0.7 --max-tokens 1000
+
+# List all batches
+batchata-mcp list
+
+# Get results for a specific batch
+batchata-mcp results <batch_id>
+
+# Cancel a running batch
+batchata-mcp cancel <batch_id>
+```
+
+### MCP Commands
+
+- **create**: Create a new batch request with specified model and parameters
+- **list**: List all batch requests with status information
+- **results**: Retrieve results for a completed batch
+- **cancel**: Cancel a running batch request
+
+### MCP Parameters
+
+- `--model`: Required. Model to use (e.g., "claude-sonnet-4-20250514", "gpt-4o-2024-08-06")
+- `--messages`: JSON array of messages for direct text processing
+- `--file` + `--prompt`: File path and prompt for document processing
+- `--temperature`: Model temperature parameter
+- `--max-tokens`: Maximum input tokens
+- `--max-output-tokens`: Maximum output tokens
+- `--state-dir`: Directory to store batch state (default: `./.batchata`)
+
+The MCP CLI stores batch state and results in a local directory, allowing you to track and manage multiple batch requests over time.
+```
+
 ## Limitations
 
 - Field/citation mapping is heuristic, which means it isn't perfect.
