@@ -11,20 +11,18 @@ import google.genai as genai_lib
 from ...core.job import Job
 from ...core.job_result import JobResult
 from ...exceptions import BatchSubmissionError, ValidationError
+from ...utils import get_logger
 from ..provider import Provider
 from .models import GEMINI_MODELS
 from .message_prepare import prepare_messages
 from .parse_results import parse_results
 
+
+logger = get_logger(__name__)
+
 # Suppress known Google SDK warning about BATCH_STATE_RUNNING
 # The API returns BATCH_STATE_* but SDK expects JOB_STATE_*
 warnings.filterwarnings('ignore', message='.*is not a valid JobState')
-
-# Pricing constants (USD per 1K tokens) - fallback when tokencost unavailable
-GEMINI_PRO_INPUT_PRICE = Decimal('0.00125')
-GEMINI_PRO_OUTPUT_PRICE = Decimal('0.005')
-GEMINI_FLASH_INPUT_PRICE = Decimal('0.000075')
-GEMINI_FLASH_OUTPUT_PRICE = Decimal('0.0003')
 
 # Token estimation constants
 CHARS_PER_TOKEN = 4
@@ -271,7 +269,15 @@ class GeminiProvider(Provider):
             return False
     
     def estimate_cost(self, jobs: List[Job]) -> float:
-        """Estimate cost for jobs using Google's token counting API."""
+        """Estimate cost for a list of jobs using tokencost and Google's token counting API.
+        
+        WARNING: This is an estimation. Actual costs may vary due to:
+        - Token counting differences between the estimator and Google's tokenizer
+        - Dynamic pricing changes
+        - Additional fees or discounts not captured here
+        
+        Uses Google's official token counting API for accurate token estimates.
+        """
         total_cost = Decimal('0.0')
         
         for job in jobs:
@@ -300,16 +306,8 @@ class GeminiProvider(Provider):
                 cost = Decimal(str(input_cost + output_cost))
                 total_cost += cost * (Decimal('1') - batch_discount)
             except (ImportError, ModuleNotFoundError, AttributeError):
-                # Fallback with rough pricing estimates when tokencost unavailable
-                if "pro" in job.model.lower():
-                    input_cost = Decimal(str(input_tokens)) * GEMINI_PRO_INPUT_PRICE / 1000
-                    output_cost = Decimal(str(output_tokens)) * GEMINI_PRO_OUTPUT_PRICE / 1000
-                else:
-                    input_cost = Decimal(str(input_tokens)) * GEMINI_FLASH_INPUT_PRICE / 1000
-                    output_cost = Decimal(str(output_tokens)) * GEMINI_FLASH_OUTPUT_PRICE / 1000
-                
-                cost = input_cost + output_cost
-                total_cost += cost * (Decimal('1') - batch_discount)
+                logger.warning("tokencost not available, returning 0 cost estimate")
+                return 0.0
         
         return float(total_cost)
     
