@@ -1,6 +1,7 @@
 """Simple Google Gemini provider with batch processing."""
 
 import os
+import time
 import warnings
 from decimal import Decimal
 from typing import Dict, List, Optional
@@ -28,7 +29,9 @@ GEMINI_FLASH_OUTPUT_PRICE = Decimal('0.0003')
 # Token estimation constants
 CHARS_PER_TOKEN = 4
 MAX_FILE_ESTIMATION_TOKENS = 100000
-FALLBACK_TOKENS_ON_ERROR = 1000
+# Token counting retry configuration
+TOKEN_COUNT_MAX_RETRIES = 3
+TOKEN_COUNT_RETRY_DELAY = 1.0  # seconds
 
 # Google batch job states
 JOB_STATE_SUCCEEDED = 'JOB_STATE_SUCCEEDED'
@@ -311,22 +314,31 @@ class GeminiProvider(Provider):
         return float(total_cost)
     
     def _count_tokens(self, job: Job) -> int:
-        """Count tokens using Google's official API."""
-        try:
-            # Prepare content for token counting
-            contents, _ = prepare_messages(job)
-            
-            # Use Google's token counting API
-            response = self.client.models.count_tokens(
-                model=job.model,
-                contents=contents
-            )
-            return getattr(response, 'total_tokens', 0)
-            
-        except (ConnectionError, ValueError, AttributeError):
-            # Conservative fallback - return a reasonable default rather than rough estimation
-            # This should prompt user to fix API issues rather than rely on inaccurate estimates
-            return FALLBACK_TOKENS_ON_ERROR
+        """Count tokens using Google's official API with retry mechanism."""
+        # Prepare content for token counting
+        contents, _ = prepare_messages(job)
+        
+        last_exception = None
+        for attempt in range(TOKEN_COUNT_MAX_RETRIES):
+            try:
+                response = self.client.models.count_tokens(
+                    model=job.model,
+                    contents=contents
+                )
+                return getattr(response, 'total_tokens', 0)
+                
+            except (ConnectionError, ValueError, AttributeError) as e:
+                last_exception = e
+                if attempt < TOKEN_COUNT_MAX_RETRIES - 1:
+                    time.sleep(TOKEN_COUNT_RETRY_DELAY * (attempt + 1))  # Exponential backoff
+                    continue
+                break
+        
+        # If all retries failed, raise a clear error instead of returning a meaningless fallback
+        raise ValidationError(
+            f"Failed to count tokens for model {job.model} after {TOKEN_COUNT_MAX_RETRIES} attempts. "
+            f"Last error: {last_exception}. Please check your Google API key and connection."
+        )
     
     def get_polling_interval(self) -> float:
         """Polling interval for status checks."""
