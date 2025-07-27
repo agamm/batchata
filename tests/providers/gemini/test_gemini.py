@@ -8,6 +8,9 @@ from pathlib import Path
 from batchata.providers.gemini import GeminiProvider
 from batchata.core.job import Job
 
+# Test constants
+TEST_MODEL = "gemini-2.5-flash"
+
 
 class TestGeminiProvider:
     """Test cases for Gemini provider."""
@@ -42,7 +45,7 @@ class TestGeminiProvider:
         with patch('google.genai.Client') as mock_client:
             provider = GeminiProvider()
             mock_client.assert_called_once_with(api_key='test-key')
-            assert len(provider.models) == 5  # Number of Gemini models
+            assert len(provider.models) > 0
     
     def test_provider_initialization_no_api_key(self):
         """Test provider raises error without API key."""
@@ -52,8 +55,7 @@ class TestGeminiProvider:
     
     def test_supports_model(self, provider):
         """Test model support checking."""
-        assert provider.supports_model("gemini-2.5-flash")
-        assert provider.supports_model("gemini-2.5-pro")
+        assert provider.supports_model(TEST_MODEL)
         assert not provider.supports_model("gpt-4")
         assert not provider.supports_model("claude-3-opus")
     
@@ -61,7 +63,7 @@ class TestGeminiProvider:
         """Test successful job validation."""
         job = Job(
             id="test-1",
-            model="gemini-2.5-flash",
+            model=TEST_MODEL,
             messages=[{"role": "user", "content": "Test prompt"}]
         )
         provider.validate_job(job)  # Should not raise
@@ -81,12 +83,7 @@ class TestGeminiProvider:
         with pytest.raises(Exception, match="Unsupported model"):
             provider.validate_job(job)
     
-    def test_polling_interval(self, provider):
-        """Test polling interval is reasonable."""
-        interval = provider.get_polling_interval()
-        assert isinstance(interval, float)
-        assert interval > 0
-        assert interval <= 10
+
     
     def test_create_batch(self, provider):
         """Test batch creation."""

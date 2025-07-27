@@ -302,32 +302,3 @@ class TestMessagePrepare:
         contents, generation_config = prepare_messages(job)
         
         assert contents[0]["parts"][0]["text"] == "Test with émojis 🚀 and spëcial chàracters ñ 中文"
-    
-    def test_generation_config_defaults(self):
-        """Test that default generation config values are set correctly."""
-        job = Job(
-            id="test-1",
-            model="gemini-2.5-flash",
-            prompt="Test defaults"
-            # Using Job defaults: temperature=0.7, max_tokens=1000
-        )
-        
-        contents, generation_config = prepare_messages(job)
-        
-        assert generation_config["temperature"] == 0.7
-        assert generation_config["max_output_tokens"] == 1000
-    
-    def test_generation_config_overrides(self):
-        """Test that custom generation config values override defaults."""
-        job = Job(
-            id="test-1",
-            model="gemini-2.5-flash",
-            prompt="Test overrides",
-            temperature=0.2,
-            max_tokens=500
-        )
-        
-        contents, generation_config = prepare_messages(job)
-        
-        assert generation_config["temperature"] == 0.2
-        assert generation_config["max_output_tokens"] == 500

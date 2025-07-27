@@ -2,6 +2,7 @@
 
 import os
 import warnings
+from decimal import Decimal
 from typing import Dict, List, Optional
 
 import google.genai as genai_lib
@@ -17,6 +18,22 @@ from .parse_results import parse_results
 # Suppress known Google SDK warning about BATCH_STATE_RUNNING
 # The API returns BATCH_STATE_* but SDK expects JOB_STATE_*
 warnings.filterwarnings('ignore', message='.*is not a valid JobState')
+
+# Pricing constants (USD per 1K tokens) - fallback when tokencost unavailable
+GEMINI_PRO_INPUT_PRICE = Decimal('0.00125')
+GEMINI_PRO_OUTPUT_PRICE = Decimal('0.005')
+GEMINI_FLASH_INPUT_PRICE = Decimal('0.000075')
+GEMINI_FLASH_OUTPUT_PRICE = Decimal('0.0003')
+
+# Token estimation constants
+CHARS_PER_TOKEN = 4
+MAX_FILE_ESTIMATION_TOKENS = 100000
+FALLBACK_TOKENS_ON_ERROR = 1000
+
+# Google batch job states
+JOB_STATE_SUCCEEDED = 'JOB_STATE_SUCCEEDED'
+JOB_STATE_FAILED = 'JOB_STATE_FAILED'
+JOB_STATE_CANCELLED = 'JOB_STATE_CANCELLED'
 
 
 class GeminiProvider(Provider):
@@ -47,6 +64,14 @@ class GeminiProvider(Provider):
         
         if job.file and not model_config.supports_files:
             raise ValidationError(f"Model '{job.model}' does not support file input")
+        
+        if job.file and model_config.supports_files:
+            # Validate file type
+            file_ext = job.file.suffix.lower()
+            if hasattr(model_config, 'file_types') and model_config.file_types:
+                if file_ext not in model_config.file_types:
+                    supported = ', '.join(model_config.file_types)
+                    raise ValidationError(f"Unsupported file type '{file_ext}'. Supported: {supported}")
         
         if job.response_model and not model_config.supports_structured_output:
             raise ValidationError(f"Model '{job.model}' does not support structured output")
@@ -128,12 +153,12 @@ class GeminiProvider(Provider):
             # Handle state by name to avoid enum validation issues
             state_name = getattr(batch_job.state, 'name', str(batch_job.state))
             
-            if state_name == 'JOB_STATE_SUCCEEDED':
+            if state_name == JOB_STATE_SUCCEEDED:
                 return "complete", None
-            elif state_name == 'JOB_STATE_FAILED':
+            elif state_name == JOB_STATE_FAILED:
                 error_msg = batch_job.error.message if batch_job.error else "Unknown error"
                 return "failed", {"batch_id": batch_id, "error": error_msg}
-            elif state_name == 'JOB_STATE_CANCELLED':
+            elif state_name == JOB_STATE_CANCELLED:
                 return "cancelled", {"batch_id": batch_id, "error": "Batch was cancelled"}
             else:
                 # Handle running states (including BATCH_STATE_RUNNING)
@@ -244,11 +269,11 @@ class GeminiProvider(Provider):
     
     def estimate_cost(self, jobs: List[Job]) -> float:
         """Estimate cost for jobs using Google's token counting API."""
-        total_cost = 0.0
+        total_cost = Decimal('0.0')
         
         for job in jobs:
             model_config = self.get_model_config(job.model)
-            batch_discount = model_config.batch_discount
+            batch_discount = Decimal(str(model_config.batch_discount))
             
             # Get accurate token count using Google's API
             input_tokens = self._count_tokens(job)
@@ -269,17 +294,21 @@ class GeminiProvider(Provider):
                     token_type='output'
                 )
                 
-                cost = float(input_cost + output_cost)
-                total_cost += cost * (1 - batch_discount)
-            except (ImportError, ModuleNotFoundError, AttributeError) as e:
+                cost = Decimal(str(input_cost + output_cost))
+                total_cost += cost * (Decimal('1') - batch_discount)
+            except (ImportError, ModuleNotFoundError, AttributeError):
                 # Fallback with rough pricing estimates when tokencost unavailable
                 if "pro" in job.model.lower():
-                    cost = (input_tokens * 0.00125 + output_tokens * 0.005) / 1000
+                    input_cost = Decimal(str(input_tokens)) * GEMINI_PRO_INPUT_PRICE / 1000
+                    output_cost = Decimal(str(output_tokens)) * GEMINI_PRO_OUTPUT_PRICE / 1000
                 else:
-                    cost = (input_tokens * 0.000075 + output_tokens * 0.0003) / 1000
-                total_cost += cost * (1 - batch_discount)
+                    input_cost = Decimal(str(input_tokens)) * GEMINI_FLASH_INPUT_PRICE / 1000
+                    output_cost = Decimal(str(output_tokens)) * GEMINI_FLASH_OUTPUT_PRICE / 1000
+                
+                cost = input_cost + output_cost
+                total_cost += cost * (Decimal('1') - batch_discount)
         
-        return total_cost
+        return float(total_cost)
     
     def _count_tokens(self, job: Job) -> int:
         """Count tokens using Google's official API."""
@@ -295,12 +324,9 @@ class GeminiProvider(Provider):
             return getattr(response, 'total_tokens', 0)
             
         except (ConnectionError, ValueError, AttributeError):
-            # Fallback to rough estimation when Google API fails
-            input_text = job.prompt or ""
-            if job.file:
-                file_size = job.file.stat().st_size
-                input_text += " " * min(file_size // 4, 100000)
-            return len(input_text) // 4
+            # Conservative fallback - return a reasonable default rather than rough estimation
+            # This should prompt user to fix API issues rather than rely on inaccurate estimates
+            return FALLBACK_TOKENS_ON_ERROR
     
     def get_polling_interval(self) -> float:
         """Polling interval for status checks."""

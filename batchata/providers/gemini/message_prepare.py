@@ -72,26 +72,37 @@ def prepare_messages(job: Job) -> Tuple[List[Dict], Optional[Dict]]:
     if job.max_tokens is not None:
         generation_config["max_output_tokens"] = job.max_tokens
     
-    return contents, generation_config if generation_config else None
+    return contents, (generation_config if generation_config else None)
+
+
+# File type constants for consistency and performance
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+PDF_EXTENSION = '.pdf'
+
+MIME_TYPE_MAP = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.pdf': 'application/pdf'
+}
 
 
 def _is_image(file_path: Path) -> bool:
     """Check if file is an image."""
-    return file_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+    return file_path.suffix.lower() in IMAGE_EXTENSIONS
 
 
 def _is_pdf(file_path: Path) -> bool:
     """Check if file is a PDF."""
-    return file_path.suffix.lower() == '.pdf'
+    return file_path.suffix.lower() == PDF_EXTENSION
 
 
 def _get_mime_type(file_path: Path) -> str:
     """Get MIME type for file."""
     ext = file_path.suffix.lower()
-    return {
-        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
-        '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf'
-    }.get(ext, 'text/plain')
+    return MIME_TYPE_MAP.get(ext, 'text/plain')
 
 
 def _read_as_base64(file_path: Path) -> str:

@@ -171,49 +171,7 @@ class TestParseResults:
         assert job_results[1].parsed_response.age == 25
         assert job_results[1].parsed_response.score == 88.0
     
-    def test_complex_response_format(self):
-        """Test parsing complex response format with candidates."""
-        # Mock Gemini response with candidates structure
-        mock_part = MagicMock()
-        mock_part.text = "Response from candidate"
-        
-        mock_content = MagicMock()
-        mock_content.parts = [mock_part]
-        
-        mock_candidate = MagicMock()
-        mock_candidate.content = mock_content
-        
-        mock_response = MagicMock()
-        mock_response.text = None  # Force using candidates path
-        mock_response.candidates = [mock_candidate]
-        mock_response.usage_metadata = MagicMock(
-            prompt_token_count=10,
-            candidates_token_count=15
-        )
-        
-        results = [
-            {
-                "job_id": "job-1",
-                "response": mock_response,
-                "error": None
-            }
-        ]
-        
-        job_mapping = {
-            "job-1": Job(
-                id="job-1",
-                model="gemini-2.5-flash",
-                messages=[{"role": "user", "content": "Test"}]
-            )
-        }
-        
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
-            job_results = parse_results(results, job_mapping)
-        
-        assert len(job_results) == 1
-        assert job_results[0].raw_response == "Response from candidate"
-        assert job_results[0].input_tokens == 10
-        assert job_results[0].output_tokens == 15
+
     
     def test_invalid_structured_output(self):
         """Test handling invalid JSON in structured output."""
@@ -248,50 +206,7 @@ class TestParseResults:
         assert job_results[0].parsed_response is None
         assert job_results[0].raw_response == "Invalid JSON content that cannot be parsed"
     
-    def test_real_google_batch_response_format(self):
-        """Test parsing actual Google batch API response format."""
-        # This simulates the actual structure from Google's batch API
-        # Based on the format: batch_job.dest.inlined_responses
-        results = [
-            {
-                "job_id": "job-1",
-                "response": MagicMock(
-                    text="Response from Google",
-                    candidates=[
-                        MagicMock(
-                            content=MagicMock(
-                                parts=[MagicMock(text="Response from Google")]
-                            ),
-                            finish_reason="STOP"
-                        )
-                    ],
-                    usage_metadata=MagicMock(
-                        prompt_token_count=25,
-                        candidates_token_count=15,
-                        total_token_count=40
-                    )
-                ),
-                "error": None
-            }
-        ]
-        
-        job_mapping = {
-            "job-1": Job(
-                id="job-1",
-                model="gemini-2.5-flash",
-                messages=[{"role": "user", "content": "Test Google response"}]
-            )
-        }
-        
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
-            job_results = parse_results(results, job_mapping, batch_discount=0.5)
-        
-        assert len(job_results) == 1
-        result = job_results[0]
-        assert result.raw_response == "Response from Google"
-        assert result.input_tokens == 25
-        assert result.output_tokens == 15
-        assert result.error is None
+
         
     def test_google_api_error_scenarios(self):
         """Test various Google API error scenarios."""

@@ -54,7 +54,6 @@ classifiers = [
 dependencies = [
     "anthropic>=0.57.1",
     "openai>=1.97.0",
-    "google-generativeai>=0.8.0",
     "google-genai>=1.0.0",
     "tokencost>=0.1.24",
     "pydantic>=2.0",
@@ -73,7 +72,6 @@ Changelog = "https://github.com/agamm/batchata/releases"
 [project.scripts]
 batchata-example = "examples.spam_detection:main"
 batchata-pdf-example = "examples.pdf_extraction:main"
-batchata-gemini-example = "examples.gemini_example:main"
 
 [dependency-groups]
 dev = [
