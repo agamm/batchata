@@ -177,6 +177,10 @@ class Provider(ABC):
         """
         return self.models.get(model)
     
+    def _sanitize_batch_id(self, batch_id: str) -> str:
+        """Sanitize batch ID for use in file names."""
+        return batch_id.replace('/', '_').replace('\\', '_')
+    
     def _save_raw_requests(self, batch_id: str, content: any, raw_files_dir: str, provider_name: str) -> None:
         """Save raw request data for debugging.
         
@@ -191,15 +195,18 @@ class Provider(ABC):
             requests_dir = raw_files_path / "requests"
             requests_dir.mkdir(parents=True, exist_ok=True)
             
+            # Sanitize batch ID for file naming
+            safe_batch_id = self._sanitize_batch_id(batch_id)
+            
             # Determine format based on content type
             if isinstance(content, str):
                 # JSONL content
-                file_path = requests_dir / f"{provider_name}_batch_{batch_id}.jsonl"
+                file_path = requests_dir / f"{provider_name}_batch_{safe_batch_id}.jsonl"
                 with open(file_path, 'w') as f:
                     f.write(content)
             else:
                 # JSON content (dict/list)
-                file_path = requests_dir / f"{provider_name}_batch_{batch_id}.json"
+                file_path = requests_dir / f"{provider_name}_batch_{safe_batch_id}.json"
                 with open(file_path, 'w') as f:
                     json.dump(content, f, indent=2)
             
@@ -222,15 +229,18 @@ class Provider(ABC):
             responses_dir = raw_files_path / "responses"
             responses_dir.mkdir(parents=True, exist_ok=True)
             
+            # Sanitize batch ID for file naming
+            safe_batch_id = self._sanitize_batch_id(batch_id)
+            
             # Determine format based on content type
             if isinstance(content, str):
                 # JSONL content
-                file_path = responses_dir / f"{provider_name}_batch_{batch_id}.jsonl"
+                file_path = responses_dir / f"{provider_name}_batch_{safe_batch_id}.jsonl"
                 with open(file_path, 'w') as f:
                     f.write(content)
             else:
                 # JSON content (dict/list)
-                file_path = responses_dir / f"{provider_name}_batch_{batch_id}.json"
+                file_path = responses_dir / f"{provider_name}_batch_{safe_batch_id}.json"
                 with open(file_path, 'w') as f:
                     json.dump(content, f, indent=2)
             

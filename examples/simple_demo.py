@@ -18,9 +18,9 @@ def main():
     """Run a simple batch processing demo."""
     # Create batch configuration
     batch = (
-        Batch(results_dir="./examples/output", max_parallel_batches=1, items_per_batch=1)
+        Batch(results_dir="./examples/output", max_parallel_batches=1, items_per_batch=3)
         .set_state(file="./examples/demo_state.json", reuse_state=False)
-        .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
+        .set_default_params(model="gemini-2.5-flash", temperature=0.7)
         .add_cost_limit(usd=5.0)
         .set_verbosity("warn")
     )
@@ -36,16 +36,12 @@ def main():
         batch.add_job(
             messages=[{"role": "user", "content": f"Analyze this business update: {text}"}],
             response_model=Analysis,
-            enable_citations=True
+            # enable_citations=True
         )
     
     # Execute batch
     print("Starting batch processing...")
-    run = batch.run(on_progress=lambda s, t, b: \
-                    print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
-                          f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
-                          f"Cost: ${round(s['cost_usd'],3)}/{s['cost_limit_usd']} | " \
-                          f"Items per batch: {s['items_per_batch']} | Time: {round(t, 2)}s", end=""))
+    run = batch.run(print_status=True)
     
     # Get results
     run.status(print_status=True)

@@ -20,7 +20,7 @@ AI providers offer batch APIs that process requests asynchronously at 50% reduce
 - State persistence in case of network interruption
 - Structured output `.json` format with Pydantic models
 - Citation support and field mapping (Anthropic only)
-- Multiple provider support (Anthropic, OpenAI)
+- Multiple provider support (Anthropic, OpenAI, Google Gemini)
 
 ## Installation
 
@@ -41,7 +41,7 @@ from batchata import Batch
 
 # Simple batch processing
 batch = Batch(results_dir="./output")
-    .set_default_params(model="claude-sonnet-4-20250514")  # or "gpt-4.1-2025-04-14"
+    .set_default_params(model="claude-sonnet-4-20250514")  # or "gpt-4.1-2025-04-14" or "gemini-2.5-flash"
     .add_cost_limit(usd=5.0)
 
 for file in files:
@@ -153,14 +153,14 @@ The interactive display shows:
 
 ## Supported Providers
 
-| Feature | Anthropic | OpenAI |
-|---------|-----------|--------|
-| Models | [All Claude models](https://github.com/agamm/batchata/blob/main/batchata/providers/anthropic/models.py) | [All GPT models](https://github.com/agamm/batchata/blob/main/batchata/providers/openai/models.py) |
-| Batch Discount | 50% | 50% |
-| Polling Interval | 1s | 5s |
-| Citations | ✅ | ❌ |
-| Structured Output | ✅ | ✅ |
-| File Types | PDF, TXT, DOCX, Images | PDF, Images |
+| Feature | Anthropic | OpenAI | Google Gemini |
+|---------|-----------|--------|---------------|
+| Models | [All Claude models](https://github.com/agamm/batchata/blob/main/batchata/providers/anthropic/models.py) | [All GPT models](https://github.com/agamm/batchata/blob/main/batchata/providers/openai/models.py) | [Gemini models](https://github.com/agamm/batchata/blob/main/batchata/providers/gemini/models.py) |
+| Batch Discount | 50% | 50% | 50% |
+| Polling Interval | 1s | 5s | 2s |
+| Citations | ✅ | ❌ | ❌ |
+| Structured Output | ✅ | ✅ | ✅ |
+| File Types | PDF, TXT, DOCX, Images | PDF, Images | PDF, TXT, Images |
 
 ## Configuration
 
@@ -168,6 +168,7 @@ Set your API keys as environment variables:
 ```bash
 export ANTHROPIC_API_KEY="your-key"
 export OPENAI_API_KEY="your-key"
+export GOOGLE_API_KEY="your-key"  # For Gemini models
 ```
 
 You can also use a `.env` file in your project root (requires python-dotenv):
@@ -183,7 +184,6 @@ from batchata import Batch
 
 - Field/citation mapping is heuristic, which means it isn't perfect.
 - Citation mapping only works with flat Pydantic models (no nested BaseModel fields).
-- No Gemini or Groq support yet.
 - Cost tracking is not precise as the actual usage is only known after the batch is complete, try setting `items_per_batch` to a lower value for more accurate cost tracking.
 
 

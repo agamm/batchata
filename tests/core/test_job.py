@@ -57,8 +57,8 @@ class TestJob:
     @pytest.mark.parametrize("file_path,prompt,should_work", [
         ("test.txt", "Summarize this", True),
         ("test.pdf", "Extract key points", True),
-        ("test.txt", None, False),  # Missing prompt
-        (None, "Summarize", False),  # Missing file
+        ("test.txt", None, False),  # Missing prompt when file is provided
+        (None, "Summarize", True),  # Prompt-only job is now allowed
     ])
     def test_file_based_job_creation(self, temp_dir, file_path, prompt, should_work):
         """Test creating jobs with file inputs."""
