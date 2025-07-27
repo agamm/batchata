@@ -3143,13 +3143,13 @@ including completed jobs, total jobs, current cost, etc.</p>
 </span><span id="Job-13"><a href="#Job-13"><span class="linenos">13</span></a><span class="k">class</span><span class="w"> </span><span class="nc">Job</span><span class="p">:</span>
 </span><span id="Job-14"><a href="#Job-14"><span class="linenos">14</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for a single AI job.</span>
 </span><span id="Job-15"><a href="#Job-15"><span class="linenos">15</span></a><span class="sd">    </span>
-</span><span id="Job-16"><a href="#Job-16"><span class="linenos">16</span></a><span class="sd">    Either provide messages OR file+prompt, not both.</span>
+</span><span id="Job-16"><a href="#Job-16"><span class="linenos">16</span></a><span class="sd">    Either provide messages OR prompt (with optional file), not both.</span>
 </span><span id="Job-17"><a href="#Job-17"><span class="linenos">17</span></a><span class="sd">    </span>
 </span><span id="Job-18"><a href="#Job-18"><span class="linenos">18</span></a><span class="sd">    Attributes:</span>
 </span><span id="Job-19"><a href="#Job-19"><span class="linenos">19</span></a><span class="sd">        id: Unique identifier for the job</span>
 </span><span id="Job-20"><a href="#Job-20"><span class="linenos">20</span></a><span class="sd">        messages: Chat messages for direct message input</span>
-</span><span id="Job-21"><a href="#Job-21"><span class="linenos">21</span></a><span class="sd">        file: File path for file-based input</span>
-</span><span id="Job-22"><a href="#Job-22"><span class="linenos">22</span></a><span class="sd">        prompt: Prompt to use with file input</span>
+</span><span id="Job-21"><a href="#Job-21"><span class="linenos">21</span></a><span class="sd">        file: Optional file path for file-based input</span>
+</span><span id="Job-22"><a href="#Job-22"><span class="linenos">22</span></a><span class="sd">        prompt: Prompt text (can be used alone or with file)</span>
 </span><span id="Job-23"><a href="#Job-23"><span class="linenos">23</span></a><span class="sd">        model: Model name (e.g., &quot;claude-3-sonnet&quot;)</span>
 </span><span id="Job-24"><a href="#Job-24"><span class="linenos">24</span></a><span class="sd">        temperature: Sampling temperature (0.0-1.0)</span>
 </span><span id="Job-25"><a href="#Job-25"><span class="linenos">25</span></a><span class="sd">        max_tokens: Maximum tokens to generate</span>
@@ -3175,8 +3175,8 @@ including completed jobs, total jobs, current cost, etc.</p>
 </span><span id="Job-45"><a href="#Job-45"><span class="linenos">45</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">file</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">prompt</span><span class="p">:</span>
 </span><span id="Job-46"><a href="#Job-46"><span class="linenos">46</span></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;File input requires a prompt&quot;</span><span class="p">)</span>
 </span><span id="Job-47"><a href="#Job-47"><span class="linenos">47</span></a>        
-</span><span id="Job-48"><a href="#Job-48"><span class="linenos">48</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">messages</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">prompt</span><span class="p">):</span>
-</span><span id="Job-49"><a href="#Job-49"><span class="linenos">49</span></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must provide either messages or file+prompt&quot;</span><span class="p">)</span>
+</span><span id="Job-48"><a href="#Job-48"><span class="linenos">48</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">messages</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">prompt</span><span class="p">:</span>
+</span><span id="Job-49"><a href="#Job-49"><span class="linenos">49</span></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must provide either messages or prompt&quot;</span><span class="p">)</span>
 </span><span id="Job-50"><a href="#Job-50"><span class="linenos">50</span></a>    
 </span><span id="Job-51"><a href="#Job-51"><span class="linenos">51</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 </span><span id="Job-52"><a href="#Job-52"><span class="linenos">52</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Serialize for state persistence.&quot;&quot;&quot;</span>
@@ -3218,13 +3218,13 @@ including completed jobs, total jobs, current cost, etc.</p>
 
             <div class="docstring"><p>Configuration for a single AI job.</p>
 
-<p>Either provide messages OR file+prompt, not both.</p>
+<p>Either provide messages OR prompt (with optional file), not both.</p>
 
 <p>Attributes:
     id: Unique identifier for the job
     messages: Chat messages for direct message input
-    file: File path for file-based input
-    prompt: Prompt to use with file input
+    file: Optional file path for file-based input
+    prompt: Prompt text (can be used alone or with file)
     model: Model name (e.g., "claude-3-sonnet")
     temperature: Sampling temperature (0.0-1.0)
     max_tokens: Maximum tokens to generate

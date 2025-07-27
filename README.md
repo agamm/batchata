@@ -6,11 +6,11 @@ Unified Python API for AI Batch requests with cost tracking, Pydantic responses,
 
 <img width="1328" height="598" alt="image" src="https://github.com/user-attachments/assets/b1b43070-f664-41a2-a85d-e2c589df556c" />
 
-*This library is currently in alpha - so there will be breaking changes*
+*This library is currently in beta - so there will be breaking changes*
 
 ## Why AI-batching?
 
-AI providers offer batch APIs that process requests asynchronously at 50% reduced cost compared to real-time APIs. This is ideal for workloads like document processing, data analysis, and content generation where immediate responses aren't required. However, managing batch jobs across providers, tracking costs, handling failures, and mapping citations back to source documents quickly becomes complex - that's where Batchata comes in.
+AI providers offer batch APIs that process requests asynchronously at 50% reduced cost compared to real-time APIs. This is ideal for offline or batch processing tasks. However, managing batch jobs across providers, tracking costs, handling failures, and mapping citations back to source documents quickly becomes complex - that's where Batchata comes in.
 
 ## Batchata Features
 
