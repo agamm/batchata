@@ -140,8 +140,16 @@ def _save_raw_response(result, job_id: str, raw_files_dir: str) -> None:
         responses_dir = Path(raw_files_dir) / "responses"
         responses_dir.mkdir(parents=True, exist_ok=True)
         
-        with open(responses_dir / f"{job_id}_raw.json", 'w') as f:
-            json.dump(to_dict(result), f, indent=2)
-    except (OSError, PermissionError, json.JSONEncodeError):
+        # Try to convert to dict, fall back to string representation
+        try:
+            serializable_data = to_dict(result)
+            with open(responses_dir / f"{job_id}_raw.json", 'w') as f:
+                json.dump(serializable_data, f, indent=2)
+        except (TypeError, AttributeError):
+            # If JSON serialization fails, save as text representation
+            with open(responses_dir / f"{job_id}_raw.txt", 'w') as f:
+                f.write(str(result))
+                
+    except (OSError, PermissionError):
         # Ignore file saving errors - not critical for functionality
         pass
