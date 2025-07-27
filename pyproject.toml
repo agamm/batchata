@@ -53,6 +53,7 @@ classifiers = [
 ]
 dependencies = [
     "anthropic>=0.57.1",
+    "google-genai>=0.8.0",
     "openai>=1.97.0",
     "tokencost>=0.1.24",
     "pydantic>=2.0",
