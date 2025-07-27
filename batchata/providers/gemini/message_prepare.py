@@ -7,6 +7,19 @@ from typing import Dict, List, Optional, Tuple
 
 from ...core.job import Job
 
+# File type constants for consistency and performance
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+PDF_EXTENSION = '.pdf'
+
+MIME_TYPE_MAP = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.pdf': 'application/pdf'
+}
+
 
 def prepare_messages(job: Job) -> Tuple[List[Dict], Optional[Dict]]:
     """Convert job to Gemini batch format: (contents, generation_config)."""
@@ -73,20 +86,6 @@ def prepare_messages(job: Job) -> Tuple[List[Dict], Optional[Dict]]:
         generation_config["max_output_tokens"] = job.max_tokens
     
     return contents, (generation_config if generation_config else None)
-
-
-# File type constants for consistency and performance
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-PDF_EXTENSION = '.pdf'
-
-MIME_TYPE_MAP = {
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.png': 'image/png',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp',
-    '.pdf': 'application/pdf'
-}
 
 
 def _is_image(file_path: Path) -> bool:
