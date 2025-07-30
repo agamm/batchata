@@ -1,14 +1,17 @@
 """
 PDF Utilities Module
 
-Provides utility functions for creating test PDFs.
+Provides utility functions for creating test PDFs and extracting text.
 """
 
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Tuple, Optional
 
 import pypdf
+from ..utils import get_logger
+
+logger = get_logger(__name__)
 
 
 def create_pdf(pages: List[str]) -> bytes:
@@ -137,3 +140,116 @@ def is_textual_pdf(
     except Exception:
         # If PDF can't be read, assume it's not textual
         return 0.0
+
+
+def extract_text_from_pdf(path: str | Path) -> str:
+    """
+    Extract all text from a PDF file.
+    
+    Args:
+        path: Path to the PDF file
+        
+    Returns:
+        str: Extracted text from all pages
+    """
+    try:
+        reader = pypdf.PdfReader(str(path))
+        text_parts = []
+        
+        for page_num, page in enumerate(reader.pages):
+            try:
+                text = page.extract_text()
+                if text.strip():
+                    text_parts.append(text)
+            except Exception as e:
+                logger.debug(f"Failed to extract text from page {page_num}: {e}")
+                continue
+        
+        return "\n\n".join(text_parts)
+        
+    except Exception as e:
+        logger.warning(f"Failed to extract text from PDF {path}: {e}")
+        return ""
+
+
+def get_pdf_info(path: str | Path) -> Tuple[int, bool, Optional[str]]:
+    """
+    Get information about a PDF file for cost estimation.
+    
+    Args:
+        path: Path to the PDF file
+        
+    Returns:
+        Tuple of (page_count, is_textual, extracted_text)
+        - page_count: Number of pages in the PDF
+        - is_textual: Whether the PDF has extractable text
+        - extracted_text: Text content if textual, None otherwise
+    """
+    try:
+        reader = pypdf.PdfReader(str(path))
+        page_count = len(reader.pages)
+        
+        # Check if PDF is textual
+        textual_score = is_textual_pdf(path)
+        is_textual = textual_score > 0.5  # Consider textual if >50% pages have text
+        
+        # Extract text if textual
+        extracted_text = None
+        if is_textual:
+            extracted_text = extract_text_from_pdf(path)
+            if not extracted_text.strip():
+                is_textual = False
+                extracted_text = None
+        
+        logger.debug(f"PDF info for {path}: {page_count} pages, textual={is_textual}, "
+                    f"text_length={len(extracted_text) if extracted_text else 0}")
+        
+        return page_count, is_textual, extracted_text
+        
+    except Exception as e:
+        logger.error(f"Failed to get PDF info for {path}: {e}")
+        return 0, False, None
+
+
+def estimate_pdf_tokens(path: str | Path, prompt: Optional[str] = None, 
+                       pdf_token_multiplier: float = 1.5,
+                       tokens_per_page: int = 2000) -> int:
+    """
+    Estimate token count for a PDF file.
+    
+    This is a generic utility that can be used by any provider to estimate
+    tokens for PDF processing.
+    
+    Args:
+        path: Path to the PDF file
+        prompt: Optional prompt to include in token count
+        pdf_token_multiplier: Coefficient to apply to extracted text tokens
+                            to account for PDF processing overhead (default: 1.5)
+        tokens_per_page: Estimated tokens per page for image-based PDFs (default: 2000)
+        
+    Returns:
+        Estimated token count
+    """
+    from .llm import token_count_simple
+    
+    page_count, is_textual, extracted_text = get_pdf_info(path)
+    
+    if is_textual and extracted_text:
+        # Count tokens from extracted text
+        base_tokens = token_count_simple(extracted_text)
+        if prompt:
+            base_tokens += token_count_simple(prompt)
+        
+        # Apply multiplier to account for PDF processing overhead
+        input_tokens = int(base_tokens * pdf_token_multiplier)
+        logger.debug(f"Textual PDF {path}: {page_count} pages, "
+                    f"base tokens: {base_tokens}, with {pdf_token_multiplier}x multiplier: {input_tokens}")
+    else:
+        # Estimate based on page count
+        input_tokens = page_count * tokens_per_page
+        if prompt:
+            input_tokens += token_count_simple(prompt)
+        logger.debug(f"Image-based PDF {path}: {page_count} pages, "
+                    f"estimated tokens: {input_tokens} ({tokens_per_page} per page)")
+    
+    return input_tokens
