@@ -313,7 +313,7 @@ class Batch:
         self.jobs.append(job)
         return self
     
-    def run(self, on_progress: Optional[Callable[[Dict, float, Dict], None]] = None, progress_interval: float = 1.0, print_status: bool = False) -> 'BatchRun':
+    def run(self, on_progress: Optional[Callable[[Dict, float, Dict], None]] = None, progress_interval: float = 1.0, print_status: bool = False, dry_run: bool = False) -> 'BatchRun':
         """Execute the batch.
         
         Creates a BatchRun instance and executes the jobs synchronously.
@@ -323,6 +323,7 @@ class Batch:
                         (stats_dict, elapsed_time_seconds, batch_data)
             progress_interval: Interval in seconds between progress updates (default: 1.0)
             print_status: Whether to show rich progress display (default: False)
+            dry_run: If True, only show cost estimation without executing (default: False)
             
         Returns:
             BatchRun instance with completed results
@@ -338,6 +339,10 @@ class Batch:
         
         # Create and start the run
         run = BatchRun(self.config, self.jobs)
+        
+        # Handle dry run mode
+        if dry_run:
+            return run.dry_run()
         
         # Set progress callback - either rich display or custom callback
         if print_status:

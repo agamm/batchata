@@ -16,6 +16,7 @@ AI providers offer batch APIs that process requests asynchronously at 50% reduce
 
 - Native batch processing (50% cost savings via provider APIs)
 - Set `max_cost_usd` limits for batch requests
+- **Dry run mode** for cost estimation and job planning
 - Time limit control with `.add_time_limit(seconds=, minutes=, hours=)`
 - State persistence in case of network interruption
 - Structured output `.json` format with Pydantic models
@@ -50,6 +51,9 @@ for file in files:
 run = batch.run()
 
 results = run.results()  # {"completed": [JobResult], "failed": [JobResult], "cancelled": [JobResult]}
+
+# Or preview costs first with dry run
+run = batch.run(dry_run=True)  # Shows cost estimates without executing
 ```
 
 ## Complete Example

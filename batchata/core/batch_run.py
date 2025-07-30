@@ -827,3 +827,74 @@ class BatchRun:
     def shutdown(self):
         """Shutdown (no-op for synchronous execution)."""
         pass
+    
+    def dry_run(self) -> 'BatchRun':
+        """Perform a dry run - show cost estimation and job details without executing.
+        
+        Returns:
+            Self for chaining (doesn't actually execute jobs)
+        """
+        logger.info("=== DRY RUN MODE ===")
+        logger.info("This will show cost estimates without executing jobs")
+        
+        # Load existing state if reuse_state=True
+        if self.config.reuse_state:
+            self.state_manager.load_state(self)
+        
+        # Filter out completed jobs from previous runs
+        self.pending_jobs = [job for job in self.jobs.values() if job.id not in self.completed_results]
+        
+        if not self.pending_jobs:
+            logger.info("No pending jobs to analyze (all jobs already completed)")
+            return self
+        
+        logger.info(f"Analyzing {len(self.pending_jobs)} pending jobs...")
+        
+        # Group jobs by provider
+        provider_groups = self._group_jobs_by_provider()
+        total_estimated_cost = 0.0
+        
+        logger.info(f"\nJob breakdown:")
+        for provider_name, jobs in provider_groups.items():
+            provider = get_provider(jobs[0].model)
+            logger.info(f"\n{provider_name} ({len(jobs)} jobs):")
+            
+            # Group jobs into batches
+            job_batches = [jobs[i:i + self.config.items_per_batch] 
+                          for i in range(0, len(jobs), self.config.items_per_batch)]
+            
+            for batch_idx, batch_jobs in enumerate(job_batches, 1):
+                estimated_cost = provider.estimate_cost(batch_jobs)
+                total_estimated_cost += estimated_cost
+                
+                logger.info(f"  Batch {batch_idx}: {len(batch_jobs)} jobs, estimated cost: ${estimated_cost:.4f}")
+                for job in batch_jobs:
+                    if job.file:
+                        logger.info(f"    - {job.id}: {job.file.name} (citations: {job.enable_citations})")
+                    else:
+                        logger.info(f"    - {job.id}: direct messages (citations: {job.enable_citations})")
+        
+        # Show cost summary
+        logger.info(f"\n=== COST SUMMARY ===")
+        logger.info(f"Total estimated cost: ${total_estimated_cost:.4f}")
+        
+        if self.config.cost_limit_usd:
+            logger.info(f"Cost limit: ${self.config.cost_limit_usd:.2f}")
+            if total_estimated_cost > self.config.cost_limit_usd:
+                logger.warning(f"⚠️ Estimated cost exceeds limit by ${total_estimated_cost - self.config.cost_limit_usd:.4f}")
+            else:
+                remaining = self.config.cost_limit_usd - total_estimated_cost
+                logger.info(f"✅ Within cost limit (${remaining:.4f} remaining)")
+        else:
+            logger.info("No cost limit set")
+        
+        logger.info(f"\n=== EXECUTION PLAN ===")
+        logger.info(f"Total batches to process: {sum(len(jobs) // self.config.items_per_batch + (1 if len(jobs) % self.config.items_per_batch else 0) for jobs in provider_groups.values())}")
+        logger.info(f"Max parallel batches: {self.config.max_parallel_batches}")
+        logger.info(f"Items per batch: {self.config.items_per_batch}")
+        logger.info(f"Results directory: {self.config.results_dir}")
+        
+        logger.info("\n=== DRY RUN COMPLETE ===")
+        logger.info("To execute for real, call run() without dry_run=True")
+        
+        return self
