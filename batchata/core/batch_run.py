@@ -850,7 +850,7 @@ class BatchRun:
         
         logger.info(f"Analyzing {len(self.pending_jobs)} pending jobs...")
         
-        # Group jobs by provider
+        # Group jobs by provider and analyze costs
         provider_groups = self._group_jobs_by_provider()
         total_estimated_cost = 0.0
         
@@ -859,7 +859,6 @@ class BatchRun:
             provider = get_provider(jobs[0].model)
             logger.info(f"\n{provider_name} ({len(jobs)} jobs):")
             
-            # Group jobs into batches
             job_batches = [jobs[i:i + self.config.items_per_batch] 
                           for i in range(0, len(jobs), self.config.items_per_batch)]
             
@@ -881,15 +880,21 @@ class BatchRun:
         if self.config.cost_limit_usd:
             logger.info(f"Cost limit: ${self.config.cost_limit_usd:.2f}")
             if total_estimated_cost > self.config.cost_limit_usd:
-                logger.warning(f"⚠️ Estimated cost exceeds limit by ${total_estimated_cost - self.config.cost_limit_usd:.4f}")
+                excess = total_estimated_cost - self.config.cost_limit_usd
+                logger.warning(f"⚠️ Estimated cost exceeds limit by ${excess:.4f}")
             else:
                 remaining = self.config.cost_limit_usd - total_estimated_cost
                 logger.info(f"✅ Within cost limit (${remaining:.4f} remaining)")
         else:
             logger.info("No cost limit set")
         
+        # Show execution plan
         logger.info(f"\n=== EXECUTION PLAN ===")
-        logger.info(f"Total batches to process: {sum(len(jobs) // self.config.items_per_batch + (1 if len(jobs) % self.config.items_per_batch else 0) for jobs in provider_groups.values())}")
+        total_batches = sum(
+            len(jobs) // self.config.items_per_batch + (1 if len(jobs) % self.config.items_per_batch else 0)
+            for jobs in provider_groups.values()
+        )
+        logger.info(f"Total batches to process: {total_batches}")
         logger.info(f"Max parallel batches: {self.config.max_parallel_batches}")
         logger.info(f"Items per batch: {self.config.items_per_batch}")
         logger.info(f"Results directory: {self.config.results_dir}")
@@ -898,3 +903,4 @@ class BatchRun:
         logger.info("To execute for real, call run() without dry_run=True")
         
         return self
+    
