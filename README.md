@@ -16,7 +16,7 @@ AI providers offer batch APIs that process requests asynchronously at 50% reduce
 
 - Native batch processing (50% cost savings via provider APIs)
 - Set `max_cost_usd` limits for batch requests
-- **Dry run mode** for cost estimation and job planning
+- Dry run mode for cost estimation and job planning
 - Time limit control with `.add_time_limit(seconds=, minutes=, hours=)`
 - State persistence in case of network interruption
 - Structured output `.json` format with Pydantic models
