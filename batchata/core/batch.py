@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Type, Optional, Union
 from pydantic import BaseModel
 
 from .batch_params import BatchParams
+from .batch_run import BatchRun
 from .job import Job
 from ..providers import get_provider
 from ..types import Message
