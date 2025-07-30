@@ -502,7 +502,6 @@ class BatchRun:
                 self._progress_callback(stats, elapsed_time, batch_data)
             
             elapsed_seconds = poll_count * provider_polling_interval
-            logger.info(f"Batch {batch_id} status: {status} (polling for {elapsed_seconds:.1f}s)")
         
         return status, error_details
     
