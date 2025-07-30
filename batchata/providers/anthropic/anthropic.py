@@ -238,13 +238,30 @@ class AnthropicProvider(Provider):
                 if system_prompt:
                     full_text += system_prompt + "\n\n"
                 
-                for msg in messages:
-                    role = msg.get("role", "")
-                    content = msg.get("content", "")
-                    full_text += f"{role}: {content}\n\n"
-                
-                # Estimate tokens using Claude-specific estimator
-                input_tokens = token_count_simple(full_text)
+                # Handle PDF files specially
+                if job.file and job.file.suffix.lower() == '.pdf':
+                    from ...utils.pdf import estimate_pdf_tokens
+                    input_tokens = estimate_pdf_tokens(job.file, job.prompt)
+                    logger.debug(f"Job {job.id}: Estimated {input_tokens} tokens for PDF")
+                else:
+                    # Normal message handling
+                    for msg in messages:
+                        role = msg.get("role", "")
+                        content = msg.get("content", "")
+                        # Handle content that might be a list (for multimodal messages)
+                        if isinstance(content, list):
+                            for part in content:
+                                if isinstance(part, dict) and part.get("type") == "text":
+                                    full_text += f"{role}: {part.get('text', '')}\n\n"
+                        else:
+                            full_text += f"{role}: {content}\n\n"
+                    
+                    # Add prompt if it's a file-based job
+                    if job.prompt:
+                        full_text += f"\nUser prompt: {job.prompt}\n"
+                    
+                    # Estimate tokens using Claude-specific estimator
+                    input_tokens = token_count_simple(full_text)
                 
                 # Calculate costs using tokencost with actual Claude model
                 input_cost = float(calculate_cost_by_tokens(
@@ -264,7 +281,7 @@ class AnthropicProvider(Provider):
                 discount = model_config.batch_discount if model_config else 0.5
                 job_cost = (input_cost + output_cost) * discount
                 
-                logger.info(
+                logger.debug(
                     f"Job {job.id}: ~{input_tokens} input tokens, "
                     f"{job.max_tokens} max output tokens, "
                     f"cost: ${job_cost:.6f} (with {int(discount*100)}% batch discount)"
@@ -277,3 +294,4 @@ class AnthropicProvider(Provider):
                 continue
         
         return total_cost
+    
