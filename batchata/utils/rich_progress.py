@@ -48,7 +48,7 @@ class RichBatchProgressDisplay:
                 self._create_display(),
                 console=self.console,
                 refresh_per_second=4,  # Reduced refresh rate to avoid flicker
-                auto_refresh=True
+                auto_refresh=False  # Disable auto-refresh to prevent race conditions with manual updates
             )
             self.live.start()
     
@@ -68,9 +68,11 @@ class RichBatchProgressDisplay:
             # Advance spinner
             self._spinner_index = (self._spinner_index + 1) % len(self._spinner_frames)
             
-            # Update live display
+            # Update live display (synchronized to prevent race conditions)
             if self.live:
                 self.live.update(self._create_display())
+                # Force refresh since auto_refresh is disabled
+                self.live.refresh()
     
     def stop(self):
         """Stop the live progress display."""
@@ -157,11 +159,16 @@ class RichBatchProgressDisplay:
                 else:
                     bar = "[dim white]" + "━" * 25 + "[/dim white]"
                 
-                # Format status with better colors and fixed width
+                # Format status with better colors and job counts for clarity
+                failed_count = batch_info.get('failed', 0)
                 if status == 'complete':
-                    status_text = "[bold green]Ended[/bold green]  "
+                    status_text = "[bold green]Complete[/bold green]"
                 elif status == 'failed':
-                    status_text = "[bold red]Failed[/bold red] "
+                    # Make it clear how many jobs failed within the batch, but keep it compact
+                    if failed_count > 0:
+                        status_text = f"[bold red]Failed ({failed_count})[/bold red]"
+                    else:
+                        status_text = "[bold red]Failed[/bold red]"
                 elif status == 'cancelled':
                     status_text = "[bold yellow]Cancelled[/bold yellow]"
                 elif status == 'running':
@@ -226,11 +233,10 @@ class RichBatchProgressDisplay:
                 else:
                     cost_text = f"${cost:>5.3f}"
                 
-                # Create the batch line with proper spacing
+                # Create the batch line with proper spacing and alignment
                 batch_line = (
                     f"{provider} {batch_id:<18} {bar} "
-                    f"{completed:>2}/{total:<2} {percentage:>3}% "
-                    f"{status_text} "
+                    f"{completed:>2}/{total:<2} ({percentage:>3}% done) {status_text:<15} "
                     f"{cost_text} "
                     f"{time_str:>8}"
                 )
