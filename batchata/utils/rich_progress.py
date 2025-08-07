@@ -140,42 +140,17 @@ class RichBatchProgressDisplay:
                 is_last = idx == num_batches - 1
                 tree_symbol = "└─" if is_last else "├─"
                 
-                # Format progress bar with better styling
-                progress_pct = (completed / total) if total > 0 else 0
-                filled_width = int(progress_pct * 25)
-                
-                if status == 'complete':
-                    bar = "[bold green]" + "━" * 25 + "[/bold green]"
-                elif status == 'failed':
-                    bar = "[bold red]" + "━" * 25 + "[/bold red]"
-                elif status == 'cancelled':
-                    bar = "[bold yellow]" + "━" * filled_width + "[/bold yellow]"
-                    if filled_width < 25:
-                        bar += "[dim yellow]" + "━" * (25 - filled_width) + "[/dim yellow]"
-                elif status == 'running':
-                    bar = "[bold blue]" + "━" * filled_width + "[/bold blue]"
-                    if filled_width < 25:
-                        bar += "[blue]╸[/blue]" + "[dim white]" + "━" * (24 - filled_width) + "[/dim white]"
-                else:
-                    bar = "[dim white]" + "━" * 25 + "[/dim white]"
-                
-                # Format status with better colors and job counts for clarity
+                # Extract job counts
                 failed_count = batch_info.get('failed', 0)
-                if status == 'complete':
-                    status_text = "[bold green]Complete[/bold green]"
-                elif status == 'failed':
-                    # Make it clear how many jobs failed within the batch, but keep it compact
-                    if failed_count > 0:
-                        status_text = f"[bold red]Failed ({failed_count})[/bold red]"
-                    else:
-                        status_text = "[bold red]Failed[/bold red]"
-                elif status == 'cancelled':
-                    status_text = "[bold yellow]Cancelled[/bold yellow]"
-                elif status == 'running':
-                    spinner = self._spinner_frames[self._spinner_index]
-                    status_text = f"[bold blue]{spinner} Running[/bold blue]"
-                else:
-                    status_text = "[dim]Pending[/dim]"
+                success_count = completed
+                total_processed = success_count + failed_count
+                progress_pct = (total_processed / total) if total > 0 else 0
+                
+                # Create progress bar based on status
+                bar = self._create_progress_bar(status, success_count, failed_count, total, progress_pct)
+                
+                # Format status text
+                status_text = self._format_status_text(status, failed_count)
                 
                 # Calculate elapsed time
                 start_time = batch_info.get('start_time')
@@ -203,7 +178,7 @@ class RichBatchProgressDisplay:
                 else:
                     time_str = "-:--:--"
                 
-                # Format percentage
+                # Format percentage based on total processed (successful + failed)
                 percentage = int(progress_pct * 100)
                 
                 # Get output filenames if completed
@@ -233,10 +208,11 @@ class RichBatchProgressDisplay:
                 else:
                     cost_text = f"${cost:>5.3f}"
                 
-                # Create the batch line with proper spacing and alignment
+                # Create the batch line
+                display_stats = self._get_display_stats(status, success_count, failed_count, total)
                 batch_line = (
                     f"{provider} {batch_id:<18} {bar} "
-                    f"{completed:>2}/{total:<2} ({percentage:>3}% done) {status_text:<15} "
+                    f"{display_stats['completed']:>2}/{total:<2} ({display_stats['percentage']}% done) {status_text:<15} "
                     f"{cost_text} "
                     f"{time_str:>8}"
                 )
@@ -282,3 +258,88 @@ class RichBatchProgressDisplay:
             tree.add(f"\n[dim]{footer}[/dim]")
         
         return tree
+    
+    def _create_progress_bar(self, status: str, success_count: int, failed_count: int, total: int, progress_pct: float) -> str:
+        """Create a progress bar showing success/failure proportions."""
+        BAR_WIDTH = 25
+        
+        if status == 'complete':
+            return f"[bold green]{'━' * BAR_WIDTH}[/bold green]"
+        
+        if status == 'failed':
+            return self._create_mixed_bar(success_count, failed_count, total, BAR_WIDTH)
+        
+        if status == 'cancelled':
+            filled = int(progress_pct * BAR_WIDTH)
+            return f"[bold yellow]{'━' * filled}[/bold yellow][dim yellow]{'━' * (BAR_WIDTH - filled)}[/dim yellow]"
+        
+        if status == 'running':
+            filled = int(progress_pct * BAR_WIDTH)
+            if filled < BAR_WIDTH:
+                return f"[bold blue]{'━' * filled}[/bold blue][blue]╸[/blue][dim white]{'━' * (BAR_WIDTH - filled - 1)}[/dim white]"
+            return f"[bold blue]{'━' * BAR_WIDTH}[/bold blue]"
+        
+        # Pending
+        return f"[dim white]{'━' * BAR_WIDTH}[/dim white]"
+    
+    def _create_mixed_bar(self, success_count: int, failed_count: int, total: int, bar_width: int) -> str:
+        """Create a bar showing green (success) and red (failed) proportions."""
+        if total == 0:
+            return f"[dim white]{'━' * bar_width}[/dim white]"
+        
+        # Calculate proportional widths
+        success_width = round((success_count / total) * bar_width)
+        failed_width = round((failed_count / total) * bar_width)
+        
+        # Ensure total width equals bar_width
+        total_width = success_width + failed_width
+        if total_width < bar_width:
+            # Add remaining to the larger segment
+            if success_count >= failed_count:
+                success_width += bar_width - total_width
+            else:
+                failed_width += bar_width - total_width
+        elif total_width > bar_width:
+            # Remove excess from the larger segment
+            if success_width > failed_width:
+                success_width -= total_width - bar_width
+            else:
+                failed_width -= total_width - bar_width
+        
+        # Build the bar
+        bar_parts = []
+        if success_width > 0:
+            bar_parts.append(f"[bold green]{'━' * success_width}[/bold green]")
+        if failed_width > 0:
+            bar_parts.append(f"[bold red]{'━' * failed_width}[/bold red]")
+        
+        return "".join(bar_parts)
+    
+    def _format_status_text(self, status: str, failed_count: int) -> str:
+        """Format the status text with appropriate colors and details."""
+        if status == 'complete':
+            return "[bold green]Complete[/bold green]"
+        elif status == 'failed':
+            if failed_count > 0:
+                return f"[bold red]Failed ({failed_count})[/bold red]"
+            return "[bold red]Failed[/bold red]"
+        elif status == 'cancelled':
+            return "[bold yellow]Cancelled[/bold yellow]"
+        elif status == 'running':
+            spinner = self._spinner_frames[self._spinner_index]
+            return f"[bold blue]{spinner} Running[/bold blue]"
+        else:
+            return "[dim]Pending[/dim]"
+    
+    def _get_display_stats(self, status: str, success_count: int, failed_count: int, total: int) -> dict:
+        """Get the display statistics (completed count and percentage)."""
+        if status == 'failed' and failed_count > 0:
+            # For failed batches, show success count to make it clear
+            completed = success_count
+            percentage = int((success_count / total) * 100) if total > 0 else 0
+        else:
+            # For other statuses, show total processed
+            completed = success_count + failed_count
+            percentage = int((completed / total) * 100) if total > 0 else 0
+        
+        return {'completed': completed, 'percentage': percentage}
