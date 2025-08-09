@@ -9,6 +9,9 @@ from rich.live import Live
 from rich.tree import Tree
 from rich.text import Text
 
+# Constants
+PROGRESS_BAR_WIDTH = 25
+
 
 class RichBatchProgressDisplay:
     """Rich-based progress display for batch runs."""
@@ -48,7 +51,7 @@ class RichBatchProgressDisplay:
                 self._create_display(),
                 console=self.console,
                 refresh_per_second=4,  # Reduced refresh rate to avoid flicker
-                auto_refresh=True
+                auto_refresh=False  # Disable auto-refresh to prevent race conditions with manual updates
             )
             self.live.start()
     
@@ -68,9 +71,11 @@ class RichBatchProgressDisplay:
             # Advance spinner
             self._spinner_index = (self._spinner_index + 1) % len(self._spinner_frames)
             
-            # Update live display
+            # Update live display (synchronized to prevent race conditions)
             if self.live:
                 self.live.update(self._create_display())
+                # Force refresh since auto_refresh is disabled
+                self.live.refresh()
     
     def stop(self):
         """Stop the live progress display."""
@@ -138,37 +143,17 @@ class RichBatchProgressDisplay:
                 is_last = idx == num_batches - 1
                 tree_symbol = "└─" if is_last else "├─"
                 
-                # Format progress bar with better styling
-                progress_pct = (completed / total) if total > 0 else 0
-                filled_width = int(progress_pct * 25)
+                # Extract job counts
+                failed_count = batch_info.get('failed', 0)
+                success_count = completed
+                total_processed = success_count + failed_count
+                progress_pct = (total_processed / total) if total > 0 else 0
                 
-                if status == 'complete':
-                    bar = "[bold green]" + "━" * 25 + "[/bold green]"
-                elif status == 'failed':
-                    bar = "[bold red]" + "━" * 25 + "[/bold red]"
-                elif status == 'cancelled':
-                    bar = "[bold yellow]" + "━" * filled_width + "[/bold yellow]"
-                    if filled_width < 25:
-                        bar += "[dim yellow]" + "━" * (25 - filled_width) + "[/dim yellow]"
-                elif status == 'running':
-                    bar = "[bold blue]" + "━" * filled_width + "[/bold blue]"
-                    if filled_width < 25:
-                        bar += "[blue]╸[/blue]" + "[dim white]" + "━" * (24 - filled_width) + "[/dim white]"
-                else:
-                    bar = "[dim white]" + "━" * 25 + "[/dim white]"
+                # Create progress bar based on status
+                bar = self._create_progress_bar(status, success_count, failed_count, total, progress_pct)
                 
-                # Format status with better colors and fixed width
-                if status == 'complete':
-                    status_text = "[bold green]Ended[/bold green]  "
-                elif status == 'failed':
-                    status_text = "[bold red]Failed[/bold red] "
-                elif status == 'cancelled':
-                    status_text = "[bold yellow]Cancelled[/bold yellow]"
-                elif status == 'running':
-                    spinner = self._spinner_frames[self._spinner_index]
-                    status_text = f"[bold blue]{spinner} Running[/bold blue]"
-                else:
-                    status_text = "[dim]Pending[/dim]"
+                # Format status text
+                status_text = self._format_status_text(status, failed_count)
                 
                 # Calculate elapsed time
                 start_time = batch_info.get('start_time')
@@ -196,7 +181,7 @@ class RichBatchProgressDisplay:
                 else:
                     time_str = "-:--:--"
                 
-                # Format percentage
+                # Format percentage based on total processed (successful + failed)
                 percentage = int(progress_pct * 100)
                 
                 # Get output filenames if completed
@@ -226,11 +211,11 @@ class RichBatchProgressDisplay:
                 else:
                     cost_text = f"${cost:>5.3f}"
                 
-                # Create the batch line with proper spacing
+                # Create the batch line
+                display_stats = self._get_display_stats(status, success_count, failed_count, total)
                 batch_line = (
                     f"{provider} {batch_id:<18} {bar} "
-                    f"{completed:>2}/{total:<2} {percentage:>3}% "
-                    f"{status_text} "
+                    f"{display_stats['completed']:>2}/{total:<2} ({display_stats['percentage']}% done) {status_text:<15} "
                     f"{cost_text} "
                     f"{time_str:>8}"
                 )
@@ -276,3 +261,84 @@ class RichBatchProgressDisplay:
             tree.add(f"\n[dim]{footer}[/dim]")
         
         return tree
+    
+    def _create_progress_bar(self, status: str, success_count: int, failed_count: int, total: int, progress_pct: float) -> str:
+        """Create a progress bar showing success/failure proportions."""
+        
+        if status == 'complete':
+            return f"[bold green]{'━' * PROGRESS_BAR_WIDTH}[/bold green]"
+        
+        if status == 'failed':
+            return self._create_mixed_bar(success_count, failed_count, total, PROGRESS_BAR_WIDTH)
+        
+        if status == 'cancelled':
+            filled = int(progress_pct * PROGRESS_BAR_WIDTH)
+            return f"[bold yellow]{'━' * filled}[/bold yellow][dim yellow]{'━' * (PROGRESS_BAR_WIDTH - filled)}[/dim yellow]"
+        
+        if status == 'running':
+            filled = int(progress_pct * PROGRESS_BAR_WIDTH)
+            if filled < PROGRESS_BAR_WIDTH:
+                return f"[bold blue]{'━' * filled}[/bold blue][blue]╸[/blue][dim white]{'━' * (PROGRESS_BAR_WIDTH - filled - 1)}[/dim white]"
+            return f"[bold blue]{'━' * PROGRESS_BAR_WIDTH}[/bold blue]"
+        
+        # Pending
+        return f"[dim white]{'━' * PROGRESS_BAR_WIDTH}[/dim white]"
+    
+    def _create_mixed_bar(self, success_count: int, failed_count: int, total: int, bar_width: int) -> str:
+        """Create a bar showing green (success) and red (failed) proportions."""
+        if total == 0:
+            return f"[dim white]{'━' * bar_width}[/dim white]"
+        
+        # Use integer division to calculate base widths
+        success_width = (success_count * bar_width) // total
+        failed_width = (failed_count * bar_width) // total
+        
+        # Distribute remainder to maintain exact bar_width
+        remainder = bar_width - success_width - failed_width
+        if remainder > 0:
+            # Distribute remainder based on which segment has larger fractional part
+            success_fraction = (success_count * bar_width) % total
+            failed_fraction = (failed_count * bar_width) % total
+            
+            if success_fraction >= failed_fraction:
+                success_width += remainder
+            else:
+                failed_width += remainder
+        
+        # Build the bar
+        bar_parts = []
+        if success_width > 0:
+            bar_parts.append(f"[bold green]{'━' * success_width}[/bold green]")
+        if failed_width > 0:
+            bar_parts.append(f"[bold red]{'━' * failed_width}[/bold red]")
+        
+        return "".join(bar_parts)
+    
+    def _format_status_text(self, status: str, failed_count: int) -> str:
+        """Format the status text with appropriate colors and details."""
+        if status == 'complete':
+            return "[bold green]Complete[/bold green]"
+        elif status == 'failed':
+            if failed_count > 0:
+                return f"[bold red]Failed ({failed_count})[/bold red]"
+            return "[bold red]Failed[/bold red]"
+        elif status == 'cancelled':
+            return "[bold yellow]Cancelled[/bold yellow]"
+        elif status == 'running':
+            spinner = self._spinner_frames[self._spinner_index]
+            return f"[bold blue]{spinner} Running[/bold blue]"
+        else:
+            return "[dim]Pending[/dim]"
+    
+    def _get_display_stats(self, status: str, success_count: int, failed_count: int, total: int) -> dict:
+        """Get the display statistics (completed count and percentage)."""
+        if status == 'failed' and failed_count > 0:
+            # For failed batches, show success count to make it clear
+            completed = success_count
+            percentage = int((success_count / total) * 100) if total > 0 else 0
+        else:
+            # For other statuses, show total processed
+            completed = success_count + failed_count
+            percentage = int((completed / total) * 100) if total > 0 else 0
+        
+        return {'completed': completed, 'percentage': percentage}

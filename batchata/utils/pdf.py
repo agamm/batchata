@@ -217,39 +217,46 @@ def estimate_pdf_tokens(path: str | Path, prompt: Optional[str] = None,
     """
     Estimate token count for a PDF file.
     
-    This is a generic utility that can be used by any provider to estimate
-    tokens for PDF processing.
+    Provider-specific tokens per page estimates:
+    - Anthropic: 1,500-3,000 tokens/page (default: 2000)
+    - Gemini: ~258 tokens/page
+    - OpenAI: 300-1,280 tokens/page (use: 1000)
     
     Args:
         path: Path to the PDF file
         prompt: Optional prompt to include in token count
-        pdf_token_multiplier: Coefficient to apply to extracted text tokens
-                            to account for PDF processing overhead (default: 1.5)
-        tokens_per_page: Estimated tokens per page for image-based PDFs (default: 2000)
+        pdf_token_multiplier: Deprecated, kept for compatibility
+        tokens_per_page: Tokens per page estimate (default: 2000 for Anthropic)
         
     Returns:
         Estimated token count
     """
     from .llm import token_count_simple
     
-    page_count, is_textual, extracted_text = get_pdf_info(path)
-    
-    if is_textual and extracted_text:
-        # Count tokens from extracted text
-        base_tokens = token_count_simple(extracted_text)
-        if prompt:
-            base_tokens += token_count_simple(prompt)
+    try:
+        # Get page count
+        reader = pypdf.PdfReader(str(path))
+        page_count = len(reader.pages)
         
-        # Apply multiplier to account for PDF processing overhead
-        input_tokens = int(base_tokens * pdf_token_multiplier)
-        logger.debug(f"Textual PDF {path}: {page_count} pages, "
-                    f"base tokens: {base_tokens}, with {pdf_token_multiplier}x multiplier: {input_tokens}")
-    else:
-        # Estimate based on page count
-        input_tokens = page_count * tokens_per_page
-        if prompt:
-            input_tokens += token_count_simple(prompt)
-        logger.debug(f"Image-based PDF {path}: {page_count} pages, "
-                    f"estimated tokens: {input_tokens} ({tokens_per_page} per page)")
-    
-    return input_tokens
+        # Use provider-specific tokens per page estimate
+        pdf_tokens = page_count * tokens_per_page
+        
+        # Add prompt tokens
+        prompt_tokens = token_count_simple(prompt) if prompt else 0
+        
+        # Add minimal overhead for PDF processing
+        PDF_TOKEN_OVERHEAD = 100  # tokens
+        overhead_tokens = PDF_TOKEN_OVERHEAD
+        
+        total_tokens = pdf_tokens + prompt_tokens + overhead_tokens
+        
+        logger.debug(
+            f"PDF {path}: {page_count} pages × {tokens_per_page} = {pdf_tokens} tokens, "
+            f"prompt: {prompt_tokens}, total: {total_tokens}"
+        )
+        
+        return total_tokens
+        
+    except Exception as e:
+        logger.warning(f"Failed to estimate PDF tokens: {e}")
+        return 0

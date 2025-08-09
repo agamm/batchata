@@ -83,6 +83,8 @@ class BatchRun:
         # Threading primitives
         self._state_lock = threading.Lock()
         self._shutdown_event = threading.Event()
+        self._progress_lock = threading.Lock()
+        self._last_progress_update = 0.0
         
         # Batch tracking for progress display
         self.batch_tracking: Dict[str, Dict] = {}  # batch_id -> batch_info
@@ -231,9 +233,12 @@ class BatchRun:
             
             # Call initial progress
             if self._progress_callback:
-                stats = self.status()
-                batch_data = dict(self.batch_tracking)
-                self._progress_callback(stats, 0.0, batch_data)
+                with self._progress_lock:
+                    with self._state_lock:
+                        stats = self.status()
+                        batch_data = dict(self.batch_tracking)
+                    self._progress_callback(stats, 0.0, batch_data)
+                    self._last_progress_update = time.time()
             
             # Process all jobs synchronously
             self._process_all_jobs()
@@ -495,14 +500,22 @@ class BatchRun:
             status, error_details = provider.get_batch_status(batch_id)
             
             if self._progress_callback:
-                with self._state_lock:
-                    stats = self.status()
-                    elapsed_time = (datetime.now() - self._start_time).total_seconds()
-                    batch_data = dict(self.batch_tracking)
-                self._progress_callback(stats, elapsed_time, batch_data)
+                # Rate limit progress updates and synchronize calls to prevent duplicate printing
+                current_time = time.time()
+                should_update = current_time - self._last_progress_update >= self._progress_interval
+                
+                if should_update:
+                    with self._progress_lock:
+                        # Double-check timing inside the lock to avoid race condition
+                        if current_time - self._last_progress_update >= self._progress_interval:
+                            with self._state_lock:
+                                stats = self.status()
+                                elapsed_time = (datetime.now() - self._start_time).total_seconds()
+                                batch_data = dict(self.batch_tracking)
+                            self._progress_callback(stats, elapsed_time, batch_data)
+                            self._last_progress_update = current_time
             
             elapsed_seconds = poll_count * provider_polling_interval
-            logger.info(f"Batch {batch_id} status: {status} (polling for {elapsed_seconds:.1f}s)")
         
         return status, error_details
     

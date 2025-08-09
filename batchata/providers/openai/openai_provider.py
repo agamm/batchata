@@ -272,29 +272,36 @@ class OpenAIProvider(Provider):
         
         for job in jobs:
             try:
-                # Prepare messages to get actual input
-                from .message_prepare import prepare_messages
-                messages, response_format = prepare_messages(job)
-                
-                # Build full text for token estimation
-                full_text = ""
-                for msg in messages:
-                    role = msg.get("role", "")
-                    content = msg.get("content", "")
-                    if isinstance(content, list):
-                        # Handle multipart content (images, etc.)
-                        for part in content:
-                            if part.get("type") == "text":
-                                full_text += f"{role}: {part.get('text', '')}\\n\\n"
-                    else:
-                        full_text += f"{role}: {content}\\n\\n"
-                
-                # Add response format to token count if structured output
-                if response_format:
-                    full_text += json.dumps(response_format)
-                
-                # Estimate tokens
-                input_tokens = token_count_simple(full_text)
+                # Handle PDF files specially with accurate token estimation
+                if job.file and job.file.suffix.lower() == '.pdf':
+                    from ...utils.pdf import estimate_pdf_tokens
+                    # OpenAI: 300-1,280 tokens/page, use 1000 as reasonable average
+                    input_tokens = estimate_pdf_tokens(job.file, job.prompt, tokens_per_page=1000)
+                    logger.debug(f"Job {job.id}: Estimated {input_tokens} tokens for PDF")
+                else:
+                    # Prepare messages to get actual input
+                    from .message_prepare import prepare_messages
+                    messages, response_format = prepare_messages(job)
+                    
+                    # Build full text for token estimation
+                    full_text = ""
+                    for msg in messages:
+                        role = msg.get("role", "")
+                        content = msg.get("content", "")
+                        if isinstance(content, list):
+                            # Handle multipart content (images, etc.)
+                            for part in content:
+                                if part.get("type") == "text":
+                                    full_text += f"{role}: {part.get('text', '')}\\n\\n"
+                        else:
+                            full_text += f"{role}: {content}\\n\\n"
+                    
+                    # Add response format to token count if structured output
+                    if response_format:
+                        full_text += json.dumps(response_format)
+                    
+                    # Estimate tokens
+                    input_tokens = token_count_simple(full_text)
                 
                 # Calculate costs using tokencost
                 input_cost = float(calculate_cost_by_tokens(

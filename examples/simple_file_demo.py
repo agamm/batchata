@@ -3,6 +3,7 @@
 import tempfile
 import os
 import random
+import sys
 from pathlib import Path
 from batchata import Batch
 from pydantic import BaseModel
@@ -71,11 +72,14 @@ def main():
         
         # Execute batch
         print("Starting batch processing...")
-        run = batch.run(on_progress=lambda s, t, b: \
-                        print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
-                              f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
-                              f"Cost: ${round(s['cost_usd'],3)}/{s['cost_limit_usd']} | " \
-                              f"Items per batch: {s['items_per_batch']} | Time: {round(t, 2)}s", end=""))
+        def progress_callback(s, t, b):
+            print(f"\rProgress: {s['completed']}/{s['total']} jobs | "\
+                  f"Batches: {s['batches_completed']}/{s['batches_total']} (pending: {s['batches_pending']}) | " \
+                  f"Cost: ${round(s['cost_usd'],3)}/{s['cost_limit_usd']} | " \
+                  f"Items per batch: {s['items_per_batch']} | Time: {round(t, 2)}s", end="")
+            sys.stdout.flush()
+        
+        run = batch.run(on_progress=progress_callback)
         
         # Get results
         run.status(print_status=True)
