@@ -102,24 +102,27 @@ class TestPDFTokenEstimation:
     
     def test_estimate_pdf_tokens_textual(self):
         """Test token estimation for textual PDF."""
-        with patch('batchata.utils.pdf.get_pdf_info') as mock_info:
-            mock_info.return_value = (5, True, "Sample text content " * 100)  # Textual PDF
-            
+        # Mock pypdf reader for 5 pages
+        mock_reader = MagicMock()
+        mock_reader.pages = [MagicMock() for _ in range(5)]  # 5 pages
+        
+        with patch('pypdf.PdfReader', return_value=mock_reader):
             tokens = estimate_pdf_tokens(Path("test.pdf"), prompt="Analyze this")
             
-            # Should use extracted text with 1.5x multiplier
-            mock_info.assert_called_once_with(Path("test.pdf"))
+            # Should be 5 pages * 2000 tokens + prompt tokens + 100 overhead
+            assert tokens >= 10000  # At least 10k tokens for 5 pages
             assert tokens > 0
     
     def test_estimate_pdf_tokens_image_based(self):
         """Test token estimation for image-based PDF."""
-        with patch('batchata.utils.pdf.get_pdf_info') as mock_info:
-            mock_info.return_value = (10, False, None)  # Image-based PDF, 10 pages
-            
+        # Mock pypdf reader for 10 pages
+        mock_reader = MagicMock()
+        mock_reader.pages = [MagicMock() for _ in range(10)]  # 10 pages
+        
+        with patch('pypdf.PdfReader', return_value=mock_reader):
             tokens = estimate_pdf_tokens(Path("test.pdf"), prompt="Extract text")
             
-            # Should use page count estimation (10 * 2000 = 20000) plus prompt tokens
-            mock_info.assert_called_once_with(Path("test.pdf"))
+            # Should be 10 pages * 2000 tokens + prompt tokens + 100 overhead
             assert tokens >= 20000  # At least 20k tokens for 10 pages
 
 
