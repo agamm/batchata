@@ -234,8 +234,9 @@ class BatchRun:
             # Call initial progress
             if self._progress_callback:
                 with self._progress_lock:
-                    stats = self.status()
-                    batch_data = dict(self.batch_tracking)
+                    with self._state_lock:
+                        stats = self.status()
+                        batch_data = dict(self.batch_tracking)
                     self._progress_callback(stats, 0.0, batch_data)
                     self._last_progress_update = time.time()
             

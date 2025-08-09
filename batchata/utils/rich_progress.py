@@ -9,6 +9,9 @@ from rich.live import Live
 from rich.tree import Tree
 from rich.text import Text
 
+# Constants
+PROGRESS_BAR_WIDTH = 25
+
 
 class RichBatchProgressDisplay:
     """Rich-based progress display for batch runs."""
@@ -261,50 +264,46 @@ class RichBatchProgressDisplay:
     
     def _create_progress_bar(self, status: str, success_count: int, failed_count: int, total: int, progress_pct: float) -> str:
         """Create a progress bar showing success/failure proportions."""
-        BAR_WIDTH = 25
         
         if status == 'complete':
-            return f"[bold green]{'━' * BAR_WIDTH}[/bold green]"
+            return f"[bold green]{'━' * PROGRESS_BAR_WIDTH}[/bold green]"
         
         if status == 'failed':
-            return self._create_mixed_bar(success_count, failed_count, total, BAR_WIDTH)
+            return self._create_mixed_bar(success_count, failed_count, total, PROGRESS_BAR_WIDTH)
         
         if status == 'cancelled':
-            filled = int(progress_pct * BAR_WIDTH)
-            return f"[bold yellow]{'━' * filled}[/bold yellow][dim yellow]{'━' * (BAR_WIDTH - filled)}[/dim yellow]"
+            filled = int(progress_pct * PROGRESS_BAR_WIDTH)
+            return f"[bold yellow]{'━' * filled}[/bold yellow][dim yellow]{'━' * (PROGRESS_BAR_WIDTH - filled)}[/dim yellow]"
         
         if status == 'running':
-            filled = int(progress_pct * BAR_WIDTH)
-            if filled < BAR_WIDTH:
-                return f"[bold blue]{'━' * filled}[/bold blue][blue]╸[/blue][dim white]{'━' * (BAR_WIDTH - filled - 1)}[/dim white]"
-            return f"[bold blue]{'━' * BAR_WIDTH}[/bold blue]"
+            filled = int(progress_pct * PROGRESS_BAR_WIDTH)
+            if filled < PROGRESS_BAR_WIDTH:
+                return f"[bold blue]{'━' * filled}[/bold blue][blue]╸[/blue][dim white]{'━' * (PROGRESS_BAR_WIDTH - filled - 1)}[/dim white]"
+            return f"[bold blue]{'━' * PROGRESS_BAR_WIDTH}[/bold blue]"
         
         # Pending
-        return f"[dim white]{'━' * BAR_WIDTH}[/dim white]"
+        return f"[dim white]{'━' * PROGRESS_BAR_WIDTH}[/dim white]"
     
     def _create_mixed_bar(self, success_count: int, failed_count: int, total: int, bar_width: int) -> str:
         """Create a bar showing green (success) and red (failed) proportions."""
         if total == 0:
             return f"[dim white]{'━' * bar_width}[/dim white]"
         
-        # Calculate proportional widths
-        success_width = round((success_count / total) * bar_width)
-        failed_width = round((failed_count / total) * bar_width)
+        # Use integer division to calculate base widths
+        success_width = (success_count * bar_width) // total
+        failed_width = (failed_count * bar_width) // total
         
-        # Ensure total width equals bar_width
-        total_width = success_width + failed_width
-        if total_width < bar_width:
-            # Add remaining to the larger segment
-            if success_count >= failed_count:
-                success_width += bar_width - total_width
+        # Distribute remainder to maintain exact bar_width
+        remainder = bar_width - success_width - failed_width
+        if remainder > 0:
+            # Distribute remainder based on which segment has larger fractional part
+            success_fraction = (success_count * bar_width) % total
+            failed_fraction = (failed_count * bar_width) % total
+            
+            if success_fraction >= failed_fraction:
+                success_width += remainder
             else:
-                failed_width += bar_width - total_width
-        elif total_width > bar_width:
-            # Remove excess from the larger segment
-            if success_width > failed_width:
-                success_width -= total_width - bar_width
-            else:
-                failed_width -= total_width - bar_width
+                failed_width += remainder
         
         # Build the bar
         bar_parts = []

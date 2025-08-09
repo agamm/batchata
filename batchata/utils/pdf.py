@@ -245,7 +245,8 @@ def estimate_pdf_tokens(path: str | Path, prompt: Optional[str] = None,
         prompt_tokens = token_count_simple(prompt) if prompt else 0
         
         # Add minimal overhead for PDF processing
-        overhead_tokens = 100
+        PDF_TOKEN_OVERHEAD = 100  # tokens
+        overhead_tokens = PDF_TOKEN_OVERHEAD
         
         total_tokens = pdf_tokens + prompt_tokens + overhead_tokens
         
