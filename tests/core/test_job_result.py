@@ -234,3 +234,86 @@ class TestJobResult:
         # Verify computed properties work with defaults
         assert result.total_tokens == 0
         assert result.is_success is True  # No error = success
+    
+    def test_citation_mappings_json_serialization(self):
+        """Test that citation_mappings are properly JSON serializable.
+        
+        This test specifically verifies the fix for the issue where Citation objects
+        in citation_mappings were causing 'Object of type Citation is not JSON serializable'
+        errors and truncated output files.
+        """
+        # Create citations similar to the ones that were causing issues
+        citations = [
+            Citation(
+                text='EXTRAORDINARY ASSUMPTION(S) AND FINANCIAL INDICATORS',
+                source='test.pdf',
+                page=8,
+                metadata={'type': 'page_location', 'document_index': 0}
+            ),
+            Citation(
+                text='Market Extraction 6.21% - 7.25%',
+                source='test.pdf',
+                page=72,
+                metadata={'type': 'page_location', 'start_page_number': 72}
+            )
+        ]
+        
+        # Create citation mappings - this was causing the serialization issue
+        citation_mappings = {
+            'cap_rate': citations,
+            'occupancy': [citations[0]],
+            'address': citations
+        }
+        
+        # Create JobResult with both citations and citation_mappings
+        result = JobResult(
+            job_id="citation-mappings-test",
+            raw_response="Response with citation mappings",
+            parsed_response={'cap_rate': 7.0, 'occupancy': 99.0, 'address': '123 Test St'},
+            citations=citations,
+            citation_mappings=citation_mappings,
+            input_tokens=1000,
+            output_tokens=200,
+            cost_usd=0.15
+        )
+        
+        # Test 1: to_dict() should not fail (was failing before the fix)
+        data = result.to_dict()
+        
+        # Test 2: The result should be JSON serializable (was failing before)
+        json_str = json.dumps(data)
+        parsed_data = json.loads(json_str)
+        
+        # Test 3: Verify citation_mappings structure is correct
+        assert 'citation_mappings' in parsed_data
+        assert 'cap_rate' in parsed_data['citation_mappings']
+        assert 'occupancy' in parsed_data['citation_mappings']
+        assert 'address' in parsed_data['citation_mappings']
+        
+        # Test 4: Verify citation_mappings contain proper dict structures, not Citation objects
+        cap_rate_citations = parsed_data['citation_mappings']['cap_rate']
+        assert len(cap_rate_citations) == 2
+        assert isinstance(cap_rate_citations[0], dict)  # Should be dict, not Citation object
+        assert cap_rate_citations[0]['text'] == 'EXTRAORDINARY ASSUMPTION(S) AND FINANCIAL INDICATORS'
+        assert cap_rate_citations[0]['source'] == 'test.pdf'
+        assert cap_rate_citations[0]['page'] == 8
+        assert cap_rate_citations[0]['metadata']['type'] == 'page_location'
+        
+        # Test 5: Verify single citation mapping (occupancy)
+        occupancy_citations = parsed_data['citation_mappings']['occupancy']
+        assert len(occupancy_citations) == 1
+        assert isinstance(occupancy_citations[0], dict)
+        assert occupancy_citations[0]['text'] == 'EXTRAORDINARY ASSUMPTION(S) AND FINANCIAL INDICATORS'
+        
+        # Test 6: Verify citations list is also properly serialized
+        assert 'citations' in parsed_data
+        assert len(parsed_data['citations']) == 2
+        assert isinstance(parsed_data['citations'][0], dict)
+        
+        # Test 7: Full round-trip serialization
+        restored = JobResult.from_dict(parsed_data)
+        assert restored.job_id == result.job_id
+        assert len(restored.citations) == 2
+        assert len(restored.citation_mappings) == 3
+        assert len(restored.citation_mappings['cap_rate']) == 2
+        assert len(restored.citation_mappings['occupancy']) == 1
