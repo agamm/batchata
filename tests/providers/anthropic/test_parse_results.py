@@ -622,3 +622,32 @@ class TestParseResults:
         assert citation2.source == "Programming Language Timeline"
         assert citation2.metadata['type'] == "historical_fact"
         assert citation2.metadata['start_page_number'] == 15
+    
+    def test_json_fallback_to_dict_on_pydantic_validation_error(self):
+        """Test that JSON parsing falls back to dict when Pydantic validation fails."""
+        from batchata.providers.anthropic.parse_results import _extract_json_model
+        
+        # Model with strict types that won't match the JSON response
+        class StrictModel(BaseModel):
+            cap_rate: float        # Expects float, gets string "7.00%"
+            occupancy: int         # Wrong field name (JSON has "occupancy_rate")
+            active: bool           # Missing from JSON
+        
+        json_response = '''
+        ```json
+        {
+          "cap_rate": "7.00%",
+          "occupancy_rate": 95,
+          "extra_field": "bonus"
+        }
+        ```
+        '''
+        
+        result = _extract_json_model(json_response, StrictModel)
+        
+        # Should return dict (fallback), not None
+        assert result is not None
+        assert isinstance(result, dict)
+        assert result["cap_rate"] == "7.00%"
+        assert result["occupancy_rate"] == 95
+        assert result["extra_field"] == "bonus"

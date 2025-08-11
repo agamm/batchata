@@ -168,14 +168,13 @@ def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel
     
     Returns:
         - Pydantic model instance if validation succeeds
-        - Dict with raw data and error info if Pydantic validation fails
-        - None if JSON extraction fails completely
+        - Dict with raw JSON data if JSON parsing succeeds but Pydantic validation fails
+        - None if JSON extraction/parsing fails completely
     """
     import re
     from pydantic import ValidationError
     
     json_str = None
-    extraction_error = None
     
     # Try multiple patterns to extract JSON
     patterns = [
@@ -184,11 +183,11 @@ def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel
         r'```\s*([\s\S]*?)\s*```',  # Any code block
     ]
     
-    for pattern in patterns:
+    for i, pattern in enumerate(patterns):
         match = re.search(pattern, text)
         if match:
             json_str = match.group(1).strip()
-            logger.debug(f"Extracted JSON using pattern: {pattern}")
+            logger.debug(f"Extracted JSON using pattern {i+1}: {pattern}")
             break
     
     if not json_str:
@@ -206,16 +205,11 @@ def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel
     # Try to parse JSON
     try:
         json_data = json.loads(json_str)
-        logger.debug(f"Successfully parsed JSON: {list(json_data.keys())}")
+        logger.debug(f"Successfully parsed JSON with keys: {list(json_data.keys())}")
     except json.JSONDecodeError as e:
-        error_msg = f"JSON decode error at position {e.pos}: {e.msg}"
-        logger.error(error_msg)
-        # Return dict with error info
-        return {
-            "_error": "json_decode_failed", 
-            "_error_details": error_msg,
-            "_raw_json_attempt": json_str[:500]
-        }
+        logger.error(f"JSON decode failed at position {e.pos}: {e.msg}")
+        logger.error(f"Attempted JSON string: {json_str[:200]}...")
+        return None
     
     # Try to create Pydantic model
     try:
@@ -223,30 +217,20 @@ def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel
         logger.debug(f"Successfully created {response_model.__name__} instance")
         return model_instance
     except ValidationError as e:
-        # Log detailed validation errors
+        # Log validation errors but return the raw dict
         error_details = []
         for error in e.errors():
             field = '.'.join(str(f) for f in error['loc'])
             msg = error['msg']
             error_details.append(f"{field}: {msg}")
         
-        error_msg = f"Pydantic validation failed: {'; '.join(error_details)}"
-        logger.warning(error_msg)
-        
-        # Return the raw dict with error info as fallback
-        json_data["_error"] = "validation_failed"
-        json_data["_error_details"] = error_details
-        json_data["_expected_model"] = response_model.__name__
-        return json_data
+        logger.warning(f"Pydantic validation failed for {response_model.__name__}: {'; '.join(error_details)}")
+        logger.warning(f"Returning raw JSON data instead: {list(json_data.keys())}")
+        return json_data  # Return the parsed JSON as dict
     except Exception as e:
-        error_msg = f"Unexpected error creating model: {type(e).__name__}: {str(e)}"
-        logger.error(error_msg)
-        # Return dict with error and raw data
-        return {
-            "_error": "model_creation_failed",
-            "_error_details": error_msg,
-            "_raw_data": json_data
-        }
+        logger.error(f"Unexpected error creating {response_model.__name__}: {type(e).__name__}: {str(e)}")
+        logger.warning(f"Returning raw JSON data instead: {list(json_data.keys())}")
+        return json_data  # Return the parsed JSON as dict
 
 
 def _save_raw_response(result: Any, job_id: str, raw_files_dir: str) -> None:
