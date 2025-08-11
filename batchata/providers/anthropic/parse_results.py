@@ -163,30 +163,74 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[
     return "".join(text_parts), citation_blocks
 
 
-def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel | None:
-    """Extract JSON from text and parse into Pydantic model."""
-    try:
-        # First try to extract JSON from markdown code blocks
-        import re
-        code_block_pattern = r'```(?:json)?\s*\n([\s\S]*?)\n```'
-        match = re.search(code_block_pattern, text)
-        
+def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel | Dict | None:
+    """Extract JSON from text and parse into Pydantic model.
+    
+    Returns:
+        - Pydantic model instance if validation succeeds
+        - Dict with raw JSON data if JSON parsing succeeds but Pydantic validation fails
+        - None if JSON extraction/parsing fails completely
+    """
+    import re
+    from pydantic import ValidationError
+    
+    json_str = None
+    
+    # Try multiple patterns to extract JSON
+    patterns = [
+        r'```json\s*([\s\S]*?)\s*```',  # More flexible: allows any whitespace
+        r'```(?:json)?\s*\n([\s\S]*?)\n```',  # Original pattern
+        r'```\s*([\s\S]*?)\s*```',  # Any code block
+    ]
+    
+    for i, pattern in enumerate(patterns):
+        match = re.search(pattern, text)
         if match:
-            json_str = match.group(1)
-        else:
-            # Fall back to finding JSON in text
-            start_idx = text.find('{')
-            end_idx = text.rfind('}') + 1
-            
-            if start_idx == -1 or end_idx <= start_idx:
-                return None
-            
-            json_str = text[start_idx:end_idx]
+            json_str = match.group(1).strip()
+            logger.debug(f"Extracted JSON using pattern {i+1}: {pattern}")
+            break
+    
+    if not json_str:
+        # Fall back to finding JSON object in text
+        start_idx = text.find('{')
+        end_idx = text.rfind('}') + 1
         
+        if start_idx == -1 or end_idx <= start_idx:
+            logger.warning("No JSON structure found in response text")
+            return None
+        
+        json_str = text[start_idx:end_idx]
+        logger.debug("Extracted JSON by finding braces")
+    
+    # Try to parse JSON
+    try:
         json_data = json.loads(json_str)
-        return response_model(**json_data)
-    except:
+        logger.debug(f"Successfully parsed JSON with keys: {list(json_data.keys())}")
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode failed at position {e.pos}: {e.msg}")
+        logger.error(f"Attempted JSON string: {json_str[:200]}...")
         return None
+    
+    # Try to create Pydantic model
+    try:
+        model_instance = response_model(**json_data)
+        logger.debug(f"Successfully created {response_model.__name__} instance")
+        return model_instance
+    except ValidationError as e:
+        # Log validation errors but return the raw dict
+        error_details = []
+        for error in e.errors():
+            field = '.'.join(str(f) for f in error['loc'])
+            msg = error['msg']
+            error_details.append(f"{field}: {msg}")
+        
+        logger.warning(f"Pydantic validation failed for {response_model.__name__}: {'; '.join(error_details)}")
+        logger.warning(f"Returning raw JSON data instead: {list(json_data.keys())}")
+        return json_data  # Return the parsed JSON as dict
+    except Exception as e:
+        logger.error(f"Unexpected error creating {response_model.__name__}: {type(e).__name__}: {str(e)}")
+        logger.warning(f"Returning raw JSON data instead: {list(json_data.keys())}")
+        return json_data  # Return the parsed JSON as dict
 
 
 def _save_raw_response(result: Any, job_id: str, raw_files_dir: str) -> None:

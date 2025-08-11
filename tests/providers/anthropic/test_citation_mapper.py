@@ -181,3 +181,35 @@ def test_edge_cases_and_skipped_fields():
     assert "field1" in mappings_few
     assert warning is not None
     assert "field2, field3, field4" in warning  # Should mention unmapped fields
+
+
+def test_citation_window_size_prevents_false_positives():
+    """Test that window size (250 chars) prevents distant false matches."""
+    
+    class PropertyModel(BaseModel):
+        cap_rate: str
+        occupancy_rate: str
+    
+    # Create citation where field words appear far from actual values
+    padding = "x" * 300  # More than 250 char window
+    long_citation = (
+        f"This property analysis mentions cap rates in general. {padding}"
+        f"The actual occupancy rate is 95% according to lease data. {padding}"
+        f"Various other rate calculations are mentioned here."
+    )
+    
+    parsed = PropertyModel(
+        cap_rate="8.5%",     # This value doesn't appear in citation
+        occupancy_rate="95%" # This value DOES appear in citation
+    )
+    
+    citation = Citation(text="test", source="report.pdf", page=1)
+    citation_blocks = [(long_citation, citation)]
+    
+    mappings, warning = map_citations_to_fields(citation_blocks, parsed)
+    
+    # Should map occupancy_rate (value + field words nearby)
+    assert "occupancy_rate" in mappings
+    
+    # Should NOT map cap_rate (value "8.5%" not in citation, despite "cap" and "rate" words)
+    assert "cap_rate" not in mappings

@@ -170,7 +170,7 @@ def _is_field_relevant(citation_text: str, field_name: str, field_value: Any) ->
         return False
     
     # Create a window around the value (50 chars before and after)
-    window_size = 50
+    window_size = 250
     start_pos = max(0, value_position - window_size)
     end_pos = min(len(citation_lower), value_position + window_size)
     text_window = citation_lower[start_pos:end_pos]
