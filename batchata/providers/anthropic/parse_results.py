@@ -163,30 +163,90 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[
     return "".join(text_parts), citation_blocks
 
 
-def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel | None:
-    """Extract JSON from text and parse into Pydantic model."""
-    try:
-        # First try to extract JSON from markdown code blocks
-        import re
-        code_block_pattern = r'```(?:json)?\s*\n([\s\S]*?)\n```'
-        match = re.search(code_block_pattern, text)
-        
+def _extract_json_model(text: str, response_model: Type[BaseModel]) -> BaseModel | Dict | None:
+    """Extract JSON from text and parse into Pydantic model.
+    
+    Returns:
+        - Pydantic model instance if validation succeeds
+        - Dict with raw data and error info if Pydantic validation fails
+        - None if JSON extraction fails completely
+    """
+    import re
+    from pydantic import ValidationError
+    
+    json_str = None
+    extraction_error = None
+    
+    # Try multiple patterns to extract JSON
+    patterns = [
+        r'```json\s*([\s\S]*?)\s*```',  # More flexible: allows any whitespace
+        r'```(?:json)?\s*\n([\s\S]*?)\n```',  # Original pattern
+        r'```\s*([\s\S]*?)\s*```',  # Any code block
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text)
         if match:
-            json_str = match.group(1)
-        else:
-            # Fall back to finding JSON in text
-            start_idx = text.find('{')
-            end_idx = text.rfind('}') + 1
-            
-            if start_idx == -1 or end_idx <= start_idx:
-                return None
-            
-            json_str = text[start_idx:end_idx]
+            json_str = match.group(1).strip()
+            logger.debug(f"Extracted JSON using pattern: {pattern}")
+            break
+    
+    if not json_str:
+        # Fall back to finding JSON object in text
+        start_idx = text.find('{')
+        end_idx = text.rfind('}') + 1
         
+        if start_idx == -1 or end_idx <= start_idx:
+            logger.warning("No JSON structure found in response text")
+            return None
+        
+        json_str = text[start_idx:end_idx]
+        logger.debug("Extracted JSON by finding braces")
+    
+    # Try to parse JSON
+    try:
         json_data = json.loads(json_str)
-        return response_model(**json_data)
-    except:
-        return None
+        logger.debug(f"Successfully parsed JSON: {list(json_data.keys())}")
+    except json.JSONDecodeError as e:
+        error_msg = f"JSON decode error at position {e.pos}: {e.msg}"
+        logger.error(error_msg)
+        # Return dict with error info
+        return {
+            "_error": "json_decode_failed", 
+            "_error_details": error_msg,
+            "_raw_json_attempt": json_str[:500]
+        }
+    
+    # Try to create Pydantic model
+    try:
+        model_instance = response_model(**json_data)
+        logger.debug(f"Successfully created {response_model.__name__} instance")
+        return model_instance
+    except ValidationError as e:
+        # Log detailed validation errors
+        error_details = []
+        for error in e.errors():
+            field = '.'.join(str(f) for f in error['loc'])
+            msg = error['msg']
+            error_details.append(f"{field}: {msg}")
+        
+        error_msg = f"Pydantic validation failed: {'; '.join(error_details)}"
+        logger.warning(error_msg)
+        
+        # Return the raw dict with error info as fallback
+        json_data["_error"] = "validation_failed"
+        json_data["_error_details"] = error_details
+        json_data["_expected_model"] = response_model.__name__
+        return json_data
+    except Exception as e:
+        error_msg = f"Unexpected error creating model: {type(e).__name__}: {str(e)}"
+        logger.error(error_msg)
+        # Return dict with error and raw data
+        return {
+            "_error": "model_creation_failed",
+            "_error_details": error_msg,
+            "_raw_data": json_data
+        }
 
 
 def _save_raw_response(result: Any, job_id: str, raw_files_dir: str) -> None:
