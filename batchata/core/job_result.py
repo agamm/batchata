@@ -61,7 +61,12 @@ class JobResult:
         citation_mappings = None
         if self.citation_mappings:
             citation_mappings = {
-                field: [asdict(c) for c in citations]
+                field: [{
+                    'text': c.text,
+                    'source': c.source, 
+                    'page': c.page,
+                    'metadata': c.metadata
+                } for c in citations]
                 for field, citations in self.citation_mappings.items()
             }
         
@@ -69,7 +74,12 @@ class JobResult:
             "job_id": self.job_id,
             "raw_response": self.raw_response,
             "parsed_response": parsed_response,
-            "citations": [asdict(c) for c in self.citations] if self.citations else None,
+            "citations": [{
+                'text': c.text,
+                'source': c.source, 
+                'page': c.page,
+                'metadata': c.metadata
+            } for c in self.citations] if self.citations else None,
             "citation_mappings": citation_mappings,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
