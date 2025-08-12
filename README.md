@@ -112,6 +112,9 @@ for result in results["completed"]:
     print(f"  Vendor: {analysis.vendor} (page: {citations.get("vendor").page})")
     print(f"  Total: ${analysis.total_amount:.2f} (page: {citations.get("total_amount").page})")
     print(f"  Status: {analysis.payment_status} (page: {citations.get("payment_status").page})")
+    
+    # Save each result to JSON file
+    result.save_to_json(f"./invoice_results/{result.job_id}.json")
 
 # Process failed/cancelled results  
 for result in results["failed"]:
@@ -120,7 +123,6 @@ for result in results["failed"]:
 for result in results["cancelled"]:
     print(f"\nJob {result.job_id} was cancelled: {result.error}")
 ```
-
 
 ## Interactive Progress Display
 
