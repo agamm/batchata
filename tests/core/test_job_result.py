@@ -317,3 +317,62 @@ class TestJobResult:
         assert len(restored.citation_mappings) == 3
         assert len(restored.citation_mappings['cap_rate']) == 2
         assert len(restored.citation_mappings['occupancy']) == 1
+    
+    def test_save_to_json(self, tmp_path):
+        """Test that save_to_json() correctly saves JobResult to a JSON file."""
+        # Create a JobResult with citations and citation_mappings
+        citations = [
+            Citation(
+                text='Test citation text',
+                source='test.pdf',
+                page=1,
+                metadata={'type': 'page_location', 'document_index': 0}
+            )
+        ]
+        
+        citation_mappings = {
+            'test_field': citations
+        }
+        
+        result = JobResult(
+            job_id="test-save-json",
+            raw_response="Test response",
+            parsed_response={'test_field': 'test_value'},
+            citations=citations,
+            citation_mappings=citation_mappings,
+            input_tokens=100,
+            output_tokens=50,
+            cost_usd=0.05
+        )
+        
+        # Save to JSON file
+        json_file = tmp_path / "subdir" / "test_result.json"
+        result.save_to_json(str(json_file))
+        
+        # Verify file was created
+        assert json_file.exists()
+        
+        # Verify content is correct by loading and comparing
+        import json
+        with open(json_file, 'r') as f:
+            saved_data = json.load(f)
+        
+        # Should match the result of to_dict()
+        expected_data = result.to_dict()
+        assert saved_data == expected_data
+        
+        # Verify specific fields
+        assert saved_data['job_id'] == 'test-save-json'
+        assert saved_data['input_tokens'] == 100
+        assert saved_data['output_tokens'] == 50
+        assert saved_data['cost_usd'] == 0.05
+        
+        # Verify citations are properly serialized (not Citation objects)
+        assert isinstance(saved_data['citations'][0], dict)
+        assert saved_data['citations'][0]['text'] == 'Test citation text'
+        assert saved_data['citations'][0]['source'] == 'test.pdf'
+        assert saved_data['citations'][0]['page'] == 1
+        
+        # Verify citation_mappings are properly serialized
+        assert isinstance(saved_data['citation_mappings']['test_field'][0], dict)
+        assert saved_data['citation_mappings']['test_field'][0]['text'] == 'Test citation text'

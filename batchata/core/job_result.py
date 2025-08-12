@@ -1,6 +1,6 @@
 """JobResult data model."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel
 
@@ -87,6 +87,20 @@ class JobResult:
             "error": self.error,
             "batch_id": self.batch_id
         }
+    
+    def save_to_json(self, filepath: str, indent: int = 2) -> None:
+        """Save JobResult to JSON file.
+        
+        Args:
+            filepath: Path to save the JSON file
+            indent: JSON indentation (default: 2)
+        """
+        import json
+        from pathlib import Path
+        
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+        with open(filepath, 'w') as f:
+            json.dump(self.to_dict(), f, indent=indent)
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'JobResult':

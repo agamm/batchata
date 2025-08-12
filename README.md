@@ -121,6 +121,20 @@ for result in results["cancelled"]:
     print(f"\nJob {result.job_id} was cancelled: {result.error}")
 ```
 
+## Saving Results to JSON
+
+You can easily save individual job results to JSON files:
+
+```python
+# Save individual results to JSON files
+for result in results["completed"]:
+    result.save_to_json(f"output/{result.job_id}.json")
+
+# Or save with custom formatting
+result.save_to_json("my_result.json", indent=4)
+```
+
+This automatically handles Citation serialization and creates any necessary directories.
 
 ## Interactive Progress Display
 
