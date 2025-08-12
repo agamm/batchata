@@ -12,19 +12,6 @@ class Citation:
     source: str  # Source identifier (e.g., page number, section)
     page: Optional[int] = None  # Page number if applicable
     metadata: Optional[Dict[str, Any]] = None  # Additional metadata
-    
-    def __json__(self):
-        """Make Citation JSON serializable.
-        
-        This method is called by json.dumps() when using the default encoder.
-        Returns a dictionary representation that can be serialized to JSON.
-        """
-        return {
-            'text': self.text,
-            'source': self.source,
-            'page': self.page,
-            'metadata': self.metadata
-        }
 
 
 @dataclass

@@ -6,6 +6,5 @@ from .state import StateManager
 from .logging import get_logger, set_log_level
 from .pdf import create_pdf
 from .rich_progress import RichBatchProgressDisplay
-from .json_encoder import BatchataJSONEncoder
 
-__all__ = ["CostTracker", "to_dict", "StateManager", "get_logger", "set_log_level", "create_pdf", "RichBatchProgressDisplay", "BatchataJSONEncoder"]
+__all__ = ["CostTracker", "to_dict", "StateManager", "get_logger", "set_log_level", "create_pdf", "RichBatchProgressDisplay"]
