@@ -53,7 +53,7 @@ class JobResult:
             if isinstance(self.parsed_response, dict):
                 parsed_response = self.parsed_response
             elif isinstance(self.parsed_response, BaseModel):
-                parsed_response = self.parsed_response.model_dump()
+                parsed_response = self.parsed_response.model_dump(mode='json')
             else:
                 parsed_response = str(self.parsed_response)
         
