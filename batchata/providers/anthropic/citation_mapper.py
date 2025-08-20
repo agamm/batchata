@@ -5,10 +5,11 @@ we search for known field values in citations and check field relevance.
 """
 
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+from copy import deepcopy
 from pydantic import BaseModel
 
-from ...types import Citation, CitationMapping
+from ...types import Citation
 from ...utils import get_logger
 
 
@@ -18,7 +19,7 @@ logger = get_logger(__name__)
 def map_citations_to_fields(
     citation_blocks: List[Tuple[str, Citation]], 
     parsed_response: BaseModel,
-) -> Tuple[Dict[str, List[CitationMapping]], Optional[str]]:
+) -> Tuple[Dict[str, List[Citation]], Optional[str]]:
     """Map citations to model fields using systematic value-first approach.
     
     Uses systematic fallback algorithm:
@@ -32,7 +33,7 @@ def map_citations_to_fields(
         
     Returns:
         Tuple of:
-        - Dict mapping field names to lists of CitationMapping objects with confidence
+        - Dict mapping field names to lists of Citation objects with confidence fields populated
         - Optional warning message if many fields couldn't be mapped
     """
     if not citation_blocks or not parsed_response:
@@ -66,34 +67,28 @@ def map_citations_to_fields(
         high_confidence = [(text, cit, score) for text, cit, score in scored_citations if score >= 0.8]
         if high_confidence:
             for _, citation, score in high_confidence:
-                mapping = CitationMapping(
-                    citation=citation,
-                    confidence="high", 
-                    match_reason=f"exact field match (score: {score:.2f})"
-                )
-                field_mappings[field_name].append(mapping)
+                citation_copy = deepcopy(citation)
+                citation_copy.confidence = "high"
+                citation_copy.match_reason = f"exact field match (score: {score:.2f})"
+                field_mappings[field_name].append(citation_copy)
             continue
             
         # Try partial field match (score >= 0.3)  
         medium_confidence = [(text, cit, score) for text, cit, score in scored_citations if score >= 0.3]
         if medium_confidence:
             for _, citation, score in medium_confidence:
-                mapping = CitationMapping(
-                    citation=citation,
-                    confidence="medium",
-                    match_reason=f"partial field match (score: {score:.2f})"
-                )
-                field_mappings[field_name].append(mapping)
+                citation_copy = deepcopy(citation)
+                citation_copy.confidence = "medium"
+                citation_copy.match_reason = f"partial field match (score: {score:.2f})"
+                field_mappings[field_name].append(citation_copy)
             continue
             
         # Fall back to value-only match with low confidence
         for _, citation, score in scored_citations:
-            mapping = CitationMapping(
-                citation=citation,
-                confidence="low",
-                match_reason=f"value-only match (score: {score:.2f})"
-            )
-            field_mappings[field_name].append(mapping)
+            citation_copy = deepcopy(citation)
+            citation_copy.confidence = "low"
+            citation_copy.match_reason = f"value-only match (score: {score:.2f})"
+            field_mappings[field_name].append(citation_copy)
     
     # Generate warning if many fields unmapped
     warning = None
@@ -119,17 +114,22 @@ def _should_skip_field(field_value: Any) -> bool:
     return False
 
 
-def _get_value_variants(value: Any) -> Set[str]:
-    """Get all reasonable string representations of a value for searching."""
-    variants = set()
+def _get_value_variants(value: Any) -> List[str]:
+    """Get all reasonable string representations of a value for searching.
+    
+    Returns ordered list with exact matches first, then variants.
+    """
+    variants = []
     
     if isinstance(value, (int, float)):
-        # Numeric value variants
+        # Numeric value variants - exact first, then formatted variants
         num = float(value)
         if num == int(num):  # Whole number
             int_val = int(num)
-            variants.update([
-                str(int_val),
+            # Start with exact string representation
+            variants.append(str(int_val))
+            # Add formatted variants
+            variants.extend([
                 f"${int_val}",
                 f"{int_val}.00", 
                 f"${int_val}.00",
@@ -137,58 +137,69 @@ def _get_value_variants(value: Any) -> Set[str]:
                 f"${int_val:,}",  # Dollar with comma: $292,585
             ])
         else:
-            # For floats, preserve original precision and add common formats
+            # For floats, preserve original precision first
             str_val = str(num)
-            variants.update([
-                str_val,  # Original precision: 0.917
+            variants.append(str_val)  # Original precision: 0.917 (exact first)
+            # Add formatted variants
+            variants.extend([
                 f"{num:.2f}",  # 2 decimal: 0.92
                 f"{num:.3f}",  # 3 decimal: 0.917
                 f"${num:.2f}",
                 f"${num:.3f}",
             ])
     elif isinstance(value, str):
-        # String value variants
+        # String value variants - exact case first, then lowercase
         value = value.strip()
         if value:  # Non-empty string
-            variants.add(value.lower())
-            variants.add(value)  # Original case
+            variants.append(value)  # Original case (exact first)
+            if value.lower() != value:  # Only add lowercase if different
+                variants.append(value.lower())
             
             # Handle quoted values
             if value.startswith('"') and value.endswith('"'):
                 unquoted = value[1:-1]
-                variants.add(unquoted.lower())
-                variants.add(unquoted)
+                variants.append(unquoted)  # Exact unquoted
+                if unquoted.lower() != unquoted:
+                    variants.append(unquoted.lower())
             elif value.startswith("'") and value.endswith("'"):
                 unquoted = value[1:-1]
-                variants.add(unquoted.lower())
-                variants.add(unquoted)
+                variants.append(unquoted)  # Exact unquoted
+                if unquoted.lower() != unquoted:
+                    variants.append(unquoted.lower())
     elif hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
-        # Date and datetime objects
-        # ISO format
-        variants.add(value.strftime('%Y-%m-%d'))
+        # Date and datetime objects - start with ISO format (most precise)
+        variants.append(value.strftime('%Y-%m-%d'))  # ISO format first
         
         # Natural format with full month name
-        variants.add(value.strftime('%B %d, %Y'))  # "October 20, 2023"
-        variants.add(value.strftime('%B %d %Y'))   # "October 20 2023"
+        variants.extend([
+            value.strftime('%B %d, %Y'),  # "October 20, 2023"
+            value.strftime('%B %d %Y'),   # "October 20 2023"
+        ])
         
         # Abbreviated month
-        variants.add(value.strftime('%b %d, %Y'))  # "Oct 20, 2023"
-        variants.add(value.strftime('%b %d %Y'))   # "Oct 20 2023"
+        variants.extend([
+            value.strftime('%b %d, %Y'),  # "Oct 20, 2023"
+            value.strftime('%b %d %Y'),   # "Oct 20 2023"
+        ])
         
         # Numeric formats
-        variants.add(value.strftime('%m/%d/%Y'))   # "10/20/2023"
-        variants.add(value.strftime('%d/%m/%Y'))   # "20/10/2023"
-        variants.add(value.strftime('%m-%d-%Y'))   # "10-20-2023"
-        variants.add(value.strftime('%d-%m-%Y'))   # "20-10-2023"
+        variants.extend([
+            value.strftime('%m/%d/%Y'),   # "10/20/2023"
+            value.strftime('%d/%m/%Y'),   # "20/10/2023"
+            value.strftime('%m-%d-%Y'),   # "10-20-2023"
+            value.strftime('%d-%m-%Y'),   # "20-10-2023"
+        ])
         
         # Compact formats
-        variants.add(value.strftime('%m/%d/%y'))   # "10/20/23"
-        variants.add(value.strftime('%d/%m/%y'))   # "20/10/23"
+        variants.extend([
+            value.strftime('%m/%d/%y'),   # "10/20/23"
+            value.strftime('%d/%m/%y'),   # "20/10/23"
+        ])
     
     return variants
 
 
-def _contains_value(citation_text: str, value_variants: Set[str]) -> bool:
+def _contains_value(citation_text: str, value_variants: List[str]) -> bool:
     """Check if any value variant exists in the citation text."""
     text_lower = citation_text.lower()
     

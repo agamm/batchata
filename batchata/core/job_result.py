@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel
 
-from ..types import Citation, CitationMapping
+from ..types import Citation
 
 
 @dataclass
@@ -28,7 +28,7 @@ class JobResult:
     raw_response: Optional[str] = None  # Raw text response (None for failed jobs)
     parsed_response: Optional[Union[BaseModel, Dict]] = None  # Structured output or error dict
     citations: Optional[List[Citation]] = None  # Extracted citations
-    citation_mappings: Optional[Dict[str, List[CitationMapping]]] = None  # Field -> citation mappings with confidence
+    citation_mappings: Optional[Dict[str, List[Citation]]] = None  # Field -> citation mappings with confidence
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
@@ -62,16 +62,14 @@ class JobResult:
         if self.citation_mappings:
             citation_mappings = {
                 field: [{
-                    'citation': {
-                        'text': mapping.citation.text,
-                        'source': mapping.citation.source, 
-                        'page': mapping.citation.page,
-                        'metadata': mapping.citation.metadata
-                    },
-                    'confidence': mapping.confidence,
-                    'match_reason': mapping.match_reason
-                } for mapping in mappings]
-                for field, mappings in self.citation_mappings.items()
+                    'text': citation.text,
+                    'source': citation.source, 
+                    'page': citation.page,
+                    'metadata': citation.metadata,
+                    'confidence': citation.confidence,
+                    'match_reason': citation.match_reason
+                } for citation in citations]
+                for field, citations in self.citation_mappings.items()
             }
         
         return {
@@ -82,7 +80,9 @@ class JobResult:
                 'text': c.text,
                 'source': c.source, 
                 'page': c.page,
-                'metadata': c.metadata
+                'metadata': c.metadata,
+                'confidence': c.confidence,
+                'match_reason': c.match_reason
             } for c in self.citations] if self.citations else None,
             "citation_mappings": citation_mappings,
             "input_tokens": self.input_tokens,

@@ -261,11 +261,15 @@ class TestParseResults:
         assert "total_amount" in result.citation_mappings
         assert "payment_status" in result.citation_mappings
         
-        # Check citation content
+        # Check citation content - each field should have at least one citation
         for field, citations in result.citation_mappings.items():
-            assert len(citations) == 1
-            assert citations[0].source == "invoice_002.pdf"
-            assert citations[0].page == 1  # Should use start_page_number
+            assert len(citations) >= 1
+            # All citations should be from the same source
+            for citation in citations:
+                assert citation.source == "invoice_002.pdf"
+                assert citation.page == 1  # Should use start_page_number
+                assert citation.confidence in ["high", "medium", "low"]  # Should have confidence
+                assert citation.match_reason is not None  # Should have match reason
     
     def test_citations_without_response_model(self):
         """Test that citations remain as list when no response_model is used."""

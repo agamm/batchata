@@ -120,6 +120,33 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_files_d
     return job_results
 
 
+def _has_field_pattern(text: str) -> bool:
+    """Check if text contains field patterns (both markdown and non-markdown).
+    
+    Detects patterns like:
+    - Field name: value
+    - Field name - value  
+    - Field name is value
+    - Field name are value
+    """
+    import re
+    
+    # Generic field patterns for context detection
+    field_patterns = [
+        r'\b\w+\s*:\s*',  # field:
+        r'\b\w+\s+-\s+',  # field -
+        r'\b\w+\s+(?:is|are|was|were)\s+',  # field is/are
+        r'^\s*-\s*\*?\*?\s*\w+',  # - field or - **field (at line start)
+    ]
+    
+    text_lower = text.lower()
+    for pattern in field_patterns:
+        if re.search(pattern, text_lower):
+            return True
+    
+    return False
+
+
 def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[str, Citation]]]:
     """Parse content blocks to extract text and citation blocks.
     
@@ -160,7 +187,7 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[
             
             if (stripped_context.startswith(("and ", ", ", "; ")) and 
                 last_field_context and 
-                "**" in last_field_context):
+                ("**" in last_field_context or ":" in last_field_context)):
                 context_text = last_field_context + context_text
             
             for cit in block.citations:
@@ -179,7 +206,7 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[
             
             # Update field context if we see a field pattern in this citation block
             full_context = "".join(previous_blocks) + block_text
-            if "**" in full_context and ":" in full_context:
+            if ("**" in full_context or _has_field_pattern(full_context)) and ":" in full_context:
                 last_field_context = "".join(previous_blocks)
             
             # Reset previous blocks after using them

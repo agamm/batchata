@@ -1,7 +1,7 @@
 """Type definitions for the batch processing library."""
 
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional, Union, NamedTuple
+from typing import Dict, List, Any, Optional, Union
 
 
 @dataclass
@@ -12,13 +12,9 @@ class Citation:
     source: str  # Source identifier (e.g., page number, section)
     page: Optional[int] = None  # Page number if applicable
     metadata: Optional[Dict[str, Any]] = None  # Additional metadata
-
-
-class CitationMapping(NamedTuple):
-    """Citation mapping with confidence score."""
-    citation: Citation
-    confidence: str  # "high", "medium", "low"
-    match_reason: str  # Description of why it matched
+    # Field mapping confidence (added for systematic citation mapping)
+    confidence: Optional[str] = None  # "high", "medium", "low" - None for unmapped citations
+    match_reason: Optional[str] = None  # Description of why field was mapped
 
 
 @dataclass
