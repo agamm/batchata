@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "batchata"
-version = "0.4.6"
+version = "0.4.7"
 description = "Unified Python API for AI batch requests with 50% cost savings on OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.12"
