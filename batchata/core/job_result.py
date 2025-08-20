@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel
 
-from ..types import Citation
+from ..types import Citation, CitationMapping
 
 
 @dataclass
@@ -28,7 +28,7 @@ class JobResult:
     raw_response: Optional[str] = None  # Raw text response (None for failed jobs)
     parsed_response: Optional[Union[BaseModel, Dict]] = None  # Structured output or error dict
     citations: Optional[List[Citation]] = None  # Extracted citations
-    citation_mappings: Optional[Dict[str, List[Citation]]] = None  # Field -> citations mapping
+    citation_mappings: Optional[Dict[str, List[CitationMapping]]] = None  # Field -> citation mappings with confidence
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
@@ -62,12 +62,16 @@ class JobResult:
         if self.citation_mappings:
             citation_mappings = {
                 field: [{
-                    'text': c.text,
-                    'source': c.source, 
-                    'page': c.page,
-                    'metadata': c.metadata
-                } for c in citations]
-                for field, citations in self.citation_mappings.items()
+                    'citation': {
+                        'text': mapping.citation.text,
+                        'source': mapping.citation.source, 
+                        'page': mapping.citation.page,
+                        'metadata': mapping.citation.metadata
+                    },
+                    'confidence': mapping.confidence,
+                    'match_reason': mapping.match_reason
+                } for mapping in mappings]
+                for field, mappings in self.citation_mappings.items()
             }
         
         return {
