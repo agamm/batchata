@@ -6,7 +6,7 @@ we search for known field values in citations and check field relevance.
 
 import re
 from typing import Any, Dict, List, Optional, Tuple
-from copy import deepcopy
+from dataclasses import replace
 from pydantic import BaseModel
 
 from ...types import Citation
@@ -14,6 +14,22 @@ from ...utils import get_logger
 
 
 logger = get_logger(__name__)
+
+
+# Confidence scoring thresholds
+HIGH_CONFIDENCE_THRESHOLD = 0.8
+MEDIUM_CONFIDENCE_THRESHOLD = 0.3
+MISSING_FIELDS_RATIO_THRESHOLD = 0.5
+
+# Field matching parameters
+MIN_FIELD_WORD_LENGTH = 2
+MIN_FUZZY_MATCH_LENGTH = 3
+FUZZY_EDIT_DISTANCE_THRESHOLD = 1
+
+# Pre-compiled regex patterns for performance
+_CITATION_WORDS_PATTERN = re.compile(rf'\b\w{{{MIN_FUZZY_MATCH_LENGTH},}}\b')
+_MULTILINE_FLAGS = re.MULTILINE
+_MULTILINE_IGNORECASE_FLAGS = re.MULTILINE | re.IGNORECASE
 
 
 def map_citations_to_fields(
@@ -63,36 +79,38 @@ def map_citations_to_fields(
         # Step 3: Apply systematic fallback with confidence scoring
         field_mappings[field_name] = []
         
-        # Try exact field match first (score >= 0.8)
-        high_confidence = [(text, cit, score) for text, cit, score in scored_citations if score >= 0.8]
+        # Try exact field match first (score >= HIGH_CONFIDENCE_THRESHOLD)
+        high_confidence = [(text, cit, score) for text, cit, score in scored_citations if score >= HIGH_CONFIDENCE_THRESHOLD]
         if high_confidence:
             for _, citation, score in high_confidence:
-                citation_copy = deepcopy(citation)
-                citation_copy.confidence = "high"
-                citation_copy.match_reason = f"exact field match (score: {score:.2f})"
+                citation_copy = replace(citation,
+                    confidence="high",
+                    match_reason=f"exact field match (score: {score:.2f})"
+                )
                 field_mappings[field_name].append(citation_copy)
             continue
             
-        # Try partial field match (score >= 0.3)  
-        medium_confidence = [(text, cit, score) for text, cit, score in scored_citations if score >= 0.3]
+        # Try partial field match (score >= MEDIUM_CONFIDENCE_THRESHOLD)  
+        medium_confidence = [(text, cit, score) for text, cit, score in scored_citations if score >= MEDIUM_CONFIDENCE_THRESHOLD]
         if medium_confidence:
             for _, citation, score in medium_confidence:
-                citation_copy = deepcopy(citation)
-                citation_copy.confidence = "medium"
-                citation_copy.match_reason = f"partial field match (score: {score:.2f})"
+                citation_copy = replace(citation,
+                    confidence="medium",
+                    match_reason=f"partial field match (score: {score:.2f})"
+                )
                 field_mappings[field_name].append(citation_copy)
             continue
             
         # Fall back to value-only match with low confidence
         for _, citation, score in scored_citations:
-            citation_copy = deepcopy(citation)
-            citation_copy.confidence = "low"
-            citation_copy.match_reason = f"value-only match (score: {score:.2f})"
+            citation_copy = replace(citation,
+                confidence="low",
+                match_reason=f"value-only match (score: {score:.2f})"
+            )
             field_mappings[field_name].append(citation_copy)
     
     # Generate warning if many fields unmapped
     warning = None
-    MISSING_FIELDS_RATIO_THRESHOLD=0.5
     total_mappable_fields = len([v for v in parsed_response.model_dump().values() 
                                 if not _should_skip_field(v)])
     if unmapped_fields and len(unmapped_fields) > total_mappable_fields * MISSING_FIELDS_RATIO_THRESHOLD:
@@ -272,17 +290,43 @@ def _calculate_field_match_score(citation_text: str, field_name: str) -> float:
         Float score from 0.0 (no match) to 1.0 (perfect match)
     """
     citation_lower = citation_text.lower()
-    field_words = [word for word in field_name.lower().split('_') if len(word) > 2]
+    field_words = [word for word in field_name.lower().split('_') if len(word) > MIN_FIELD_WORD_LENGTH]
     
     if not field_words:
         return 0.5  # Default score for fields with no meaningful words
     
-    # Check for exact field pattern matches (high confidence indicators)
-    # Join field words for pattern matching
+    # Check for exact field pattern matches first
+    pattern_score = _check_field_patterns(citation_lower, field_name, field_words)
+    if pattern_score > 0:
+        return pattern_score
+    
+    # Fall back to fuzzy word matching
+    return _calculate_fuzzy_word_score(citation_lower, field_words)
+
+
+def _check_field_patterns(citation_lower: str, field_name: str, field_words: List[str]) -> float:
+    """Check for structured field patterns in citation text.
+    
+    Returns:
+        1.0 for markdown patterns, 0.9 for non-markdown patterns, 0.0 for no match
+    """
     field_words_joined = " ".join(field_words)
     field_name_readable = field_name.replace("_", " ")
     
-    # Markdown patterns (highest confidence)
+    # Check markdown patterns first (highest confidence)
+    if _check_markdown_patterns(citation_lower, field_name, field_words_joined):
+        return 1.0
+    
+    # Check non-markdown patterns (high confidence)
+    if _check_non_markdown_patterns(citation_lower, field_words_joined, field_name_readable):
+        return 0.9
+    
+    return 0.0
+
+
+def _check_markdown_patterns(citation_lower: str, field_name: str, field_words_joined: str) -> bool:
+    """Check for markdown field patterns like **field**: value."""
+    # Dynamic patterns that need field-specific escaping
     markdown_patterns = [
         rf'\*\*[^*]*{re.escape(field_name.replace("_", "[\\s_]"))}\*\*\s*:',  # **field_name**:
         rf'\*\*[^*]*{re.escape(field_words_joined)}\*\*\s*:',  # **field words**:
@@ -290,11 +334,15 @@ def _calculate_field_match_score(citation_text: str, field_name: str) -> float:
     ]
     
     for pattern in markdown_patterns:
-        if re.search(pattern, citation_lower, re.MULTILINE):
-            return 1.0  # Perfect field pattern match
+        if re.search(pattern, citation_lower, _MULTILINE_FLAGS):
+            return True
     
-    # Non-markdown patterns (still high confidence but slightly less than markdown)
-    # These patterns are more lenient but still structured
+    return False
+
+
+def _check_non_markdown_patterns(citation_lower: str, field_words_joined: str, field_name_readable: str) -> bool:
+    """Check for non-markdown field patterns like field: value."""
+    # Dynamic patterns that need field-specific escaping
     non_markdown_patterns = [
         rf'\b{re.escape(field_words_joined)}\s*:\s*',  # Field words: value
         rf'\b{re.escape(field_name_readable)}\s*:\s*',  # Field name: value
@@ -303,10 +351,18 @@ def _calculate_field_match_score(citation_text: str, field_name: str) -> float:
     ]
     
     for pattern in non_markdown_patterns:
-        if re.search(pattern, citation_lower, re.MULTILINE | re.IGNORECASE):
-            return 0.9  # Very high confidence for structured non-markdown patterns
+        if re.search(pattern, citation_lower, _MULTILINE_IGNORECASE_FLAGS):
+            return True
     
-    # Check for partial word matches with fuzzy matching
+    return False
+
+
+def _calculate_fuzzy_word_score(citation_lower: str, field_words: List[str]) -> float:
+    """Calculate score based on fuzzy word matching.
+    
+    Returns:
+        Ratio of matched words to total words (0.0 to 1.0)
+    """
     matched_words = 0
     total_words = len(field_words)
     
@@ -317,10 +373,10 @@ def _calculate_field_match_score(citation_text: str, field_name: str) -> float:
             continue
             
         # Fuzzy match with edit distance
-        citation_words = re.findall(r'\b\w{3,}\b', citation_lower)
+        citation_words = _CITATION_WORDS_PATTERN.findall(citation_lower)
         found_fuzzy = False
         for citation_word in citation_words:
-            if _levenshtein_distance(citation_word, field_word) <= 1:
+            if _levenshtein_distance(citation_word, field_word) <= FUZZY_EDIT_DISTANCE_THRESHOLD:
                 matched_words += 1
                 found_fuzzy = True
                 break
@@ -376,8 +432,8 @@ def _fuzzy_word_match(text: str, word: str) -> bool:
     all_variants = transformations + compound_matches
     
     for variant in all_variants:
-        # Only match variants that are at least 3 characters
-        if len(variant) >= 3 and variant in text:
+        # Only match variants that are at least MIN_FUZZY_MATCH_LENGTH characters
+        if len(variant) >= MIN_FUZZY_MATCH_LENGTH and variant in text:
             return True
             
     return False
