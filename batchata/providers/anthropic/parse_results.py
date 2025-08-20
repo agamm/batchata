@@ -120,6 +120,33 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_files_d
     return job_results
 
 
+def _has_field_pattern(text: str) -> bool:
+    """Check if text contains field patterns (both markdown and non-markdown).
+    
+    Detects patterns like:
+    - Field name: value
+    - Field name - value  
+    - Field name is value
+    - Field name are value
+    """
+    import re
+    
+    # Generic field patterns for context detection
+    field_patterns = [
+        r'\b\w+\s*:\s*',  # field:
+        r'\b\w+\s+-\s+',  # field -
+        r'\b\w+\s+(?:is|are|was|were)\s+',  # field is/are
+        r'^\s*-\s*\*?\*?\s*\w+',  # - field or - **field (at line start)
+    ]
+    
+    text_lower = text.lower()
+    for pattern in field_patterns:
+        if re.search(pattern, text_lower):
+            return True
+    
+    return False
+
+
 def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[str, Citation]]]:
     """Parse content blocks to extract text and citation blocks.
     
@@ -135,8 +162,10 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[
     
     text_parts = []
     citation_blocks = []
+    previous_blocks = []  # Track previous blocks without citations
+    last_field_context = ""  # Track the most recent field label for multi-block values
     
-    for block in content:
+    for i, block in enumerate(content):
         block_text = ""
         
         # Extract text
@@ -144,9 +173,24 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[
             block_text = block.text
             text_parts.append(block_text)
         
-        # Extract citations if enabled  
-        if job and job.enable_citations and hasattr(block, 'citations'):
-            for cit in block.citations or []:
+        # Check if this block has citations
+        has_citations = (job and job.enable_citations and 
+                        hasattr(block, 'citations') and block.citations)
+        
+        if has_citations:
+            # Include context from previous blocks without citations
+            context_text = "".join(previous_blocks) + block_text
+            
+            # If this looks like a continuation (starts with connector like " and "),
+            # also include the last field context
+            stripped_context = context_text.strip()
+            
+            if (stripped_context.startswith(("and ", ", ", "; ")) and 
+                last_field_context and 
+                ("**" in last_field_context or ":" in last_field_context)):
+                context_text = last_field_context + context_text
+            
+            for cit in block.citations:
                 citation = Citation(
                     text=getattr(cit, 'cited_text', ''),
                     source=getattr(cit, 'document_title', 'Document'),
@@ -158,7 +202,18 @@ def _parse_content(content: Any, job: Optional['Job']) -> Tuple[str, List[Tuple[
                         'end_page_number': getattr(cit, 'end_page_number', None)
                     }
                 )
-                citation_blocks.append((block_text, citation))
+                citation_blocks.append((context_text, citation))
+            
+            # Update field context if we see a field pattern in this citation block
+            full_context = "".join(previous_blocks) + block_text
+            if ("**" in full_context or _has_field_pattern(full_context)) and ":" in full_context:
+                last_field_context = "".join(previous_blocks)
+            
+            # Reset previous blocks after using them
+            previous_blocks = []
+        else:
+            # Accumulate blocks without citations as context
+            previous_blocks.append(block_text)
     
     return "".join(text_parts), citation_blocks
 

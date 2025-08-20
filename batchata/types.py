@@ -12,6 +12,9 @@ class Citation:
     source: str  # Source identifier (e.g., page number, section)
     page: Optional[int] = None  # Page number if applicable
     metadata: Optional[Dict[str, Any]] = None  # Additional metadata
+    # Field mapping confidence (added for systematic citation mapping)
+    confidence: Optional[str] = None  # "high", "medium", "low" - None for unmapped citations
+    match_reason: Optional[str] = None  # Description of why field was mapped
 
 
 @dataclass
