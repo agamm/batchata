@@ -5,7 +5,10 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from ...core.job_result import JobResult
-from ...utils import to_dict
+from ...utils import to_dict, get_logger
+
+
+logger = get_logger(__name__)
 
 
 def parse_results(results: List[Dict], job_mapping: Dict[str, 'Job'], raw_files_dir: Optional[str] = None, batch_discount: float = 0.5, batch_id: Optional[str] = None) -> List[JobResult]:
@@ -129,8 +132,8 @@ def _calculate_cost(model: str, input_tokens: int, output_tokens: int, batch_dis
         total_cost = float(input_cost + output_cost)
         return total_cost * (1 - batch_discount)
         
-    except (ImportError, ModuleNotFoundError, AttributeError, ValueError):
-        # Return zero cost if tokencost library unavailable or calculation fails
+    except Exception as e:
+        logger.warning(f"Failed to calculate cost for model {model} using tokencost: {e}. Returning 0 cost.")
         return 0.0
 
 

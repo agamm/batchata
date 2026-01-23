@@ -126,10 +126,21 @@ ANTHROPIC_MODELS = {
         supports_structured_output=True,
         file_types=[]
     ),
-    "claude-3-sonnet-20240229": ModelConfig(
-        name="claude-3-sonnet-20240229",
+    "claude-opus-4-5-20250929": ModelConfig(
+        name="claude-opus-4-5-20250929",
         max_input_tokens=200000,
-        max_output_tokens=4096,
+        max_output_tokens=8192,
+        batch_discount=0.5,
+        supports_images=True,
+        supports_files=True,
+        supports_citations=True,
+        supports_structured_output=True,
+        file_types=[".pdf", ".txt", ".docx", ".jpg", ".png", ".gif", ".webp"]
+    ),
+    "claude-sonnet-4-5-20250929": ModelConfig(
+        name="claude-sonnet-4-5-20250929",
+        max_input_tokens=200000,
+        max_output_tokens=8192,
         batch_discount=0.5,
         supports_images=True,
         supports_files=True,

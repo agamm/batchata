@@ -21,7 +21,7 @@ from batchata import Batch
 
 # Simple batch processing
 batch = Batch(results_dir="./output")
-    .set_default_params(model="claude-sonnet-4-20250514")
+    .set_default_params(model="claude-sonnet-4-5-20250929")
     .add_cost_limit(usd=5.0)
 
 # Add jobs
@@ -45,7 +45,7 @@ class DocumentAnalysis(BaseModel):
     key_points: list[str]
 
 batch = Batch(results_dir="./results")
-    .set_default_params(model="claude-sonnet-4-20250514")
+    .set_default_params(model="claude-sonnet-4-5-20250929")
 
 batch.add_job(
     file="document.pdf",

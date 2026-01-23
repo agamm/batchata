@@ -26,7 +26,7 @@ class Batch:
         ```python
         batch = Batch("./results", max_parallel_batches=10, items_per_batch=10)
             .set_state(file="./state.json", reuse_state=True)
-            .set_default_params(model="claude-sonnet-4-20250514", temperature=0.7)
+            .set_default_params(model="claude-sonnet-4-5-20250929", temperature=0.7)
             .add_cost_limit(usd=15.0)
             .add_job(messages=[{"role": "user", "content": "Hello"}])
             .add_job(file="./path/to/file.pdf", prompt="Generate summary of file")
