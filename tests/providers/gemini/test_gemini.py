@@ -130,7 +130,11 @@ class TestGeminiProvider:
         """Test get_batch_results with empty job mapping."""
         # First create a batch so it exists
         jobs = [
-            Job(id="test-1", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Test"})]
+            Job(
+                id="test-1",
+                model="gemini-3.0-flash",
+                messages=[{"role": "user", "content": "Test"}]
+            )
         ]
         batch_id, _ = provider.create_batch(jobs)
         
@@ -183,13 +187,13 @@ class TestGeminiProvider:
         # Verify the API was called correctly
         provider.client.models.count_tokens.assert_called_once()
         call_args = provider.client.models.count_tokens.call_args
-        assert call_args[1]["model"] == "gemini-2.5-flash"
+        assert call_args[1]["model"] == "gemini-3.0-flash"
     
     def test_cost_estimation_with_real_api(self, provider):
         """Test cost estimation using actual Google token counting."""
         jobs = [
-            Job(id="cost-1", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Short"}]),
-            Job(id="cost-2", model="gemini-2.5-pro", messages=[{"role": "user", "content": "Longer message"}])
+            Job(id="cost-1", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Short"}]),
+            Job(id="cost-2", model="gemini-3.0-pro", messages=[{"role": "user", "content": "Longer message"}])
         ]
         
         # Mock token counting responses
@@ -211,7 +215,7 @@ class TestGeminiProvider:
     
     def test_batch_state_transitions(self, provider):
         """Test different Google batch job state transitions."""
-        jobs = [Job(id="state-test", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test"}])]
+        jobs = [Job(id="state-test", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Test"}])]
         batch_id, _ = provider.create_batch(jobs)
         
         # Test different state transitions
@@ -243,7 +247,11 @@ class TestGeminiProvider:
     
     def test_batch_results_with_real_google_format(self, provider):
         """Test getting batch results with real Google inline response format."""
-        jobs = [Job(id="format-test", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test"}])]
+        jobs = [
+            Job(id="format-test", model="gemini-3.0-flash", messages=[
+                {"role": "user", "content": "Test"}
+            ])
+        ]
         batch_id, job_mapping = provider.create_batch(jobs)
         
         # Mock a completed batch with Google's real response format
