@@ -9,7 +9,7 @@ from batchata.providers.gemini import GeminiProvider
 from batchata.core.job import Job
 
 # Test constants
-TEST_MODEL = "gemini-2.5-flash"
+TEST_MODEL = "gemini-3.0-flash"
 
 
 class TestGeminiProvider:
@@ -88,8 +88,8 @@ class TestGeminiProvider:
     def test_create_batch(self, provider):
         """Test batch creation."""
         jobs = [
-            Job(id="test-1", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test prompt 1"}]),
-            Job(id="test-2", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test prompt 2"}]),
+            Job(id="test-1", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Test prompt 1"}]),
+            Job(id="test-2", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Test prompt 2"}]),
         ]
         
         batch_id, job_mapping = provider.create_batch(jobs)
@@ -107,7 +107,7 @@ class TestGeminiProvider:
     def test_create_too_large_batch(self, provider):
         """Test creating batch with too many jobs raises error."""
         jobs = [
-            Job(id=f"test-{i}", model="gemini-2.5-flash", messages=[{"role": "user", "content": f"Test prompt {i}"}])
+            Job(id=f"test-{i}", model="gemini-3.0-flash", messages=[{"role": "user", "content": f"Test prompt {i}"}])
             for i in range(provider.MAX_REQUESTS + 1)
         ]
         
@@ -129,7 +129,7 @@ class TestGeminiProvider:
     def test_get_batch_results_empty_mapping(self, provider):
         """Test get_batch_results with empty job mapping."""
         # First create a batch so it exists
-        jobs = [Job(id="test-1", model="gemini-2.5-flash", messages=[{"role": "user", "content": "Test"}])]
+        jobs = [Job(id="test-1", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Test"}]]
         batch_id, _ = provider.create_batch(jobs)
         
         # Mock batch as completed
@@ -154,7 +154,7 @@ class TestGeminiProvider:
         """Test Google batch size limitations."""
         # Test maximum batch size
         large_jobs = [
-            Job(id=f"job-{i}", model="gemini-2.5-flash", messages=[{"role": "user", "content": f"Test {i}"}])
+            Job(id=f"job-{i}", model="gemini-3.0-flash", messages=[{"role": "user", "content": f"Test {i}"}])
             for i in range(provider.MAX_REQUESTS + 1)
         ]
         
@@ -165,7 +165,7 @@ class TestGeminiProvider:
         """Test Google's token counting API integration."""
         job = Job(
             id="token-test",
-            model="gemini-2.5-flash", 
+            model="gemini-3.0-flash", 
             messages=[{"role": "user", "content": "Count my tokens"}]
         )
         

@@ -24,7 +24,7 @@ class TestMessagePrepare:
         """Test preparing a simple text prompt."""
         job = Job(
             id="test-1",
-            model="gemini-2.5-flash",
+            model="gemini-3.0-flash",
             prompt="What is the capital of France?"
         )
         
@@ -42,7 +42,7 @@ class TestMessagePrepare:
         """Test preparing messages in OpenAI format."""
         job = Job(
             id="test-1",
-            model="gemini-2.5-flash",
+            model="gemini-3.0-flash",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": "Hello"},

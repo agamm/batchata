@@ -17,6 +17,17 @@ class TestOpenAIModels:
     def test_model_definitions_exist(self):
         """Test that all expected OpenAI models are defined with valid configs."""
         expected_models = [
+            "gpt-5.2-latest",
+            "gpt-5.2",
+            "gpt-5.2-2025-12-11",
+            "gpt-5.2-pro",
+            "gpt-5.2-pro-2025-12-11",
+            "gpt-5-mini",
+            "gpt-5-mini-2025-08-07",
+            "gpt-5-nano",
+            "gpt-5-nano-2025-08-07",
+            "gpt-4.5-latest",
+            "gpt-4.5",
             "gpt-4.1-2025-04-14",
             "o4-mini-2025-04-16", 
             "o3-2025-04-16",

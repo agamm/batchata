@@ -40,7 +40,7 @@ class TestParseResults:
         job_mapping = {
             "job-1": Job(
                 id="job-1",
-                model="gemini-2.5-flash",
+                model="gemini-3.0-flash",
                 messages=[{"role": "user", "content": "What is the answer?"}]
             )
         }
