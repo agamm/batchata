@@ -129,7 +129,7 @@ class TestGeminiProvider:
     def test_get_batch_results_empty_mapping(self, provider):
         """Test get_batch_results with empty job mapping."""
         # First create a batch so it exists
-        jobs = [Job(id="test-1", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Test"}]]
+        jobs = [Job(id="test-1", model="gemini-3.0-flash", messages=[{"role": "user", "content": "Test"})]]
         batch_id, _ = provider.create_batch(jobs)
         
         # Mock batch as completed
