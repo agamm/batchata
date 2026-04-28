@@ -48,7 +48,7 @@ class GeminiProvider(Provider):
         if not api_key:
             raise ValueError("GOOGLE_API_KEY environment variable is required")
         
-        self.client = genai_lib.Client(api_key=api_key)
+        self.client = genai_lib.Client(vertexai=False, api_key=api_key)
         super().__init__()
         self.models = GEMINI_MODELS
         self._batches: Dict[str, Dict] = {}
