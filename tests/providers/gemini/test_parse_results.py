@@ -46,7 +46,7 @@ class TestParseResults:
         }
         
         # Parse results with mocked cost calculation
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.001):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.001):
             job_results = parse_results(results, job_mapping, batch_discount=0.5, batch_id="batch-123")
         
         # Verify parsed results
@@ -151,7 +151,7 @@ class TestParseResults:
         }
         
         # Parse results
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.0):
             job_results = parse_results(results, job_mapping)
         
         # Verify structured output parsing
@@ -198,7 +198,7 @@ class TestParseResults:
             )
         }
         
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.0):
             job_results = parse_results(results, job_mapping)
         
         # Should fall back to text response when JSON parsing fails
@@ -282,7 +282,7 @@ class TestParseResults:
         }
         
         # Test with different batch discounts
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.05):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.05):
             # 50% discount
             job_results_50 = parse_results(results, job_mapping, batch_discount=0.5)
             assert abs(job_results_50[0].cost_usd - 0.05) < 0.001  # (0.05 + 0.05) * (1 - 0.5)

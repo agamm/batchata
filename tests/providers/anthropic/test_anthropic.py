@@ -228,7 +228,7 @@ class TestAnthropicProvider:
         
        # TODO: test real error result.
     
-    @patch('tokencost.calculate_cost_by_tokens')
+    @patch('llm_prices.compat.tokencost.calculate_cost_by_tokens')
     @patch('batchata.utils.llm.token_count_simple')  
     def test_cost_estimation(self, mock_token_count, mock_calc_cost, provider):
         """Test cost estimation for Anthropic jobs."""

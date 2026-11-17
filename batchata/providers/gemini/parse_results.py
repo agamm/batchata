@@ -115,7 +115,7 @@ def _extract_usage(response) -> tuple[int, int]:
 def _calculate_cost(model: str, input_tokens: int, output_tokens: int, batch_discount: float) -> float:
     """Calculate cost with batch discount."""
     try:
-        import tokencost
+        from llm_prices.compat import tokencost
         
         # Calculate input and output costs separately using correct signature
         input_cost = tokencost.calculate_cost_by_tokens(
@@ -133,7 +133,7 @@ def _calculate_cost(model: str, input_tokens: int, output_tokens: int, batch_dis
         return total_cost * (1 - batch_discount)
         
     except Exception as e:
-        logger.warning(f"Failed to calculate cost for model {model} using tokencost: {e}. Returning 0 cost.")
+        logger.warning(f"Failed to calculate cost for model {model} using llm-prices: {e}. Returning 0 cost.")
         return 0.0
 
 

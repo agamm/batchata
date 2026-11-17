@@ -148,7 +148,7 @@ class TestAnthropicPDFCostEstimation:
         )
         
         # Mock tokencost and just test the regular flow
-        with patch('tokencost.calculate_cost_by_tokens') as mock_calc:
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens') as mock_calc:
             mock_calc.side_effect = [0.05, 0.01]  # Input cost, output cost
             
             # Mock the prepare_messages function to avoid file operations
@@ -180,7 +180,7 @@ class TestAnthropicPDFCostEstimation:
         )
         
         # Mock tokencost
-        with patch('tokencost.calculate_cost_by_tokens') as mock_calc:
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens') as mock_calc:
             mock_calc.side_effect = [1.2, 0.01]  # Higher input cost for more tokens
             
             # Mock the prepare_messages function to avoid file operations
@@ -208,7 +208,7 @@ class TestAnthropicPDFCostEstimation:
         )
         
         # Mock tokencost
-        with patch('tokencost.calculate_cost_by_tokens') as mock_calc:
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens') as mock_calc:
             mock_calc.side_effect = [0.001, 0.0001]
             
             cost = provider.estimate_cost([job])
@@ -238,7 +238,7 @@ class TestAnthropicPDFCostEstimation:
             )
         ]
         
-        with patch('tokencost.calculate_cost_by_tokens') as mock_calc:
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens') as mock_calc:
             # PDF job costs + message job costs
             mock_calc.side_effect = [0.02, 0.005, 0.001, 0.0001]
             
