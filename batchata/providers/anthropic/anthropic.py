@@ -210,7 +210,7 @@ class AnthropicProvider(Provider):
             raise ValidationError(f"Failed to get batch results: {e}")
     
     def estimate_cost(self, jobs: List[Job]) -> float:
-        """Estimate cost for a list of jobs using tokencost.
+        """Estimate cost for a list of jobs using llm-prices.
         
         WARNING: This is an estimation. Actual costs may vary due to:
         - Token counting differences between the estimator and Anthropic's tokenizer
@@ -220,10 +220,10 @@ class AnthropicProvider(Provider):
         Uses conservative token estimation for Claude models.
         """
         try:
-            from tokencost import calculate_cost_by_tokens
+            from llm_prices.compat.tokencost import calculate_cost_by_tokens
             from ...utils.llm import token_count_simple
         except ImportError:
-            logger.warning("tokencost not available, returning 0 cost estimate")
+            logger.warning("llm-prices not available, returning 0 cost estimate")
             return 0.0
         
         total_cost = 0.0
@@ -263,7 +263,7 @@ class AnthropicProvider(Provider):
                     # Estimate tokens using Claude-specific estimator
                     input_tokens = token_count_simple(full_text)
                 
-                # Calculate costs using tokencost with actual Claude model
+                # Calculate costs using llm-prices with actual Claude model
                 input_cost = float(calculate_cost_by_tokens(
                     input_tokens,
                     job.model,

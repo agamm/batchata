@@ -56,7 +56,7 @@ class TestParseResults:
         }
         
         # Parse results with mocked cost calculation
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.001):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.001):
             job_results = parse_results(results, job_mapping, batch_discount=0.5, batch_id="batch-123")
         
         # Verify parsed results
@@ -183,7 +183,7 @@ class TestParseResults:
         }
         
         # Parse results
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.0):
             job_results = parse_results(results, job_mapping)
         
         # Verify structured output parsing

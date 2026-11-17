@@ -269,7 +269,7 @@ class GeminiProvider(Provider):
             return False
     
     def estimate_cost(self, jobs: List[Job]) -> float:
-        """Estimate cost for a list of jobs using tokencost and Google's token counting API.
+        """Estimate cost for a list of jobs using llm-prices and Google's token counting API.
         
         WARNING: This is an estimation. Actual costs may vary due to:
         - Token counting differences between the estimator and Google's tokenizer
@@ -289,7 +289,7 @@ class GeminiProvider(Provider):
             output_tokens = job.max_tokens or 1000
             
             try:
-                import tokencost
+                from llm_prices.compat import tokencost
                 
                 # Calculate input and output costs separately
                 input_cost = tokencost.calculate_cost_by_tokens(
@@ -306,7 +306,7 @@ class GeminiProvider(Provider):
                 cost = Decimal(str(input_cost + output_cost))
                 total_cost += cost * (Decimal('1') - batch_discount)
             except (ImportError, ModuleNotFoundError, AttributeError):
-                logger.warning("tokencost not available, returning 0 cost estimate")
+                logger.warning("llm-prices not available, returning 0 cost estimate")
                 return 0.0
         
         return float(total_cost)

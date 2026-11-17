@@ -101,7 +101,7 @@ def parse_results(results: List[Dict], job_mapping: Dict[str, 'Job'], raw_files_
             input_tokens = usage.get("prompt_tokens", 0)
             output_tokens = usage.get("completion_tokens", 0)
             
-            # Calculate cost using tokencost with provider's batch discount
+            # Calculate cost using llm-prices with provider's batch discount
             cost_usd = _calculate_cost(input_tokens, output_tokens, job.model, batch_discount)
             
             job_results.append(JobResult(
@@ -181,17 +181,17 @@ def _save_raw_response(result: Any, job_id: str, raw_files_dir: str) -> None:
 
 
 def _calculate_cost(input_tokens: int, output_tokens: int, model: str, batch_discount: float) -> float:
-    """Calculate cost for tokens using tokencost."""
+    """Calculate cost for tokens using llm-prices."""
     try:
-        from tokencost import calculate_cost_by_tokens
+        from llm_prices.compat.tokencost import calculate_cost_by_tokens
         
-        # Calculate costs using tokencost
+        # Calculate costs using llm-prices
         input_cost = float(calculate_cost_by_tokens(input_tokens, model, token_type="input"))
         output_cost = float(calculate_cost_by_tokens(output_tokens, model, token_type="output"))
         
         return (input_cost + output_cost) * batch_discount
     except ImportError:
-        logger.warning("tokencost not available, returning 0 cost")
+        logger.warning("llm-prices not available, returning 0 cost")
         return 0.0
     except Exception as e:
         logger.warning(f"Failed to calculate cost: {e}")

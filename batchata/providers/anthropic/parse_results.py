@@ -94,7 +94,7 @@ def parse_results(results: List[Any], job_mapping: Dict[str, 'Job'], raw_files_d
             input_tokens = getattr(usage, 'input_tokens', 0) if usage else 0
             output_tokens = getattr(usage, 'output_tokens', 0) if usage else 0
             
-            # Calculate cost using tokencost with provided batch discount
+            # Calculate cost using llm-prices with provided batch discount
             cost_usd = _calculate_cost(input_tokens, output_tokens, job.model, batch_discount)
             
             job_results.append(JobResult(
@@ -309,15 +309,15 @@ def _save_raw_response(result: Any, job_id: str, raw_files_dir: str) -> None:
 
 
 def _calculate_cost(input_tokens: int, output_tokens: int, model: str, batch_discount: float = 0.5) -> float:
-    """Calculate cost for tokens using tokencost."""
+    """Calculate cost for tokens using llm-prices."""
     try:
-        from tokencost import calculate_cost_by_tokens
+        from llm_prices.compat.tokencost import calculate_cost_by_tokens
         
-        # Calculate costs using tokencost
+        # Calculate costs using llm-prices
         input_cost = float(calculate_cost_by_tokens(input_tokens, model, token_type="input"))
         output_cost = float(calculate_cost_by_tokens(output_tokens, model, token_type="output"))
         
         return (input_cost + output_cost) * batch_discount
     except Exception as e:
-        logger.warning(f"Failed to calculate cost for model {model} using tokencost: {e}. Returning 0 cost.")
+        logger.warning(f"Failed to calculate cost for model {model} using llm-prices: {e}. Returning 0 cost.")
         return 0.0

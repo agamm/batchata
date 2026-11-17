@@ -204,7 +204,7 @@ class TestGeminiProvider:
         
         provider.client.models.count_tokens.side_effect = [mock_response_1, mock_response_2]
         
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.0005):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.0005):
             cost = provider.estimate_cost(jobs)
             
             # Should apply 50% batch discount
@@ -272,7 +272,7 @@ class TestGeminiProvider:
         mock_batch_job.dest = mock_dest
         
         # Get results
-        with patch('tokencost.calculate_cost_by_tokens', return_value=0.001):
+        with patch('llm_prices.compat.tokencost.calculate_cost_by_tokens', return_value=0.001):
             results = provider.get_batch_results(batch_id, job_mapping)
         
         assert len(results) == 1
